@@ -20,12 +20,8 @@ source("funs_analysis.R")
 ### ------------------------------------------------------------------------ ###
 ### plot OM trajectories vs. ICES assessment - baseline OMs ####
 ### ------------------------------------------------------------------------ ###
-refpts_cod <- readRDS("input/cod.27.47d20/baseline/1000_100/refpts_mse.rds")
-refpts_cod <- iterMedians(refpts_cod)
 refpts_ple <- readRDS("input/ple.27.7e/baseline/1000_100/refpts_mse.rds")
 refpts_ple <- iterMedians(refpts_ple)
-refpts_her <- readRDS("input/her.27.3a47d/baseline/1000_100/refpts_mse.rds")
-refpts_her <- iterMedians(refpts_her)
 
 ### values from operating model
 df_OM <- foreach(stock = c("Plaice", "Cod", "Herring"),
@@ -1045,21 +1041,32 @@ ggsave(filename = "output/plots/OM/OM_ple_rec.pdf",
 
 
 ### ------------------------------------------------------------------------ ###
-### Recruitment models of baseline OMs (all stocks) ####
+### Recruitment models of baseline OM ####
 ### ------------------------------------------------------------------------ ###
 
-### plaice
 sr_ple <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
-df_sr_ple <- data.frame(year = as.numeric(dimnames(ssb(sr_ple))$year),
-                        ssb = c(iterMedians(ssb(sr_ple))), 
-                        rec = c(iterMedians(rec(sr_ple))))
+df_sr_median <- data.frame(year = as.numeric(dimnames(ssb(sr_ple))$year),
+                               ssb = c(iterMedians(ssb(sr_ple))), 
+                               rec = c(iterMedians(rec(sr_ple)))) %>%
+  filter(year <= 2023) %>%
+  mutate(type = "median")
+df_sr_iter <- data.frame(year = as.numeric(dimnames(ssb(sr_ple))$year),
+                             ssb = c(ssb(sr_ple)), 
+                             rec = c(rec(sr_ple)),
+                             iter = c(as.numeric(dimnames(sr_ple)$iter))) %>%
+  filter(year <= 2023) %>%
+  mutate(type = "replicates")
+df_sr <- bind_rows(df_sr_median, df_sr_iter) %>%
+  mutate(type = factor(type, levels = c("median", "replicates"),
+                       labels = c("median (stock-\nrecruit pairs)", 
+                                  "replicates (stock-\nrecruit pairs)")))
 sr_pars_ple <- abPars("bevholt", s = params(sr_ple)["s"], 
                       v = params(sr_ple)["v"], 
                       spr0 = params(sr_ple)["spr0"])
-sr_pars_ple_med <- list(a = c(iterMedians(sr_pars_ple$a)), 
-                    b = c(iterMedians(sr_pars_ple$b)))
+sr_pars_ple_med <- list(a = c(iterMedians(sr_pars_ple$a)/1000), 
+                    b = c(iterMedians(sr_pars_ple$b)/1000))
 sr_model_bevholt <- function(ssb, a, b) {(a*ssb)/(b + ssb)}
-ssbs_ple <- seq(from = 0, to = 7500, by = 10)
+ssbs_ple <- seq(from = 0, to = 10000, by = 10)
 sr_ple_df <- lapply(1:1000, function(x) {
   data.frame(ssb = ssbs_ple,
              rec = sr_model_bevholt(ssb = ssbs_ple, 
@@ -1068,122 +1075,53 @@ sr_ple_df <- lapply(1:1000, function(x) {
              iter = x)
 })
 sr_ple_df <- bind_rows(sr_ple_df)
+sr_df <- bind_rows(data.frame(ssb = ssbs_ple,
+                              rec = sr_model_bevholt(ssb = ssbs_ple, 
+                                                     a = c(iterMedians(sr_pars_ple$a)),
+                                                     b = c(iterMedians(sr_pars_ple$b))),
+                              iter = 0) %>%
+                     mutate(type = "median"),
+                   sr_ple_df %>%
+                     mutate(type = "replicates")) %>%
+  mutate(type = factor(type, levels = c("median", "replicates"),
+                       labels = c("median (model)", 
+                                  "replicates (model)")))
 
-df_sr_ple %>%
-  ggplot(aes(x = ssb, y = rec)) +
-  geom_point() +
-  xlim(c(0, NA)) + ylim(c(0, NA)) +
-  geom_function(fun = sr_model_bevholt, args = sr_pars_ple_med, size = 0.4)
+p <- ggplot() +
+  ### print points/lines separately so that median is on top
+  geom_point(data = df_sr %>% filter(type == "replicates (stock-\nrecruit pairs)"),
+             aes(x = ssb/1000, y = rec/1000, 
+                 colour = type), 
+             alpha = 0.01, size = 0.3) +
+  geom_line(data = sr_df %>% filter(type == "replicates (model)"),
+            aes(x = ssb/1000, y = rec/1000, group = iter,
+                colour = type),
+            size = 0.1, alpha = 0.05) +
+  geom_point(data = df_sr %>% filter(type == "median (stock-\nrecruit pairs)"),
+             aes(x = ssb/1000, y = rec/1000, 
+                 colour = type),
+             size = 0.4) +
+  geom_line(data = sr_df %>% filter(type == "median (model)"),
+            aes(x = ssb/1000, y = rec/1000, group = iter,
+                colour = type),
+            size = 0.4, alpha = 1) +
+  scale_colour_manual("", 
+    values = c("median (stock-\nrecruit pairs)" = "red", 
+               "replicates (stock-\nrecruit pairs)" = "black",
+               "median (model)" = "red", 
+               "replicates (model)" = "black")) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  scale_x_continuous("SSB (1000 t)", breaks = scales::pretty_breaks()) +
+  scale_y_continuous("Recruitment (1000s)") +
+  coord_cartesian(xlim = c(0, 10), ylim = c(0, 17.5), expand = FALSE) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.7, "lines"))
 
-p_ple <- df_sr_ple %>%
-  ggplot(aes(x = ssb, y = rec)) +
-  geom_line(data = sr_ple_df %>% filter(iter %in% 1:1000),
-            aes(x = ssb, y = rec, group = iter), size = 0.1, alpha = 0.05) +
-  geom_function(fun = sr_model_bevholt, args = sr_pars_ple_med, size = 0.4,
-                colour = "red") +
-  geom_point(size = 0.3, colour = "red") +
-  scale_x_continuous("SSB [1000t]", breaks = c(0, 2000, 4000, 6000),
-                     labels = c(0, 2, 4, 6)) +
-  scale_y_continuous("Recruitment [1000s]", 
-                     breaks = c(0, 5000, 10000, 15000),
-                     labels = c(0, 5, 10, 15)) +
-  coord_cartesian(xlim = c(0, 7200), ylim = c(0, 17000), expand = FALSE) +
-  facet_wrap(~ "Plaice") +
-  theme_bw(base_size = 8)
-
-### cod
-sr_cod <- readRDS("input/cod.27.47d20/baseline/1000_100/sr.rds")
-df_sr_cod <- data.frame(year = as.numeric(dimnames(ssb(sr_cod))$year),
-                        ssb = c(iterMedians(ssb(sr_cod))), 
-                        rec = c(iterMedians(rec(sr_cod))))
-sr_pars_cod <- params(sr_cod)
-sr_pars_cod_med <- list(a = c(iterMedians(sr_pars_cod$a)), 
-                        b = c(iterMedians(sr_pars_cod$b)))
-sr_model_segreg <- function(ssb, a, b) {ifelse(ssb <= b, a * ssb, a * b)}
-#ssbs_cod <- seq(from = 0, to = 110000, by = 100)
-ssbs_cod <- c(0, c(sr_pars_cod$b), 110000) ## only breakpoint and min/max
-sr_cod_df <- lapply(1:1000, function(x) {
-  data.frame(ssb = ssbs_cod,
-             rec = sr_model_segreg(ssb = ssbs_cod, 
-                                   a = c(sr_pars_cod$a[, x]),
-                                   b = c(sr_pars_cod$b[, x])),
-             iter = x)
-})
-sr_cod_df <- bind_rows(sr_cod_df)
-
-df_sr_cod %>%
-  ggplot(aes(x = ssb, y = rec)) +
-  geom_point() +
-  xlim(c(0, NA)) + ylim(c(0, NA)) +
-  geom_function(fun = sr_model_segreg, args = sr_pars_cod_med, size = 0.4)
-
-p_cod <- df_sr_cod %>%
-  ggplot(aes(x = ssb, y = rec)) +
-  geom_line(data = sr_cod_df %>% filter(iter %in% 1:1000),
-            aes(x = ssb, y = rec, group = iter), size = 0.1, alpha = 0.05) +
-  geom_function(fun = sr_model_segreg, args = sr_pars_cod_med, size = 0.4,
-                colour = "red") +
-  geom_point(size = 0.3, colour = "red") +
-  scale_x_continuous("SSB [1000t]", breaks = c(0, 25000, 50000, 75000, 100000),
-                     labels = c(0, 25, 50, 75, 100)) +
-  scale_y_continuous("Recruitment [1000s]",
-                     breaks = c(0, 100000, 200000, 300000, 400000),
-                     labels = c(0, 100, 200, 300, 400)) +
-  coord_cartesian(xlim = c(0, 105000), ylim = c(0, 500000), expand = FALSE) +
-  facet_wrap(~ "Cod") +
-  theme_bw(base_size = 8)
-
-
-### herring
-sr_her <- readRDS("input/her.27.3a47d/baseline/1000_100/sr.rds")
-df_sr_her <- data.frame(year = as.numeric(dimnames(ssb(sr_her))$year),
-                        ssb = c(iterMedians(ssb(sr_her))), 
-                        rec = c(iterMedians(rec(sr_her))))
-sr_pars_her <- params(sr_her)
-sr_pars_her_med <- list(a = c(iterMedians(sr_pars_her$a)), 
-                        b = c(iterMedians(sr_pars_her$b)))
-sr_model_segreg <- function(ssb, a, b) {ifelse(ssb <= b, a * ssb, a * b)}
-#ssbs_her <- seq(from = 0, to = 2600000, by = 1000)
-ssbs_her <- c(0, unique(c(sr_pars_her$b)), 26000000)
-sr_her_df <- lapply(1:1000, function(x) {
-  data.frame(ssb = ssbs_her,
-             rec = sr_model_segreg(ssb = ssbs_her, 
-                                   a = c(sr_pars_her$a[, x]),
-                                   b = c(sr_pars_her$b[, x])),
-             iter = x)
-})
-sr_her_df <- bind_rows(sr_her_df)
-
-df_sr_her %>%
-  ggplot(aes(x = ssb, y = rec)) +
-  geom_point() +
-  xlim(c(0, NA)) + ylim(c(0, NA)) +
-  geom_function(fun = sr_model_segreg, args = sr_pars_her_med, size = 0.4,
-                n = 100)
-
-p_her <- df_sr_her %>%
-  ggplot(aes(x = ssb, y = rec)) +
-  geom_line(data = sr_her_df %>% filter(iter %in% 1:1000),
-            aes(x = ssb, y = rec, group = iter), size = 0.1, alpha = 0.05) +
-  geom_function(fun = sr_model_segreg, args = sr_pars_her_med, size = 0.4,
-                colour = "red", n = 10000) +
-  geom_point(size = 0.3, colour = "red") +
-  scale_x_continuous("SSB [million t]", 
-                     breaks = c(0, 500000, 1000000, 1500000, 2000000),
-                     labels = c("0", "0.5", "1.0", "1.5", "2.0")) +
-  scale_y_continuous("Recruitment [millions]",
-                     breaks = c(0, 10000000, 20000000, 30000000, 40000000),
-                     labels = c(0, 10, 20, 30, 40)) +
-  coord_cartesian(xlim = c(0, 2400000), ylim = c(0, 50000000), expand = FALSE) +
-  facet_wrap(~ "Herring") +
-  theme_bw(base_size = 8)
-
-
-p <- p_ple + p_cod + p_her + plot_layout(nrow = 1)
+p
 ggsave(filename = "output/plots/OM/OM_rec_baseline.png", plot = p,
-       width = 16, height = 6, units = "cm", dpi = 600, type = "cairo")
+       width = 10, height = 5, units = "cm", dpi = 600, type = "cairo")
 ggsave(filename = "output/plots/OM/OM_rec_baseline.pdf", plot = p,
-       width = 16, height = 6, units = "cm", dpi = 600)
+       width = 10, height = 5, units = "cm", dpi = 600)
 
 ### ------------------------------------------------------------------------ ###
 ### Recruitment models of alternative OMs (all stocks) ####
