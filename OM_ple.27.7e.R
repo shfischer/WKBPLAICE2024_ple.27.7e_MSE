@@ -24,39 +24,49 @@ source("funs_WKNSMSE.R")
 source("funs_OM.R")
 
 ### input data, including discard estimates
-stk_data <- readRDS("input/ple.27.7e/preparation/model_input_stk_d.RDS")
+stk_data <- readRDS("input/ple.27.7e/preparation/model_input_stk.RDS")
 idx_data <- readRDS("input/ple.27.7e/preparation/model_input_idx.RDS")
-### use configuration similar to accepted XSA assessment
-SAM_conf <- list(keyLogFpar = 
-                   matrix(data = c(rep(-1, 9),
-                                   0:5, 5, -1, -1,
-                                   6:11, 11, 11, -1),
-                          ncol = 9, nrow = 3, byrow = TRUE))
 ALKs <- readRDS("input/ple.27.7e/preparation/ALK_MSE.rds")
 refpts <- list(
   ### ICES style EqSim reference points (run with SAM fit)
-  EqSim_Btrigger = 2954, EqSim_Fmsy = 0.241, EqSim_Fpa = 0.392, 
-  EqSim_Bpa = 2954, EqSim_Blim = 2110,
+  EqSim_Btrigger = 3265.991, EqSim_Fmsy = 0.2110553, EqSim_Fpa = 0.2436579, 
+  EqSim_Bpa = 3265.991, EqSim_Blim = 2332.851,
   ### ICES reference points from WGCSE (run with XSA)
   ICES_Btrigger = 2443, ICES_Fmsy = 0.238,
   ### real OM MSY values
   Fmsy = 0.164, Bmsy = 9536, Cmsy = 1703, Blim = 2110,
   ### length reference points
-  Lc = 26, Lref = 0.75*26 + 0.25*66
+  Lc = 25, ### from simulated length data
+  Lref = 0.75*25 + 0.25*64.53349 ### Linf: quarterly ALK with 2019-2023 data
 )
 # round(min(ssbtable(fit)[, "Estimate"]))
 
+### intermediate year catch advice
+int_yr_catch <- 1219 ### from 2023 advice sheet
+
 ### default OM
 create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
-          yr_data = 2020, 
-          SAM_conf = SAM_conf, SAM_newtonsteps = 0, SAM_rel.tol = 0.001,
+          yr_data = 2023, 
+          disc_survival_OM = 0.5, disc_survival_MP = 0.5,
+          int_yr_add = TRUE, 
+          int_yr_catch = int_yr_catch, 
+          int_yr_catch_split = TRUE,
+          SAM_newtonsteps = 0, SAM_rel.tol = 0.001,
           n_sample_yrs = 5, sr_model = "bevholtSV", sr_parallel = 10,
           sr_ar_check = TRUE, process_error = TRUE, catch_oem_error = TRUE,
-          idx_weights = c("catch.wt", "stock.wt"), idxB = "FSP-7e", 
-          idxL = TRUE, ALKs = ALKs, ALK_yrs = 2016:2020, length_samples = 2000,
+          idxB = "UK-FSP", 
+          idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
+          length_samples = 2000,
           PA_status = TRUE,
           refpts = refpts, stock_id = "ple.27.7e", OM = "baseline", save = TRUE,
-          return = FALSE, M_alternative = NULL)
+          return = FALSE)
+
+### discard survival
+### disc_survival_OM = 0 could cause issues for landings fraction
+### -> use small number, e.g. 0.001
+### but check, may work regardless
+
+
 ### high M: +50%
 create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
           yr_data = 2020, 
@@ -189,7 +199,7 @@ dimnames(stk_baseline)$year[which.min(iterMedians(ssb(stk_baseline)))]
 sr_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
 RR0 <- c(((iterMedians(params(sr_baseline)["a"])*Blim) /
             (iterMedians(params(sr_baseline))["b"] + Blim)) /
-  iterMedians(params(sr_baseline))["a"])
+           iterMedians(params(sr_baseline))["a"])
 RR0
 ### Blim corresponds to SSB at ~ 77% of R0
 

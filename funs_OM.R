@@ -35,39 +35,66 @@ bevholtSV_to_bevholt <- function(sr) {
 ### this function creates the elements required for an OM to run an MSE,
 ### e.g. OM stock, stock-recruitment model, survey indices, etc.
 create_OM <- function(stk_data, idx_data, 
-                      n = 1000, n_years = 100, yr_data = 2020, int_yr = FALSE,
-                      SAM_conf, SAM_conf_full = FALSE, SAM_NA_rm = TRUE,
+                      n = 1000, n_years = 100, yr_data = 2020, 
+                      ### discard survival
+                      disc_survival_OM = 0.5, ### for OM
+                      disc_survival_MP = disc_survival_OM, ### data seen by MP
+                      ### natural mortality
+                      M_alternative = NULL, ### 1 value (const.) or M@age
+                      M_alternative_mult = FALSE,
+                      ### intermediate year
+                      int_yr = FALSE,
+                      int_yr_add = FALSE,
+                      int_yr_catch = NA,
+                      int_yr_catch_split = TRUE, ### account for disc survival
+                      ### SAM
+                      SAM_conf = NULL, SAM_conf_full = FALSE, SAM_NA_rm = TRUE,
                       SAM_idx_weight = FALSE,
                       SAM_newtonsteps = 0, SAM_rel.tol = 0.001,
-                      n_sample_yrs = 5, sel_legacy = FALSE,
+                      ### biological data
+                      n_sample_yrs = 5, 
+                      ### stock-recruit modelling
                       sr_model = "bevholtSV", sr_start = NULL,
                       sr_fixed = list(),
                       sr_yrs_rm = NULL, ### remove recruitment years?
                       sr_parallel = 10, sr_ar_check = TRUE,
-                      process_error = TRUE, catch_oem_error = TRUE,
-                      idx_weights = c("none"), ### "none"/"catch.wt"/"stock.wt"
+                      ### process error
+                      process_error = TRUE, 
+                      ### observation error (catch)
+                      catch_oem_error = TRUE,
+                      ### indices
                       idxB = 1, ### FALSE, index name or numeric index
-                      idxL = TRUE, ALKs, ALK_yrs = NULL,
+                      ### length data
+                      idxL = TRUE, ALKs, 
+                      ALK_yrs = NULL, ### subset ALK years?
+                      ALK_yrs_sample = NULL, ### sample only from some years?
                       length_samples = 2000,
+                      ### PA status for 2 over 3 rule
                       PA_status = TRUE, ### status evaluation success rate
+                      ### reference points
                       refpts = list(),
+                      ### some definitions
                       stock_id = "ple.27.7e",
                       OM = "baseline",
-                      save = TRUE,
-                      return = FALSE,
-                      M_alternative = NULL, ### 1 value (const.) or M@age
-                      M_alternative_mult = FALSE,
-                      M_dd = FALSE, ### density dependent M
-                      M_dd_relation = NULL,
-                      M_dd_yr = NULL, ### last key run
-                      M_dd_migration = NULL, ### "correct" ages 3+ for migration
-                      disc_survival = 0, ### discard survival proportion
-                      disc_survival_hidden = TRUE
-                      ) {
+                      save = TRUE, ### save OM objects to files?
+                      return = FALSE ### return OM objects?
+) {#browser()
   
   ### ---------------------------------------------------------------------- ###
   ### preparation for alternative OMs ####
   stk_data_input <- stk_data
+  
+  ### ---------------------------------------------------------------------- ###
+  ### Discard survival ####
+  ### OM data
+  if (isTRUE(disc_survival_OM > 0)) {
+    message(paste0("OM - Using discard survival ", disc_survival_OM))
+    discards.n(stk_data)[is.na(discards.n(stk_data))] <- 0
+    discards.wt(stk_data)[is.na(discards.wt(stk_data))] <- 0
+    discards.n(stk_data)[] <- discards.n(stk_data) * (1 - disc_survival_OM)
+    discards(stk_data) <- computeDiscards(stk_data)
+    catch(stk_data) <- computeCatch(stk_data, slot = "all")
+  }
   
   ### ---------------------------------------------------------------------- ###
   ### alternative M scenario? ####
@@ -81,21 +108,11 @@ create_OM <- function(stk_data, idx_data,
   }
   
   ### ---------------------------------------------------------------------- ###
-  ### alternative discard survival scenario? ####
-  if (isTRUE(disc_survival > 0)) {
-    message("using alternative discard survival scenario")
-    discards.n(stk_data)[is.na(discards.n(stk_data))] <- 0
-    discards.wt(stk_data)[is.na(discards.wt(stk_data))] <- 0
-    discards.n(stk_data)[] <- discards.n(stk_data) * (1 - disc_survival)
-    discards(stk_data) <- computeDiscards(stk_data)
-    catch(stk_data) <- computeCatch(stk_data, slot = "all")
-  }
-  
-  ### ---------------------------------------------------------------------- ###
   ### fit SAM ####
   message("fitting SAM")
   fit <- FLR_SAM(stk_data, idx_data, conf = SAM_conf, conf_full = SAM_conf_full,
                  idx_weight = SAM_idx_weight, NA_rm = SAM_NA_rm)
+  SAM_conf <- fit$conf
   ### fit SAM with relaxed convergence
   fit_mse <- FLR_SAM(stk_data, idx_data, conf = SAM_conf,
                      conf_full = SAM_conf_full, idx_weight = SAM_idx_weight,
@@ -115,10 +132,18 @@ create_OM <- function(stk_data, idx_data,
   yrs_hist <- as.numeric(dimnames(stk)$year)
   yrs_proj <- seq(from = dims(stk)$maxyear + 1, length.out = n_years)
   n_years_new <- n_years
+  ### does assessment include intermediate year?
   if (isTRUE(int_yr)) {
     yrs_hist <- yrs_hist[-length(yrs_hist)]
     yrs_proj <- seq(from = dims(stk)$maxyear + 0, length.out = n_years)
     n_years_new <- n_years - 1
+  }
+  ### add intermediate year to OM?
+  if (isTRUE(int_yr_add)) {
+    #yrs_hist <- c(yrs_hist, max(yrs_hist) + 1)
+    n_years_new <- n_years + 1
+    yrs_proj <- seq(from = dims(stk)$maxyear + 1, length.out = n_years_new)
+    int_yr_yr <- min(yrs_proj)
   }
   yrs_mse <- sort(unique(c(yrs_hist, yrs_proj)))
   
@@ -140,11 +165,12 @@ create_OM <- function(stk_data, idx_data,
   catch.n(stk)[, ac(yrs_hist)] <- uncertainty$catch.n[, ac(yrs_hist)]
   catch(stk) <- computeCatch(stk)
   ### update landings/discards
-  landings.n(stk) <-  catch.n(stk) * 
-    landings.n(stk)/(landings.n(stk) + discards.n(stk))
+  stk_tmp <- stk
+  landings.n(stk) <-  catch.n(stk_tmp) * 
+    landings.n(stk_tmp)/(landings.n(stk_tmp) + discards.n(stk_tmp))
   landings(stk) <- computeLandings(stk)
-  discards.n(stk) <-  catch.n(stk) * 
-    discards.n(stk)/(landings.n(stk) + discards.n(stk))
+  discards.n(stk) <-  catch.n(stk_tmp) * 
+    discards.n(stk_tmp)/(landings.n(stk_tmp) + discards.n(stk_tmp))
   discards(stk) <- computeDiscards(stk)
   
   ### ---------------------------------------------------------------------- ###
@@ -158,36 +184,6 @@ create_OM <- function(stk_data, idx_data,
       discards.n(stk)[, ac(yr_max)] <- 
         (discards.n(stk)/catch.n(stk))[, ac(yr_data)]
     }
-  }
-  
-  ### ---------------------------------------------------------------------- ###
-  ### alternative discard survival scenario ####
-  ### by default, the surviving discards are included in discards.n slot
-  if (isTRUE(disc_survival > 0) & isTRUE(disc_survival_hidden)) {
-    ### use catch.n uncertainty from SAM for landings and discards
-    ### get catch.n uncertainty (SAM estimate/input data)
-    c_noise <- catch.n(stk)/catch.n(stk_data)
-    ### discards ratio in data
-    dratio <- discards.n(stk_data_input)/catch.n(stk_data_input)
-    dratio[is.na(dratio)] <- 0
-    ### landings ratio in data
-    lratio <- landings.n(stk_data_input)/catch.n(stk_data_input)
-    ### total (after accounting for discard survival)
-    ctotal <- dratio*(1 - disc_survival) + lratio
-    ### update landings
-    landings.n(stk)[] <- catch.n(stk) * lratio/ctotal ### catch.n includes noise
-    ### discards relative to landings -> used to reproduce original discards
-    dlratio <- discards.n(stk_data_input)/landings.n(stk_data_input)
-    ### update discards (including surviving discards)
-    discards.n(stk)[] <- landings.n(stk) * dlratio
-    ### update total catch (including surviving discards)
-    catch.n(stk)[] <- catch.n(stk_data_input) * c_noise
-    ### get original catch weights (these were changed for SAM)
-    catch.wt(stk)[] <- catch.wt(stk_data_input)
-    ### update totals
-    catch(stk) <- computeCatch(stk)
-    landings(stk) <- computeLandings(stk)
-    discards(stk) <- computeDiscards(stk)
   }
   
   ### ---------------------------------------------------------------------- ###
@@ -214,7 +210,7 @@ create_OM <- function(stk_data, idx_data,
   ### (but keep age structure)
   ### create vector with resampled years
   bio_samples <- sample(x = sample_yrs_pos, 
-                        size = (n_years) * n, replace = TRUE)
+                        size = (n_years_new) * n, replace = TRUE)
   ### years to be populated
   bio_yrs <- which(dimnames(stk_stf)$year %in% 
                      (yr_data + 1):dims(stk_stf)$maxyear)
@@ -227,33 +223,18 @@ create_OM <- function(stk_data, idx_data,
   mat(stk_stf)[, bio_yrs] <- c(mat(stk)[, bio_samples,,,, 1])
   
   ### do the same for selectivity
-  if (isTRUE(sel_legacy)) {
-    ### legacy approach for selectivity
-    sel_samples <- sample(x = sample_yrs_pos, 
-                          size = (n_years) * n, replace = TRUE)
-    harvest(stk_stf)[, bio_yrs] <- c(harvest(stk)[, sel_samples,,,, 1])
-  } else {
-    ### better: use replicate specific selectivity and sample these
-    sel_samples <- sample(x = sample_yrs_pos, 
-                          size = n_years * n, replace = TRUE)
-    ### selectivity differs by replicate -> keep replicate specific values
-    sel_samples_iter <- split(sel_samples, 
-                              f = rep(seq(n), each = n_years))
-    sel_vals <- as.numeric(sapply(seq(n), function(x) {
-      c(harvest(stk)[, sel_samples_iter[[x]],,,, x])
-    }))
-    ### insert
-    harvest(stk_stf)[, bio_yrs] <- sel_vals
-    
-  }
-  
-  ### density dependent M
-  if (isTRUE(M_dd) & isTRUE(int_yr)) {
-    ### update M in intermediate year 
-    m(stk_stf)[, ac(yr_data + 1)] <- 
-      calculate_ddM(stk_stf, yr_data + 1, relation = M_dd_relation,
-                    migration = M_dd_migration)
-  }
+  ### use replicate specific selectivity and sample these
+  sel_samples <- sample(x = sample_yrs_pos, 
+                        size = n_years_new * n, replace = TRUE)
+  ### selectivity differs by replicate -> keep replicate specific values
+  sel_samples_iter <- split(sel_samples, 
+                            f = rep(seq(n), each = n_years_new))
+  sel_vals <- as.numeric(sapply(seq(n), function(x) {
+    c(harvest(stk)[, sel_samples_iter[[x]],,,, x])
+  }))
+  ### insert
+  harvest(stk_stf)[, bio_yrs] <- sel_vals
+
   
   ### ---------------------------------------------------------------------- ###
   ### stock recruitment ####
@@ -312,7 +293,7 @@ create_OM <- function(stk_data, idx_data,
   } else {
     message("- including auto-correlation")
   }
-
+  
   ### generate residuals for MSE
   ### years with missing residuals
   yrs_res <- colnames(rec(sr))[which(is.na(iterMeans(rec(sr))))]
@@ -378,10 +359,31 @@ create_OM <- function(stk_data, idx_data,
   fitted(sr) <- proc_res
   
   ### ---------------------------------------------------------------------- ###
-  ### stf ####
-  ### for intermediate year
-  ### not done for plaice
-  stk_fwd <- stk_stf
+  ### stf for intermediate year ####
+  if (isTRUE(int_yr_add)) {
+    message("include intermediate year forecast")
+    int_yr_value <- int_yr_catch
+    if (isTRUE(disc_survival_OM > 0)) {
+      ### if some discards survive, adjust catch for this survival
+      d_rate <- yearMeans(tail(discards(stk_data_input)/
+                             catch(stk_data_input), 3))
+      c_prop <- (1 - d_rate + d_rate * (1 - disc_survival_OM))
+      int_yr_value <- c(int_yr_value * c_prop)
+      message("-> include discard survival in intermediate year")
+    }
+    ctrl_int <- fwdControl(data.frame(year = int_yr_yr, 
+                                      quant = "catch", 
+                                      value = int_yr_value))
+    ### project forward for intermediate year
+    stk_int <- fwd(stk_stf, control = ctrl_int, sr = sr, 
+                   deviances = residuals(sr))
+    
+    ### add process noise
+    stock.n(stk_int) <- stock.n(stk_int) * proc_res
+    stock(stk_int)[] <- computeStock(stk_int)
+  }
+  
+  stk_fwd <- stk_int
   
   ### ---------------------------------------------------------------------- ###
   ### biological data for OEM ####
@@ -397,27 +399,50 @@ create_OM <- function(stk_data, idx_data,
   
   ### projection years
   proj_yrs <- (yr_data + 1):range(stk_oem)[["maxyear"]]
+  
   ### use means of sampled values for projection period
-  catch.wt(stk_oem)[, ac(proj_yrs)] <- 
-    yearMeans(catch.wt(stk_oem)[, ac(sample_yrs)])
-  landings.wt(stk_oem)[, ac(proj_yrs)] <- 
-    yearMeans(landings.wt(stk_oem)[, ac(sample_yrs)])
-  discards.wt(stk_oem)[, ac(proj_yrs)] <- 
-    yearMeans(discards.wt(stk_oem)[, ac(sample_yrs)])
   stock.wt(stk_oem)[, ac(proj_yrs)] <- 
     yearMeans(stock.wt(stk_oem)[, ac(sample_yrs)])
   m(stk_oem)[, ac(proj_yrs)] <- yearMeans(m(stk_oem)[, ac(sample_yrs)])
   mat(stk_oem)[, ac(proj_yrs)] <- yearMeans(mat(stk_oem)[, ac(sample_yrs)])
   ### remove stock assessment results
   stock.n(stk_oem)[] <- stock(stk_oem)[] <- harvest(stk_oem)[] <- NA
-  ### density dependent M
-  if (isTRUE(M_dd)) {
-    ### last key run was in M_dd_yr, with the last data year M_dd_yr - 1
-    ### so M M_dd_yr:M_dd_yr+2 will be the mean of M_dd_yr-1:M_dd_yr-3 of OM
-    ### and M M_dd_yr+3:M_dd_yr+5 mean of M_dd_yr:M_dd_yr+2
-    m(stk_oem)[, ac(M_dd_yr:(M_dd_yr + 2))] <- 
-      yearMeans(m(stk_oem)[, ac((M_dd_yr - 1):(M_dd_yr - 3))])
-  }
+  
+  ### ---------------------------------------------------------------------- ###
+  ### catch - discard survival and catch observations ####
+  ### catch survival in OM and MP may be different
+  ### -> include as observation error
+  
+  ### MP catch observations (with observed discard survival)
+  yrs_hist_int <- yrs_hist
+  if (isTRUE(int_yr_add)) yrs_hist_int <- c(yrs_hist, max(yrs_hist) + 1)
+  catch(stk_oem)[, ac(yrs_hist)]    <- catch(stk_data_input)[, ac(yrs_hist)]
+  catch.n(stk_oem)[, ac(yrs_hist)]  <- catch.n(stk_data_input)[, ac(yrs_hist)]
+  catch.wt(stk_oem)[, ac(yrs_hist)] <- catch.wt(stk_data_input)[, ac(yrs_hist)]
+  landings(stk_oem)[, ac(yrs_hist)]    <- landings(stk_data_input)[, ac(yrs_hist)]
+  landings.n(stk_oem)[, ac(yrs_hist)]  <- landings.n(stk_data_input)[, ac(yrs_hist)]
+  landings.wt(stk_oem)[, ac(yrs_hist)] <- landings.wt(stk_data_input)[, ac(yrs_hist)]
+  discards(stk_oem)[, ac(yrs_hist)]    <- discards(stk_data_input)[, ac(yrs_hist)]
+  discards.n(stk_oem)[, ac(yrs_hist)]  <- discards.n(stk_data_input)[, ac(yrs_hist)]
+  discards.wt(stk_oem)[, ac(yrs_hist)] <- discards.wt(stk_data_input)[, ac(yrs_hist)]
+  ### discard survival
+  discards.n(stk_oem)[, ac(yrs_hist_int)] <- 
+    discards.n(stk_oem)[, ac(yrs_hist_int)] * (1 - disc_survival_MP)
+  # "catch.wt" "catch.n"  "catch"    "landings" "discards"
+  catch_tmp <- computeCatch(stk_oem[, ac(yrs_hist_int)], slot = "all")
+  catch.wt(stk_oem)[, ac(yrs_hist_int)] <- catch_tmp$catch.wt
+  catch.n(stk_oem)[, ac(yrs_hist_int)] <- catch_tmp$catch.n
+  catch(stk_oem)[, ac(yrs_hist_int)] <- catch_tmp$catch
+  landings(stk_oem)[, ac(yrs_hist_int)] <- catch_tmp$landings
+  discards(stk_oem)[, ac(yrs_hist_int)] <- catch_tmp$discards
+  
+  ### catch weights
+  catch.wt(stk_oem)[, ac(proj_yrs)] <- 
+    yearMeans(catch.wt(stk_oem)[, ac(sample_yrs)])
+  landings.wt(stk_oem)[, ac(proj_yrs)] <- 
+    yearMeans(landings.wt(stk_oem)[, ac(sample_yrs)])
+  discards.wt(stk_oem)[, ac(proj_yrs)] <- 
+    yearMeans(discards.wt(stk_oem)[, ac(sample_yrs)])
   
   ### ---------------------------------------------------------------------- ###
   ### catch noise ####
@@ -431,21 +456,69 @@ create_OM <- function(stk_data, idx_data,
     catch_res <- catch.n(stk_fwd) %=% 0 ### template FLQuant
     catch_res[] <- stats::rnorm(n = length(catch_res), mean = 0, 
                                 sd = uncertainty$catch_sd)
-    ### the catch_res values are on a normale scale,
+    ### the catch_res values are on a normal scale,
     ### exponentiate to get log-normal 
     catch_res <- exp(catch_res)
     ### catch_res is a factor by which the numbers at age are multiplied
     ### for historical period, pass on real observed catch
     ### -> remove deviation
-    if (isFALSE(disc_survival > 0)) {
-      catch_res[, dimnames(catch_res)$year <= yr_data] <- 
-        window(catch.n(stk_orig), end = yr_data) / 
-        window(catch.n(stk_fwd), end = yr_data)
-    } else {
-      catch_res[, dimnames(catch_res)$year <= yr_data] <- 
-        window(catch.n(stk_data_input), end = yr_data) / 
-        window(catch.n(stk_fwd), end = yr_data)
+    ### -> includes difference between OM and MP discard survival
+    catch_res[, dimnames(catch_res)$year <= yr_data] <- 
+      window(catch.n(stk_oem), end = yr_data) / 
+      window(catch.n(stk_fwd), end = yr_data)
+    
+    ### account for discard survival: OM vs MP in projection period
+    ### -> include as observation error
+    if (!identical(disc_survival_OM, disc_survival_MP)) {
+      message("- also including discard survival")
+      ### update landings and discards fraction
+      yrs_proj_d <- yrs_proj
+      # if (isTRUE(int_yr_add)) yrs_proj_d <- yrs_proj_d[-1]
+      d_factor <- 1 / (1 - disc_survival_OM) * (1 - disc_survival_MP)
+      discards.n(stk_oem)[, ac(yrs_proj_d)] <- 
+        discards.n(stk_fwd)[, ac(yrs_proj_d)] * d_factor
+      landings.n(stk_oem)[, ac(yrs_proj_d)] <- 1 - discards.n(stk_oem)[, ac(yrs_proj_d)]
+      ### adjust catch residuals to account for survival
+      ### - discard rate in data (0% discard survival)
+      d_rate_raw <- c(yearMeans(tail(discards(stk_data_input)/
+                                       catch(stk_data_input), 3)))
+      ### - corresponding landings rate
+      l_rate_raw <- 1 - d_rate_raw
+      ### - proportion of dead catch in OM
+      c_dead_OM <- l_rate_raw + d_rate_raw * (1 - disc_survival_OM)
+      ### - proportion of dead catch in MP
+      c_dead_MP <- l_rate_raw + d_rate_raw * (1 - disc_survival_MP)
+      ### -> correction factor (OM -> MP observations)
+      c_surv_correction <- 1/c_dead_OM*c_dead_MP
+      ### -> insert into catch observation error
+      catch_res[, ac(yrs_proj_d)] <- catch_res[, ac(yrs_proj_d)] * c_surv_correction
+      
     }
+    
+    ### update intermediate year
+    if (isTRUE(int_yr_add)) {
+      catch.n(stk_oem)[, ac(int_yr_yr)] <- 
+        catch.n(stk_fwd)[, ac(int_yr_yr)] * catch_res[, ac(int_yr_yr)]
+      ### MP landings fraction at age
+      l_frac_age <- landings.n(stk_oem)[, ac(int_yr_yr)]/
+        (discards.n(stk_oem)[, ac(int_yr_yr)] + landings.n(stk_oem)[, ac(int_yr_yr)])
+      landings.n(stk_oem)[, ac(int_yr_yr)] <- 
+        catch.n(stk_oem)[, ac(int_yr_yr)] * l_frac_age
+      discards.n(stk_oem)[, ac(int_yr_yr)] <- 
+        catch.n(stk_oem)[, ac(int_yr_yr)] * (1 - l_frac_age)
+      ### update total catch and weights
+      catch_tmp <- computeCatch(stk_oem[, ac(int_yr_yr)], slot = "all")
+      catch.wt(stk_oem)[, ac(int_yr_yr)] <- catch_tmp$catch.wt
+      catch.n(stk_oem)[, ac(int_yr_yr)] <- catch_tmp$catch.n
+      catch(stk_oem)[, ac(int_yr_yr)] <- catch_tmp$catch
+      landings(stk_oem)[, ac(int_yr_yr)] <- catch_tmp$landings
+      discards(stk_oem)[, ac(int_yr_yr)] <- catch_tmp$discards
+      ### TODO: check if MP survival = 1, OM survival = 0
+      ###       -> catches (i.e. landings) are a bit too high
+      ### catch.wt in stk_oem too high... landings weights
+      
+    }
+
   } else {
     message("NOT including catch observation error")
     catch_res <- catch.n(stk_fwd) %=% 1
@@ -457,7 +530,7 @@ create_OM <- function(stk_data, idx_data,
   ### use real FLIndices object as template (use all)
   idx <- idx_data
   ### extend for simulation period
-  idx <- window(idx, end = yr_data + n_years)
+  idx <- window(idx, end = yr_data + n_years_new)
   ### add iterations
   idx <- lapply(idx, propagate, n)
   ### extract some dimension names
@@ -469,22 +542,11 @@ create_OM <- function(stk_data, idx_data,
     index.q(idx[[idx_i]])[] <- uncertainty$survey_catchability[[idx_i]]
   }
   ### index weights
-  if (isTRUE(length(idx_weights) < length(idx))) {
-    idx_weights <- rep(idx_weights, length(idx))[seq(length(idx))]
-  }
   for (idx_i in seq_along(idx)) {
-    if (isTRUE(idx_weights[idx_i] == "none")) {
-      next
-    ### take weights from OM stock
-    } else if (isTRUE(idx_weights[idx_i] %in% c("stock.wt", "catch.wt"))) {
-      get.weights_i <- get(x = idx_weights[idx_i])
-      catch.wt(idx[[idx_i]]) <- 
-        get.weights_i(stk_oem)[ac(idx_ages[[idx_i]]), ac(idx_yrs[[idx_i]])]
     ### use weights from index - resample
-    } else if (isTRUE(idx_weights[idx_i] %in% c("index.wt"))) {
-      catch.wt(idx[[idx_i]])[, ac(proj_yrs)] <- 
-        yearMeans(catch.wt(idx[[idx_i]])[, ac(sample_yrs)])
-    } 
+    ### (same approach as for catch and stock weights)
+    catch.wt(idx[[idx_i]])[, ac(proj_yrs)] <- 
+      yearMeans(catch.wt(idx[[idx_i]])[, ac(sample_yrs)])
   }
   ### create copy of index with original values
   idx_raw <-  lapply(idx ,index)
@@ -527,15 +589,19 @@ create_OM <- function(stk_data, idx_data,
   ### length index ####
   if (isTRUE(idxL)) {
     message("adding length index")
-    if (!is.null(ALK_yrs))
+    if (is.null(ALK_yrs)) {
+      ALK_yrs <- sort(unique(ALKs$year))
+    } else {
       ALKs <- ALKs %>%
         filter(year %in% ALK_yrs)
+    }
     ALKs <- ALKs %>%
       arrange(year, age, length)
     ### randomly select ALK years
+    if (is.null(ALK_yrs_sample)) ALK_yrs_sample <- sort(unique(ALKs$year))
     set.seed(89)
     alk_samples <- catch(stk_fwd) %=% NA_real_
-    alk_samples[] <- sample(x = ALK_yrs, size = length(yrs_mse) * n, 
+    alk_samples[] <- sample(x = ALK_yrs_sample, size = length(yrs_mse) * n, 
                             replace = TRUE)
     ### use existing ALKs for historical years
     alk_samples[, ac(ALK_yrs)] <- ALK_yrs
@@ -558,7 +624,8 @@ create_OM <- function(stk_data, idx_data,
       by = c("year", "iter")) %>%
       ### merge with ALKs
       left_join(ALKs %>% rename("alk_year" = "year"),
-                by = c("age", "alk_year")) %>%
+                by = c("age", "alk_year"),
+                relationship = "many-to-many") %>%
       ### calculate numbers at length
       mutate(cal = caa * freq) %>%
       ### keep only numbers where length >= Lc
@@ -635,12 +702,6 @@ create_OM <- function(stk_data, idx_data,
     saveRDS(refpts, file = paste0(input_path, "refpts_mse.rds"))
     ### age-length keys
     saveRDS(ALKs, file = paste0(input_path, "ALKs.rds"))
-    ### density dependent M
-    if (isTRUE(M_dd)) {
-      saveRDS(list(dd_M_relation = dd_M_relation, M_dd_yr = M_dd_yr,
-                   M_dd_migration = M_dd_migration), 
-              file = paste0(input_path, "dd_M.rds"))
-    }
   }
   if (isTRUE(return)) {
     return(list(stk_fwd = stk_fwd, sr = sr, idx = idx, idx_dev = idx_dev,
@@ -1065,22 +1126,6 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   } else if (isTRUE(MP == "constF")) {
     ctrl <- mpCtrl(list(hcr = mseCtrl(method = fixedF_hcr,
                                       args = list(ftrg = 0))))
-  }
-  
-  ### ---------------------------------------------------------------------- ###
-  ### density dependent M ####
-  if (identical(OM, "M_dd")) {
-    ### adapt projection argument of OM
-    om@projection@args$dd_M <- TRUE
-    om@projection@args$dd_M_relation <- dd_M$dd_M_relation
-    om@projection@args$dd_M_fun <- calculate_ddM
-    ### adapt observations - key runs
-    ### only applicable when using SAM
-    if (isTRUE(MP == "ICES_SAM")) {
-      oem@args$dd_M <- TRUE
-      oem@args$dd_M_relation <- dd_M$dd_M_relation
-      oem@args$dd_M_yr <- dd_M$M_dd_yr
-    }
   }
   
   ### ---------------------------------------------------------------------- ###
