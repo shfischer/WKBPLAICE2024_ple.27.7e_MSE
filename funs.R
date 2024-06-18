@@ -187,23 +187,9 @@ obs_generic <- function(stk, observations, deviances, args, tracking,
                         lngth_dev = FALSE, ### deviation for lngth
                         Lc = 0, ### length at first capture
                         lngth_samples = 100, ### number of length samples
-                        dd_M = FALSE, ### density dependent M -> keyruns
-                        dd_M_relation = NULL,
-                        dd_M_yr = NULL,
-                        dd_M_period = 3,
                         ...) {
   
   ay <- args$ay
-  
-  ### Density-dependent M
-  ### Calculate 3-year means of M from the OM on key-run years
-  ### to simulate the SAM process
-  if (isTRUE(dd_M)) {
-    if (isTRUE(((ay - dd_M_yr) %% dd_M_period) == 0)) {
-      m(observations$stk)[, ac(ay:(ay + 2))] <- 
-        yearMeans(m(stk)[, ac((ay - 3):(ay - 1))])
-    }
-  }
   
   ### create object for observed stock
   if (!isTRUE(use_stk_oem)) {
@@ -903,72 +889,16 @@ iem_comps <- function(ctrl, args, tracking,
 ### projection ####
 ### ------------------------------------------------------------------------ ###
 fwd_attr <- function(om, ctrl,
-                     #stk = stock(om),
-                     #sr = sr(om), ### stock recruitment model
-                     #sr.residuals = residuals(sr(om)), ### recruitment residuals
                      sr.residuals.mult = TRUE, ### are res multiplicative?
                      maxF = 5, ### maximum allowed Fbar
-                     dupl_trgt = FALSE,
                      proc_res = NULL, ### process error noise,
                      migration = NULL, ### FLQuant with migration factor(s)
-                     disc_survival = 0, ### discard survival proportion
-                     dd_M = FALSE, ### density-dependent M
-                     dd_M_relation = NULL, ### density-dependent M
-                     dd_M_fun = calculate_ddM,
                      ...) {
   
   stk <- stock(om)
   sr <- sr(om)
   sr.residuals <- residuals(sr(om))
-  
-  ### avoid the issue that the catch is higher than the targeted catch
-  ### can happen due to bug in FLash if >1 iteration provided
-  ### sometimes, FLash struggles to get estimates and then uses F estimate from
-  ### previous iteration
-  ### workaround: target same value several times and force FLash to try again
-  if (isTRUE(dupl_trgt)) {
-    
-    ### duplicate target
-    ctrl@target <- rbind(ctrl@target, ctrl@target, ctrl@target)
-    ### replace catch in second row with landings
-    ctrl@target$quantity[1] <- "landings"
-    ctrl@target$quantity[3] <- "catch"
-    
-    ### extract target values
-    val_temp <- ctrl@trgtArray[, "val", ]
-    
-    ### extend trgtArray
-    ### extract dim and dimnames
-    dim_temp <- dim(ctrl@trgtArray)
-    dimnames_temp <- dimnames(ctrl@trgtArray)
-    ### duplicate years
-    dim_temp[["year"]] <- dim_temp[["year"]] * 3
-    dimnames_temp$year <- rep(dimnames_temp$year, 3)
-    
-    ### create new empty array
-    trgtArray <- array(data = NA, dim = dim_temp, dimnames = dimnames_temp)
-    
-    ### fill with values
-    ### first as target
-    trgtArray[1, "val", ] <- val_temp
-    ### then again, but as max
-    trgtArray[2, "max", ] <- val_temp
-    ### min F
-    trgtArray[3, "max", ] <- val_temp
-    
-    ### insert into ctrl object
-    ctrl@trgtArray <- trgtArray
-  }
-  
-  ### calculate density-dependent natural mortality if required
-  if (isTRUE(dd_M)) {
-    
-    ### overwrite M in the target year before projecting forward
-    m(stk)[, ac(ctrl@target$year)] <- 
-      dd_M_fun(stk, ctrl@target$year - 1, relation = dd_M_relation)
-    
-  }
-  
+
   ### migration
   if (!is.null(migration)) {
     ### find year to adapt for migration
@@ -983,63 +913,11 @@ fwd_attr <- function(om, ctrl,
     stock.n(stk)[, ac(yr_migr)] <- stock.n(stk)[, ac(yr_migr)] * migr_factor
   }
   
-  ### project forward with FLash::fwd
-  if (!isTRUE(disc_survival > 0)) {
-    
-    stk[] <- fwd(object = stk, control = ctrl, sr = sr, 
-                 deviances = sr.residuals,
-                 maxF = maxF)
-  
-  } else {
-    ### account for discard survival
-    stk_bckp <- stk
-    stk_fc1 <- stk ### backup stock
-    ### first projection with all discards
-    stk_fc1[] <- fwd(object = stk_fc1, control = ctrl, sr = sr, 
-                     deviances = sr.residuals,
-                     maxF = maxF)
-    yr_fc <- ctrl@target$year
-    landings <- landings(stk_fc1[, ac(yr_fc)])
-    ### get discards after accounting for survival
-    discards <- quantSums(discards.n(stk_fc1)[, ac(yr_fc)] * 
-                            (1 - disc_survival) * 
-                            discards.wt(stk_fc1)[, ac(yr_fc)])
-    ### total catch (after accounting for discards survival)
-    catch <- landings + discards
-    ### ctrl object with new target
-    ctrl_dead <- ctrl
-    ctrl_dead@iters[, "value", ] <- c(catch)
-    ### prepare second forecast accounting for discard survival
-    stk_fc2 <- stk
-    ### update discard rate
-    discards.n(stk_fc2)[, ac(yr_fc)] <- discards.n(stk_fc2)[, ac(yr_fc)] *
-      (1 - disc_survival)
-    ### re-standardise landings rate
-    landings.n(stk_fc2)[, ac(yr_fc)] <- landings.n(stk_fc2)[, ac(yr_fc)] / 
-      (landings.n(stk_fc2)[, ac(yr_fc)] + discards.n(stk_fc2)[, ac(yr_fc)])
-    ### update catch weight
-    catch.wt(stk_fc2)[, ac(yr_fc)] <- 
-      ((landings.wt(stk_fc2)[, ac(yr_fc)] * landings.n(stk_fc2)[, ac(yr_fc)]) +
-      (discards.wt(stk_fc2)[, ac(yr_fc)] * discards.n(stk_fc2)[, ac(yr_fc)])) /
-      (landings.n(stk_fc2)[, ac(yr_fc)] + discards.n(stk_fc2)[, ac(yr_fc)])
-    ### run second forecast
-    stk_fc2[] <- fwd(object = stk_fc2, control = ctrl_dead, sr = sr, 
-                     deviances = sr.residuals, 
-                     maxF = maxF)
-    ### insert projected values into OM stk
-    ### catch includes all discards
-    landings.n(stk)[, ac(yr_fc)] <- landings.n(stk_fc1)[, ac(yr_fc)]
-    discards.n(stk)[, ac(yr_fc)] <- discards.n(stk_fc1)[, ac(yr_fc)]
-    catch.n(stk)[, ac(yr_fc)] <- catch.n(stk_fc1)[, ac(yr_fc)]
-    landings(stk)[, ac(yr_fc)] <- landings(stk_fc1)[, ac(yr_fc)]
-    discards(stk)[, ac(yr_fc)] <- discards(stk_fc1)[, ac(yr_fc)]
-    catch(stk)[, ac(yr_fc)] <- catch(stk_fc1)[, ac(yr_fc)]
-    ### stock and harvest include only dead discards
-    stock.n(stk)[, ac(yr_fc)] <- stock.n(stk_fc2)[, ac(yr_fc)]
-    stock(stk)[, ac(yr_fc)] <- stock(stk_fc2)[, ac(yr_fc)]
-    harvest(stk)[, ac(yr_fc)] <- harvest(stk_fc2)[, ac(yr_fc)]
-    
-  }
+  ### project forward with FLasher::fwd
+  stk[] <- fwd(object = stk, control = ctrl, sr = sr, 
+               deviances = sr.residuals,
+               maxF = maxF)
+
   
   ### if migration occurs, remove numbers for year before forecast
   ### (but they are kept for the forecast year)
@@ -1053,22 +931,24 @@ fwd_attr <- function(om, ctrl,
     ### projected years
     yrs_new <- seq(from = ctrl@target$year, to = range(stk)[["maxyear"]])
     
-    ### workaround to get residuals
-    ### they are saved in the "fitted" slot of sr...
-    if (!isTRUE(proc_res == "fitted")) {
-      
-      stop("survival process error inacessible")
-      
-    } else {
-      
-      ### implement process error
-      stock.n(stk)[, ac(yrs_new)] <- stock.n(stk)[, ac(yrs_new)] *
-        fitted(sr)[, ac(yrs_new)]
-      ### update stock biomass
-      stock(stk) <- computeStock(stk)
-      
+    if (!is(proc_res, "FLQuant")) 
+      stop("Process error needs to be provided in an FLQuant object")
+    yrs_available <- as.numeric(dimnames(proc_res)$year)
+    if (!all(yrs_new %in% yrs_available))
+      stop("Process error years missing")
+    
+    ### check iterations 
+    ### may differ when parallelised -> subset
+    if (isTRUE(dim(proc_res)[6] > dim(stk)[6])) {
+      proc_res <- proc_res[,,,,, dimnames(stk)$iter]
     }
     
+    ### implement process error
+    stock.n(stk)[, ac(yrs_new)] <- stock.n(stk)[, ac(yrs_new)] *
+      proc_res[, ac(yrs_new)]
+    ### update stock biomass
+    stock(stk) <- computeStock(stk)
+
   }
   
   ### return stock

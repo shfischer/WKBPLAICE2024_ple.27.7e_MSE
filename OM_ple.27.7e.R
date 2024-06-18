@@ -31,10 +31,8 @@ refpts <- list(
   ### ICES style EqSim reference points (run with SAM fit)
   EqSim_Btrigger = 3265.991, EqSim_Fmsy = 0.2110553, EqSim_Fpa = 0.2436579, 
   EqSim_Bpa = 3265.991, EqSim_Blim = 2332.851,
-  ### ICES reference points from WGCSE (run with XSA)
-  ICES_Btrigger = 2443, ICES_Fmsy = 0.238,
   ### real OM MSY values
-  Fmsy = 0.164, Bmsy = 9536, Cmsy = 1703, Blim = 2110,
+  Fmsy = 0.222, Bmsy = 5500, Cmsy = 1210, Blim = 2352,
   ### length reference points
   Lc = 25, ### from simulated length data
   Lref = 0.75*25 + 0.25*64.53349 ### Linf: quarterly ALK with 2019-2023 data
@@ -162,28 +160,29 @@ create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
 if (FALSE) {
   ### set up parallel processing
   req_pckgs <- c("FLCore", "FLasher", "FLBRP", "mse", "FLfse", "FLXSA",
-                 "GA", "doParallel", "doRNG",
-                 "tidyr", "dplyr", "stockassessment")
+                 "tidyr", "dplyr", "ggplot2")
   for (i in req_pckgs) library(package = i, character.only = TRUE)
-  cl <- makeCluster(10)
-  registerDoParallel(cl)
-  cl_length <- length(cl)
+  ### load additional functions
+  req_scripts <- c("funs.R", "funs_GA.R", "funs_WKNSMSE.R", "funs_OM.R")
+  for (i in req_scripts) source(i)
+  ### parallelisation with doFuture
+  plan(multisession, workers = 5)
   ### load packages and functions into parallel workers
-  . <- foreach(i = seq(cl_length)) %dopar% {
+  . <- foreach(i = seq(5)) %dofuture% {
     for (i in req_pckgs) library(package = i, character.only = TRUE,
                                  warn.conflicts = FALSE, verbose = FALSE,
                                  quietly = TRUE)
-    source("funs.R", echo = FALSE)
-    source("funs_GA.R", echo = FALSE)
-    source("funs_WKNSMSE.R", echo = FALSE)
+    for (i in req_scripts) source(i)
   }
   
-  
   ### baseline OM
-  res <- est_MSY(OM = "baseline")
+  res <- est_MSY(OM = "baseline", stock_id = "ple.27.7e", yr_start = 2025, 
+                 n_blocks = 5, n_iter = 1000)
   res$result[which.max(res$result$catch), ]
   #        Ftrgt   catch      ssb      tsb      rec
-  # 15 0.1638845 1702.92 9536.053 11136.77 6542.729
+  # 15 0.1638845 1702.92 9536.053 11136.77 6542.729 paper
+  # 16 0.222343  1209.94 5500.133 6371.131 6538.489 WKBPLAICE - MSY
+  #  1 0            0    21019.86 22030.98 7192.005 WKBPLAICE - unfished
   
 }
 
@@ -195,13 +194,13 @@ if (FALSE) {
 stk_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
 Blim <- min(iterMedians(ssb(stk_baseline)), na.rm = TRUE)
 dimnames(stk_baseline)$year[which.min(iterMedians(ssb(stk_baseline)))]
-### Blim is SSB in 2007
+### Blim is SSB in 2008
 sr_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
 RR0 <- c(((iterMedians(params(sr_baseline)["a"])*Blim) /
             (iterMedians(params(sr_baseline))["b"] + Blim)) /
            iterMedians(params(sr_baseline))["a"])
 RR0
-### Blim corresponds to SSB at ~ 77% of R0
+### Blim corresponds to SSB at ~ 79% of R0
 
 refpts <- FLPar(refpts, iter = 1000, unit = "")
 update_refpts <- function(stock_id = "ple.27.7e", OM, refpts, RR0) {

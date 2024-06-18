@@ -356,7 +356,7 @@ create_OM <- function(stk_data, idx_data,
   }
   ### try saving in stock recruitment model ... 
   ### this gets passed on to the projection module
-  fitted(sr) <- proc_res
+  # fitted(sr) <- proc_res
   
   ### ---------------------------------------------------------------------- ###
   ### stf for intermediate year ####
@@ -721,7 +721,8 @@ create_OM <- function(stk_data, idx_data,
 
 input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                      n_yrs = 100, yr_start = 2021, iy = yr_start - 1,
-                     n_blocks = 1, seed = 1, cut_hist = TRUE, MP = "rfb",
+                     n_blocks = FALSE, parallel = n_blocks, seed = 1, 
+                     cut_hist = TRUE, MP = "rfb",
                      hr_years = NULL,
                      migration = NULL,
                      disc_survival = 0, rec_failure = FALSE,
@@ -735,7 +736,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                      ) {
   
   ### path to input objects
-  path_input <- paste0("input/", stock_id, "/", OM, "/", n_iter, "_100/")
+  path_input <- paste0("input/", stock_id, "/", OM, "/", 1000, "_100/")
   
   ### load objects
   ### use full dimensions (100 years, 1000 iterations) - reduced later
@@ -750,9 +751,6 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   SAM_conf <- readRDS(paste0(path_input, "SAM_conf.rds"))
   ALKs <- readRDS(paste0(path_input, "ALKs.rds"))
   refpts_mse <- readRDS(paste0(path_input, "refpts_mse.rds"))
-  if (identical(OM, "M_dd")) 
-    dd_M <- readRDS(paste0(path_input, "dd_M.rds"))
-  
   ### find last year
   yr_end <- yr_start + n_yrs - 1
   ### reduce dimensions, if requested
@@ -809,7 +807,6 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                management_lag = 0, ### save advice in tracking's ay
                iy = iy, ### first simulation (intermediate) year
                nsqy = 3, ### not used, but has to provided
-               nblocks = n_blocks, ### block for parallel processing
                seed = seed ### random number seed before starting MSE
   )
   if (identical(MP, "ICES_SAM")) {
@@ -828,8 +825,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
              projection = mseCtrl(method = fwd_attr, 
                                   args = list(maxF = 5,
                                               ### process noise on stock.n
-                                              proc_res = "fitted",
-                                              dupl_trgt = FALSE,
+                                              proc_res = proc_res,
                                               disc_survival = disc_survival
                                   ))
   )
@@ -854,21 +850,9 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   ### ---------------------------------------------------------------------- ###
   ### Observation (error) model OEM ####
   if (identical(stock_id, "ple.27.7e")) {
-    if (is.null(use_age_idcs)) use_age_idcs <- c("Q1SWBeam", "FSP-7e")
-    if (is.null(biomass_index)) biomass_index <- "FSP-7e"
+    if (is.null(use_age_idcs)) use_age_idcs <- c("Q1SWBeam", "UK-FSP")
+    if (is.null(biomass_index)) biomass_index <- "UK-FSP"
     if (is.null(idx_timing)) idx_timing <- c(-1, -1)
-    if (is.null(catch_timing)) catch_timing <- -1
-  } else if (identical(stock_id, "cod.27.47d20")) {
-    if (is.null(use_age_idcs)) 
-      use_age_idcs <- c("IBTS_Q1_gam", "IBTS_Q3_gam", "IBTS_Q3_gam_age0")
-    if (is.null(biomass_index)) biomass_index <- "IBTS_Q3_gam"
-    if (is.null(idx_timing)) idx_timing <- c(0, -1, 0)
-    if (is.null(catch_timing)) catch_timing <- -1
-  } else if (identical(stock_id, "her.27.3a47d")) {
-    if (is.null(use_age_idcs)) 
-      use_age_idcs <- c("HERAS", "IBTS-Q1", "IBTS0", "IBTS-Q3")
-    if (is.null(biomass_index)) biomass_index <- "HERAS"
-    if (is.null(idx_timing)) idx_timing <- c(-1, 0, 0, -1)
     if (is.null(catch_timing)) catch_timing <- -1
   }
   
@@ -1047,7 +1031,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                                  upper_constraint = 1.2, lower_constraint = 0.8, 
                                  cap_below_b = TRUE))))
   } else if (isTRUE(MP == "ICES_SAM")) {
-    if (stock_id %in% c("ple.27.7e", "cod.27.47d20")) {
+    if (stock_id %in% c("ple.27.7e")) {
       ### some specifications for short term forecast with SAM
       if (identical(stock_id, "ple.27.7e")) {
         if (is.null(fwd_yrs_rec_start)) fwd_yrs_rec_start <- 1980
@@ -1056,13 +1040,6 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
         if (is.null(fwd_yrs_sel)) fwd_yrs_sel <- -4:0
         if (is.null(fwd_trgt)) fwd_trgt <- c("fsq", "fsq", "fsq")
         if (is.null(fwd_yrs)) fwd_yrs <- 2
-      } else if (identical(stock_id, "cod.27.47d20")) {
-        if (is.null(fwd_yrs_rec_start)) fwd_yrs_rec_start <- 1998
-        if (is.null(fwd_splitLD)) fwd_splitLD <- TRUE
-        if (is.null(fwd_yrs_average)) fwd_yrs_average <- -2:0
-        if (is.null(fwd_yrs_sel)) fwd_yrs_sel <- NULL
-        if (is.null(fwd_trgt)) fwd_trgt <- c("fsq")
-        if (is.null(fwd_yrs)) fwd_yrs <- 1
       }
       SAM_stf_def <- list(fwd_yrs_rec_start = fwd_yrs_rec_start,
                           fwd_splitLD = fwd_splitLD,
@@ -1093,38 +1070,10 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                          fwd_trgt = list(c(fwd_trgt, "hcr")), 
                          fwd_yrs = fwd_yrs + 1, SAM_stf_def
                        ))))
-    } else if (identical(stock_id, "her.27.3a47d")) {
-      ctrl <- mpCtrl(list(
-        est = mseCtrl(method = SAM_wrapper,
-                      args = c(### short term forecast specifications
-                        forecast = "FLasher",
-                        fwd_trgt = list(c("fsq")), fwd_yrs = 1, 
-                        fwd_rec = list(c("estimate", "geomean_weighted")),
-                        fwd_rec_yrs = list(c(-10:-1)),
-                        fwd_yrs_bio = -1, fwd_yrs_mat = list(c(-3:-1)),
-                        fwd_yrs_m = list(c(-5:-1)), fwd_yrs_sel = -1,
-                        fwd_disc_zero = TRUE,
-                        newtonsteps = 0, rel.tol = 0.001,
-                        par_ini = list(SAM_pars_ini),
-                        track_ini = TRUE, 
-                        conf = list(SAM_conf)
-                      )),
-        phcr = mseCtrl(method = phcr_WKNSMSE,
-                       args = list(
-                         Btrigger = unique(c(refpts_mse["EqSim_Btrigger"])), 
-                         Ftrgt = unique(c(refpts_mse["EqSim_Fmsy"])), 
-                         Blim = unique(c(refpts_mse["EqSim_Blim"])))),
-        hcr = mseCtrl(method = hcr_WKNSME, args = list(option = "A")),
-        isys = mseCtrl(method = is_WKNSMSE, 
-                       args = c(hcrpars = list(
-                         Btrigger = unique(c(refpts_mse["EqSim_Btrigger"])), 
-                         Ftrgt = unique(c(refpts_mse["EqSim_Fmsy"])), 
-                         Blim = unique(c(refpts_mse["EqSim_Blim"])),
-                         forecast = "FLasher")
-                       ))))
-    }
+    } 
   } else if (isTRUE(MP == "constF")) {
-    ctrl <- mpCtrl(list(hcr = mseCtrl(method = fixedF_hcr,
+    ctrl <- mpCtrl(list(est = mseCtrl(method = perfect.sa),
+                        hcr = mseCtrl(method = fixedF_hcr,
                                       args = list(ftrg = 0))))
   }
   
@@ -1140,13 +1089,8 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   ### create input object ####
   
   input <- list(om = om, oem = oem, ctrl = ctrl,
-                args = args, tracking = tracking, refpts = refpts_mse,
-                cut_hist = cut_hist)
-  
-  ### within scenario parallelisation?
-  if (isTRUE(n_blocks > 1)) {
-    input$args$nblocks <- n_blocks
-  }
+                args = args, tracking = tracking, parallel = parallel)
+  #, refpts = refpts_mse, cut_hist = cut_hist
   
   return(input)
   
@@ -1157,7 +1101,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
 ### ------------------------------------------------------------------------ ###
 # res <- est_MSY(n_iter = 10, n_blocks = 1, vals_ini = c(0, 0.5, 1), tol = 0.1)
 est_MSY <- function(stock_id = "ple.27.7e", OM = "baseline",
-                    yr_start = 2021, n_blocks = 10, n_iter = 1000,
+                    yr_start = 2025, n_blocks = 1, n_iter = 1000,
                     vals_ini = seq(0, 1, 0.1),
                     lower = 0, upper = 0.3, tol = 0.001,
                     plot = TRUE, x_label = "F (ages 3-6)",
@@ -1169,6 +1113,7 @@ est_MSY <- function(stock_id = "ple.27.7e", OM = "baseline",
   ### load mp input
   input <- input_mp(n_iter = n_iter, stock_id = stock_id, OM = OM,
                     yr_start = yr_start, MP = "constF", n_blocks = n_blocks)
+  input$verbose <- FALSE ### quiet
   
   ### check if some results already exist
   if (isTRUE(save)) {
@@ -1239,11 +1184,11 @@ est_MSY <- function(stock_id = "ple.27.7e", OM = "baseline",
       pivot_longer(cols = c("catch", "ssb", "rec")) %>%
       mutate(value = value/1000,
              name = factor(name, levels = c("catch", "ssb", "rec"), 
-                           labels = c("Catch [1000t]", "SSB [1000t]",
-                                      "Recruitment [millions]"))) %>%
+                           labels = c("Catch (1000t)", "SSB (1000t)",
+                                      "Recruitment (millions)"))) %>%
       ggplot(aes(x = Ftrgt, y = value)) +
       geom_point(size = 0.8) +
-      stat_smooth(aes(alpha = "loess smoother"), size = 0.5,
+      stat_smooth(aes(alpha = "Loess smoother"), linewidth = 0.5,
                   se = FALSE, span = 0.3, n = 100, show.legend = TRUE) + 
       scale_alpha_manual("", values = 1) +
       facet_wrap(~ name, scales = "free_y", strip.position = "left") +
@@ -1251,7 +1196,8 @@ est_MSY <- function(stock_id = "ple.27.7e", OM = "baseline",
       ylim(c(0, NA)) +
       scale_x_continuous(breaks = seq(0, 1, 0.2)) +
       theme_bw() +
-      theme(legend.position = c(0.85, 0.2),
+      theme(legend.position = "inside",
+            legend.position.inside = c(0.85, 0.2),
             legend.background = element_blank(),
             legend.key = element_blank(),
             strip.placement = "outside",
