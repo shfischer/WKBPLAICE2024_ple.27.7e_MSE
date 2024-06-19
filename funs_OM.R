@@ -545,6 +545,7 @@ create_OM <- function(stk_data, idx_data,
   for (idx_i in seq_along(idx)) {
     ### use weights from index - resample
     ### (same approach as for catch and stock weights)
+    ### observations: average weight
     catch.wt(idx[[idx_i]])[, ac(proj_yrs)] <- 
       yearMeans(catch.wt(idx[[idx_i]])[, ac(sample_yrs)])
   }
@@ -702,6 +703,8 @@ create_OM <- function(stk_data, idx_data,
     saveRDS(refpts, file = paste0(input_path, "refpts_mse.rds"))
     ### age-length keys
     saveRDS(ALKs, file = paste0(input_path, "ALKs.rds"))
+    ### SAM uncertainty
+    saveRDS(uncertainty, file = paste0(input_path, "SAM_uncertainty.rds"))
   }
   if (isTRUE(return)) {
     return(list(stk_fwd = stk_fwd, sr = sr, idx = idx, idx_dev = idx_dev,
