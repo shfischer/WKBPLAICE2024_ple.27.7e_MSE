@@ -18,224 +18,296 @@ source("funs_GA.R")
 source("funs_analysis.R")
 
 ### ------------------------------------------------------------------------ ###
-### plot OM trajectories vs. ICES assessment - baseline OMs ####
+### plot OM trajectories vs. SAM assessment - baseline OM ####
 ### ------------------------------------------------------------------------ ###
-refpts_ple <- readRDS("input/ple.27.7e/baseline/1000_100/refpts_mse.rds")
-refpts_ple <- iterMedians(refpts_ple)
+### MSY reference points
+refpts <- readRDS("input/ple.27.7e/baseline/1000_100/refpts_mse.rds")
+refpts <- iterMedians(refpts_ple)
+### OM stk
+stk <- readRDS(paste0("input/ple.27.7e/baseline/1000_100/stk.rds"))
+### SAM model fit
+fit <- readRDS(paste0("input/ple.27.7e/baseline/1000_100/SAM_fit.rds"))
 
-### values from operating model
-df_OM <- foreach(stock = c("Plaice", "Cod", "Herring"),
-                 stock_id = c("ple.27.7e", "cod.27.47d20", "her.27.3a47d"),
-                 .combine = bind_rows) %do% {
-  #browser()
-  stk_i <- readRDS(paste0("input/", stock_id, "/baseline/1000_100/stk.rds"))
-  ### get metrics
-  qnts <- FLQuants(ssb = ssb(stk_i)/1000, fbar = fbar(stk_i))
-  ### percentiles
-  qnts_perc <- lapply(qnts, quantile, probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
-                      na.rm = TRUE)
-  qnts_perc <- FLQuants(qnts_perc)
-  qnts_perc <- as.data.frame(qnts_perc)
-  qnts_perc <- qnts_perc %>% select(year, iter, data, qname) %>%
-    pivot_wider(names_from = iter, values_from = data) %>%
-    mutate(stock = stock, source = "OM")
-  return(qnts_perc)
-}
-### get ICES assessment summary
-df_ICES <- foreach(stock = c("Plaice", "Cod", "Herring"),
-                   stock_id = c("ple.27.7e", "cod.27.47d20", "her.27.3a47d"),
-                   .combine = bind_rows) %do% {
-  #browser()
-  smry <- read.csv(paste0("input/", stock_id, "/preparation/",
-                          "ices_assessment_summary.csv"))
-  names(smry)[1] <- "year"
-  smry <- smry %>% 
-    select(year, SSB, F) %>%
-    mutate(SSB = SSB/1000) %>%
-    rename(fbar = F, ssb = SSB) %>%
-    pivot_longer(c(ssb, fbar), names_to = "qname") %>%
-    mutate(stock = stock, source = "ICES")
-  return(smry)
-}
-df_ICES <- df_ICES %>% filter(year <= 2020)
-df_combined <- 
-  bind_rows(df_ICES,
-            df_OM %>% 
-              select(year, qname, `50%`, stock, source) %>%
-              rename(value = `50%`)) %>%
-  mutate(source = factor(source, levels = c("OM", "ICES"),
-                         labels = c("Operating model",
-                                    "ICES assessment")))
+### OM metrics
+qnts <- FLQuants(catch = catch(stk)/1000, rec = rec(stk)/1e+03,
+                 ssb = ssb(stk)/1000, fbar = fbar(stk))
+qnts <- window(qnts, end = 2023)
+### percentiles
+qnts_perc <- lapply(qnts, quantile, probs = c(0.025, 0.25, 0.5, 0.75, 0.975),
+                    na.rm = TRUE)
+qnts_perc <- FLQuants(qnts_perc)
+qnts_perc <- as.data.frame(qnts_perc)
+qnts_perc <- qnts_perc %>% select(year, iter, data, qname) %>%
+  pivot_wider(names_from = iter, values_from = data) %>%
+  mutate(source = "OM")
+
+### get assessment summary
+df_SAM <- bind_rows(list(
+  as.data.frame(catchtable(fit)/1000) %>%
+    mutate(qname = "catch") %>% 
+    rownames_to_column(var = "year"),
+  as.data.frame(rectable(fit)/1e+03) %>%
+    mutate(qname = "rec") %>% 
+    rownames_to_column(var = "year"),
+  as.data.frame(ssbtable(fit)/1000) %>%
+    mutate(qname = "ssb") %>% 
+    rownames_to_column(var = "year"),
+  as.data.frame(fbartable(fit)) %>%
+    mutate(qname = "fbar") %>% 
+    rownames_to_column(var = "year")
+)) %>%
+  select(year = year, qname = qname, `2.5%` = Low, `50%` = Estimate, 
+         `97.5%` = High) %>%
+  mutate(source = "SAM",
+         year = as.numeric(year))
+
+### combine and format
+df <- bind_rows(qnts_perc, df_SAM) %>%
+  filter(year <= 2024) %>%
+  mutate(source = factor(source, levels = c("OM", "SAM"),
+                       labels = c("Operating model", "SAM assessment"))) %>%
+  mutate(qname = factor(qname,
+                        levels = c("catch", "rec", "fbar", "ssb"),
+                        labels = c("Catch (1000t)", "Recruitment (1000s)",
+                                   "F (ages 3-6)", "SSB (1000t)")))
+### MSY levels
+df_refs <- data.frame(
+  qname = factor(c("catch", "rec", "fbar", "ssb"), 
+                 levels = c("catch", "rec", "fbar", "ssb"),
+                 labels = c("Catch (1000t)", "Recruitment (1000s)",
+                            "F (ages 3-6)", "SSB (1000t)")),
+  value = c(c(refpts["Cmsy"])/1000, 6538.489/1000, 
+            c(refpts["Fmsy"]), c(refpts["Bmsy"])/1000),
+  source = "MSY")
 
 
-p_ple_ssb <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Plaice" & qname == "ssb"),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
+### plot
+p <- ggplot() +
+  geom_ribbon(data = df %>%
+                filter(source == "Operating model"),
+              aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
               show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Plaice" & qname == "ssb"),
+  geom_ribbon(data = df %>%
+                filter(source == "Operating model"),
               aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
               show.legend = FALSE) +
-  geom_line(data = df_combined %>% filter(stock == "Plaice" & qname == "ssb"),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  geom_hline(yintercept = c(refpts_ple["Bmsy"])/1000, 
-             size = 0.3, linetype = "dashed") + 
-  geom_hline(yintercept = c(refpts_ple["Blim"])/1000, 
-             size = 0.3, linetype = "dotted") + 
-  coord_cartesian(xlim = c(1979, 2021), ylim = c(0, 10.5), expand = FALSE) +
-  facet_wrap(~ "Plaice") + 
-  labs(y = "SSB [1000t]", x = "Year") +
+  geom_line(data = df %>% filter(source == "SAM assessment"),
+            aes(x = year, y = `2.5%`),
+            colour = "red", linetype = "2121", linewidth = 0.2, alpha = 0.3) + 
+  geom_line(data = df %>% filter(source == "SAM assessment"),
+            aes(x = year, y = `97.5%`),
+            colour = "red", linetype = "2121", linewidth = 0.2, alpha = 0.3)+ 
+  geom_line(data = df,
+            aes(x = year, y = `50%`, colour = source, linetype = source)) +
+  geom_hline(data = df_refs,
+             aes(yintercept = value, colour = source, linetype = source)) +
+  facet_wrap(~ qname, scales = "free_y", strip.position = "left") +
+  scale_y_continuous(limits = c(0, NA)) +
+  scale_colour_manual("", values = c("Operating model" = "black", 
+                                     "SAM assessment" = "red",
+                                     "MSY" = "darkgrey")) +
+  scale_linetype_manual("", values = c("Operating model" = "solid", 
+                                       "SAM assessment" = "2121",
+                                       "MSY" = "1111")) +
+  labs(x = "Year") +
   theme_bw(base_size = 8) +
-  theme(legend.position = c(0.5, 0.75),
-        legend.key = element_blank(),
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(0.8, "lines"),
+  theme(legend.key.height = unit(0.5, "lines"),  
+        legend.position = "inside",
+        legend.position.inside = c(0.15, 0.1), 
         legend.background = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
-p_cod_ssb <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Cod" & qname == "ssb" & year <= 2020),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Cod" & qname == "ssb" & year <= 2020),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Cod" & qname == "ssb" & year <= 2020),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  geom_hline(yintercept = c(refpts_cod["Bmsy"])/1000, 
-             size = 0.3, linetype = "dashed") + 
-  geom_hline(yintercept = c(refpts_cod["Blim"])/1000, 
-             size = 0.3, linetype = "dotted") + 
-  coord_cartesian(xlim = c(1962, 2021.5), ylim = c(0, 270), expand = FALSE) +
-  facet_wrap(~ "Cod") + 
-  labs(y = "SSB [1000t]", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none",
-        axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
-p_her_ssb <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Herring" & qname == "ssb" & year <= 2020),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Herring" & qname == "ssb" & year <= 2020),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Herring" & qname == "ssb" & year <= 2020),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  geom_hline(yintercept = c(refpts_her["Bmsy"])/1000, 
-             size = 0.3, linetype = "dashed") + 
-  geom_hline(yintercept = c(refpts_her["Blim"])/1000, 
-             size = 0.3, linetype = "dotted") + 
-  coord_cartesian(xlim = c(1946, 2022), ylim = c(0, 7000), expand = FALSE) +
-  facet_wrap(~ "Herring") + 
-  labs(y = "SSB [1000t]", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none",
-        axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
-
-p_ple_fbar <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Plaice" & qname == "fbar" & year <= 2020),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Plaice" & qname == "fbar" & year <= 2020),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Plaice" & qname == "fbar" & year <= 2020),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  geom_hline(yintercept = c(refpts_ple["Fmsy"]), 
-             size = 0.3, linetype = "dashed") + 
-  coord_cartesian(xlim = c(1979, 2021), ylim = c(0, 1), expand = FALSE) +
-  labs(y = "mean F (ages 3-6)", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none")
-p_cod_fbar <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Cod" & qname == "fbar" & year <= 2020),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Cod" & qname == "fbar" & year <= 2020),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Cod" & qname == "fbar" & year <= 2020),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  geom_hline(yintercept = c(refpts_cod["Fmsy"]), 
-             size = 0.3, linetype = "dashed") + 
-  coord_cartesian(xlim = c(1962, 2021.5), ylim = c(0, 1.3), expand = FALSE) +
-  labs(y = "mean F (ages 2-4)", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none")
-p_her_fbar <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Herring" & qname == "fbar" & year <= 2020),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Herring" & qname == "fbar" & year <= 2020),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Herring" & qname == "fbar" & year <= 2020),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  geom_hline(yintercept = c(refpts_her["Fmsy"]), 
-             size = 0.3, linetype = "dashed") + 
-  coord_cartesian(xlim = c(1946, 2022), ylim = c(0, 1.6), expand = FALSE) +
-  labs(y = "mean F (ages 2-6)", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none")
-
-p <- p_ple_ssb + p_cod_ssb + p_her_ssb + 
-  p_ple_fbar + p_cod_fbar + p_her_fbar + plot_layout(ncol = 3, widths = 1)
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        strip.text = element_text(size = 8),
+        axis.title.y = element_blank())
 p
-ggsave(filename = "output/plots/risk_OM_vs_ICES.png", plot = p, 
-       width = 18, height = 8.5, units = "cm", dpi = 600, type = "cairo")
-ggsave(filename = "output/plots/risk_OM_vs_ICES.pdf", plot = p, 
-       width = 18, height = 8.5, units = "cm")
+ggsave(filename = "output/plots/OM/OM_vs_SAM.png", plot = p, 
+       width = 16, height = 8, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_vs_SAM.pdf", plot = p, 
+       width = 16, height = 8, units = "cm")
+
+### plot again but with some iterations
+df_iters <- as.data.frame(qnts) %>% 
+  select(year, iter, data, qname) %>%
+  filter(year <= 2024) %>%
+  mutate(qname = factor(qname,
+                        levels = c("catch", "rec", "fbar", "ssb"),
+                        labels = c("Catch (1000t)", "Recruitment (1000s)",
+                                   "F (ages 3-6)", "SSB (1000t)")))
+p <- ggplot() +
+  geom_ribbon(data = df %>%
+                filter(source == "Operating model"),
+              aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_ribbon(data = df %>%
+                filter(source == "Operating model"),
+              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_line(data = df %>% filter(source == "Operating model"),
+            aes(x = year, y = `50%`, colour = "Median"),
+            colour = "black") +
+  geom_line(data = df_iters %>% filter(iter %in% 1:5),
+            aes(x = year, y = data, colour = iter),
+            linewidth = 0.1,
+            show.legend = FALSE) +
+  facet_wrap(~ qname, scales = "free_y", strip.position = "left") +
+  scale_y_continuous(limits = c(0, NA)) +
+  #scale_colour_manual("", values = c("black")) +
+  labs(x = "Year") +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"),
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        strip.text = element_text(size = 8),
+        axis.title.y = element_blank())
+p
+ggsave(filename = "output/plots/OM/OM_vs_SAM_iters.png", plot = p, 
+       width = 16, height = 8, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_vs_SAM_iters.pdf", plot = p, 
+       width = 16, height = 8, units = "cm")
+
+### ------------------------------------------------------------------------ ###
+### biological data - baseline OM ####
+### ------------------------------------------------------------------------ ###
+### catch weights at age
+### stock weights at age
+### natural mortality
+### maturity
+
+### load stk
+stk <- readRDS(paste0("input/ple.27.7e/baseline/1000_100/stk.rds"))
+stk_median <- iterMedians(stk)
+
+df_biol <- FLQuants(cw = catch.wt(stk_median),
+                    lw = landings.wt(stk_median),
+                    dw = discards.wt(stk_median),
+                    sw = stock.wt(stk_median),
+                    m = m(stk_median),
+                    mat = mat(stk_median))
+df_biol <- as.data.frame(df_biol) %>% 
+  filter(year <= 2023)
+df_biol <- df_biol %>%
+  mutate(qname = factor(qname,
+                        levels = c("cw", "lw", "dw", "sw", "m", "mat"),
+                        labels = c("Catch weights (kg)",
+                                   "Landings weights (kg)",
+                                   "Discard weights (kg)",
+                                   "Stock weights (kg)",
+                                   "Natural mortality",
+                                   "Maturity"))) %>%
+  mutate(age = factor(age, levels = 10:2,
+                      labels = c("10+", 9:2)))
+cols <- scales::hue_pal()(length(2:10))
+cols <- cols[c(seq(from = 1, to = length(cols), by = 3),
+               seq(from = 2, to = length(cols), by = 3),
+               seq(from = 3, to = length(cols), by = 3))]
+
+p <- df_biol %>%
+  mutate(data = ifelse(data == 0, NA, data)) %>%
+  ggplot(aes(x = year, y = data, colour = age)) +
+  annotate("rect", xmin = 2018.5, xmax = 2023.5, ymin = -Inf, ymax = Inf,
+           alpha = 0.05, fill = "red") + 
+  geom_line(linewidth = 0.3) +
+  geom_point(size = 0.3) + 
+  geom_vline(xintercept = 2018.5, colour = "red", linewidth = 0.3) +
+  geom_vline(xintercept = 2023.5, colour = "red", linewidth = 0.3) +
+  scale_colour_manual("Age (years)", values = cols) + 
+  facet_wrap(~ qname, scales = "free_y", strip.position = "left") + 
+  coord_cartesian(xlim = c(2000, 2023), ylim = c(0, NA)) +
+  labs(x = "Year") + 
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"),
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        strip.text = element_text(size = 8),
+        axis.title.y = element_blank())
+p
+ggsave(filename = "output/plots/OM/OM_biol.png", plot = p, 
+       width = 16, height = 8, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_biol.pdf", plot = p, 
+       width = 16, height = 8, units = "cm")
+
+### fisheries selectivity
+sel <- harvest(stk_median) ### median
+sel <- propagate(sel, (dim(stk)[6] + 1))
+sel[,,,,, -1] <- harvest(stk) ### iterations
+
+df_sel <- as.data.frame(sel)
+df_sel <- df_sel %>%
+  group_by(year, iter) %>%
+  mutate(data = data/max(data))  %>%
+  mutate(source = ifelse(iter == 1, "Median", "Simulation\nreplicates"))
+
+p1 <- df_sel %>%
+  filter(year %in% 2014:2018) %>%
+  ggplot(aes(x = age, y = data, group = iter, 
+             colour = source, linewidth = source, alpha = source)) +
+  geom_line(data = . %>% filter(source == "Simulation\nreplicates")) +
+  geom_line(data = . %>% filter(source == "Median")) +
+  scale_colour_manual("", values = c("Median" = "red",
+                                     "Simulation\nreplicates" = "black")) +
+  scale_alpha_manual("", values = c("Median" = 1,
+                                    "Simulation\nreplicates" = 0.05)) +
+  scale_linewidth_manual("", values = c("Median" = 0.5,
+                                        "Simulation\nreplicates" = 0.1)) +
+  facet_grid("Historical\n" ~ year) +
+  ylim(c(0, NA)) +
+  labs(x = "Age (years)", y = "Fisheries selectivity") +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.6, "lines"),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank())
+p2 <- df_sel %>%
+  filter(year %in% 2019:2023) %>%
+  ggplot(aes(x = age, y = data, group = iter, 
+             colour = source, linewidth = source, alpha = source)) +
+  geom_line(data = . %>% filter(source == "Simulation\nreplicates")) +
+  geom_line(data = . %>% filter(source == "Median")) +
+  scale_colour_manual("", values = c("Median" = "red",
+                                     "Simulation\nreplicates" = "black")) +
+  scale_alpha_manual("", values = c("Median" = 1,
+                                    "Simulation\nreplicates" = 0.05)) +
+  scale_linewidth_manual("", values = c("Median" = 0.5,
+                                        "Simulation\nreplicates" = 0.1)) +
+  facet_grid("Historical\n(sampled from)" ~ year) +
+  ylim(c(0, NA)) +
+  labs(x = "Age (years)", y = "Fisheries selectivity") +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.6, "lines"),
+        legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+p3 <- df_sel %>%
+  filter(year %in% 2024:2028) %>%
+  ggplot(aes(x = age, y = data, group = iter, 
+             colour = source, linewidth = source, alpha = source)) +
+  geom_line(data = . %>% filter(source == "Simulation\nreplicates")) +
+  geom_line(data = . %>% filter(source == "Median")) +
+  scale_colour_manual("", values = c("Median" = "red",
+                                     "Simulation\nreplicates" = "black")) +
+  scale_alpha_manual("", values = c("Median" = 1,
+                                    "Simulation\nreplicates" = 0.05)) +
+  scale_linewidth_manual("", values = c("Median" = 0.5,
+                                        "Simulation\nreplicates" = 0.1)) +
+  facet_grid("Projection\n(re-sampled)" ~ year) +
+  ylim(c(0, NA)) +
+  labs(x = "Age (years)", y = "Fisheries selectivity") +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.6, "lines"),
+        legend.position = "none",
+        axis.title.y = element_blank())
+p <- p1 / p2 / p3
+p
+ggsave(filename = "output/plots/OM/OM_biol_sel.png", plot = p, 
+       width = 16, height = 9.5, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_biol_sel.pdf", plot = p, 
+       width = 16, height = 9.5, units = "cm")
+
 
 ### ------------------------------------------------------------------------ ###
 ### plot OM trajectories vs. ICES assessment - alternative OMs ####
@@ -756,6 +828,128 @@ ggsave(filename = "output/plots/risk_OM_vs_ICES_cod_her.png", plot = p_cod_her,
 ggsave(filename = "output/plots/risk_OM_vs_ICES_cod_her.pdf", plot = p_cod_her, 
        width = 16, height = 22, units = "cm")
 
+
+### ------------------------------------------------------------------------ ###
+### baseline OM - MSY search ####
+### ------------------------------------------------------------------------ ###
+MSY_trace <- readRDS("input/ple.27.7e/baseline/1000_100/MSY_trace.rds")
+MSY_trace <- as.data.frame(do.call(rbind, MSY_trace))[-length(MSY_trace), ]
+MSY_trace <- as.data.frame(apply(MSY_trace, 2, unlist))
+MSY_trace <- unique(MSY_trace)
+
+Fmsy <- MSY_trace$Ftrgt[which.max(MSY_trace$catch)]
+
+df_MSY_trace <- MSY_trace %>%
+  mutate(catch = catch/1000, ssb = ssb/1000, tsb = tsb/1000, rec = rec/1000) %>%
+  pivot_longer(-Ftrgt) %>%
+  mutate(name = factor(name, 
+                       levels = c("catch", "rec", "tsb", "ssb"),
+                       labels = c("Catch (1000t)", "Recruitment (1000s)",
+                                  "TSB (1000t)", "SSB (1000t)")))
+### MSY level
+df_MSY_trace_MSY <- df_MSY_trace %>%
+  filter(Ftrgt == Fmsy)
+
+p <- ggplot(data = df_MSY_trace,
+       aes(x = Ftrgt, y = value)) +
+  geom_hline(data = df_MSY_trace_MSY,
+             aes(yintercept = value, colour = "MSY", linetype = "MSY"),
+             linewidth = 0.3,
+             show.legend = FALSE) +
+  geom_vline(data = df_MSY_trace_MSY,
+             aes(xintercept = Fmsy, colour = "MSY", linetype = "MSY"),
+             linewidth = 0.3,
+             show.legend = FALSE) +
+  geom_blank(data = df_MSY_trace %>%
+               filter(name == "TSB (1000t)") %>%
+               mutate(name = "SSB (1000t)")) +
+  stat_smooth(data = df_MSY_trace,
+              aes(colour = "Loess smoother", linetype = "Loess smoother"), 
+              linewidth = 0.5,
+              se = FALSE, span = 0.3, n = 100, show.legend = TRUE) + 
+  geom_point(size = 0.5, show.legend = FALSE) +
+  scale_linetype_manual("", values = c("Loess smoother" = "solid",
+                                       "MSY" = "2121")) +
+  scale_colour_manual("", values = c("Loess smoother" = "blue",
+                                     "MSY" = "red")) +
+  facet_wrap(~name, scales = "free_y", strip.position = "left") +
+  ylim(c(0, NA)) +
+  labs(x = "F (ages 3-6)") +
+  theme_bw(base_size = 8) +
+  theme(strip.placement = "outside",
+        strip.background = element_blank(),
+        strip.text = element_text(size = 8),
+        axis.title.y = element_blank(),
+        legend.position = "inside",
+        legend.position.inside = c(0.85, 0.7),
+        legend.background = element_blank(),
+        legend.key = element_blank(),
+        legend.key.height = unit(0.6, "lines"))
+p
+ggsave(filename = "output/plots/OM/OM_baseline_MSY_search.png", plot = p, 
+       width = 10, height = 7, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_baseline_MSY_search.pdf", plot = p, 
+       width = 10, height = 7, units = "cm")
+
+### ------------------------------------------------------------------------ ###
+### baseline OM - MSY projection wormplot ####
+### ------------------------------------------------------------------------ ###
+
+stk <- readRDS(paste0("input/ple.27.7e/baseline/1000_100/stk.rds"))
+mp_f <- readRDS(paste0("output/ple.27.7e/baseline/1000_100/constF/mp_MSY.rds"))
+stk[, ac(2024:2124)] <- mp_f@om@stock
+qnts <- FLQuants(catch = catch(stk)/1000, rec = rec(stk)/1000,
+                 ssb = ssb(stk)/1000, fbar = fbar(stk))
+### percentiles
+qnts_perc <- lapply(qnts, quantile, probs = c(0.025, 0.25, 0.5, 0.75, 0.975),
+                    na.rm = TRUE)
+qnts_perc <- FLQuants(qnts_perc)
+qnts_perc <- as.data.frame(qnts_perc)
+qnts_perc <- qnts_perc %>% select(year, iter, data, qname) %>%
+  pivot_wider(names_from = iter, values_from = data)
+### individual iterations
+qnts_iter <- as.data.frame(iter(qnts, 1:5))
+levels <- c(paste0("Catch (1000t)"), "Recruitment (1000s)",
+            "SSB (1000t)", 
+            paste0("F (ages ", range(stk)[["minfbar"]], "-",
+                   range(stk)[["maxfbar"]], ")"))
+qnts_perc$qname <- factor(qnts_perc$qname,
+                          levels = c("catch", "rec", "ssb", "fbar"),
+                          labels = levels)
+qnts_iter$qname <- factor(qnts_iter$qname,
+                          levels = c("catch", "rec", "ssb", "fbar"),
+                          labels = levels)
+p <- ggplot() +
+  geom_ribbon(data = qnts_perc,
+              aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.1,
+              show.legend = FALSE) +
+  geom_ribbon(data = qnts_perc,
+              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.1,
+              show.legend = FALSE) +
+  geom_line(data = qnts_iter,
+            aes(x = year, y = data, colour = iter), 
+            linewidth = 0.1, show.legend = FALSE) + 
+  geom_line(data = qnts_perc, mapping = aes(x = year, y = `50%`),
+            linewidth = 0.4) +
+  geom_vline(xintercept = 2024.5, linewidth = 0.3) + 
+  geom_vline(xintercept = 2115, colour = "red", linewidth = 0.3) +
+  geom_vline(xintercept = 2124, colour = "red", linewidth = 0.3) +
+  annotate("rect", xmin = 2115, xmax = 2124, ymin = -Inf, ymax = Inf,
+           alpha = .2, fill = "red") + 
+  facet_wrap(~ qname, scales = "free_y", ncol = 1, strip.position = "left") +
+  ylim(c(0, NA)) + 
+  theme_bw(base_size = 8) +
+  theme(strip.placement = "outside",
+        strip.background = element_blank(),
+        strip.text = element_text(size = 8),
+        axis.title.y = element_blank())
+p
+ggsave(filename = "output/plots/OM/OM_baseline_MSY_worm.png", plot = p, 
+       width = 16, height = 13, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_baseline_MSY_worm.pdf", plot = p, 
+       width = 16, height = 13, units = "cm")
+
+
 ### ------------------------------------------------------------------------ ###
 ### visualisation of OM MSY values ####
 ### ------------------------------------------------------------------------ ###
@@ -887,100 +1081,22 @@ MSY_runs %>%
   rename(FMSY = Ftrgt, MSY = catch, BMSY = ssb, RMSY = rec) %>%
   write.csv(file = "input/OM_refpts.csv", row.names = FALSE)
 
-### ------------------------------------------------------------------------ ###
-### Plaice, cod & herring: MSY wormplot - baseline OMs ####
-### ------------------------------------------------------------------------ ###
-
-ps <- lapply(c("Plaice", "Cod", "Herring"), function(x) {
-  stock <- switch(x,
-    "Plaice" = "ple.27.7e",
-    "Cod" = "cod.27.47d20",
-    "Herring" = "her.27.3a47d"
-  )
-  stk <- readRDS(paste0("input/", stock, "/baseline/1000_100/stk.rds"))
-  mp_f <- readRDS(paste0("output/", stock, 
-                          "/baseline/1000_100/constF/mp_MSY.rds"))
-  stk[, ac(2020:2120)] <- mp_f@om@stock
-  qnts <- FLQuants(catch = catch(stk)/1000, rec = rec(stk)/1000,
-                   ssb = ssb(stk)/1000, fbar = fbar(stk))
-  if (x %in% c("Cod", "Herring")) qnts$rec <- qnts$rec/1000
-  if (x %in% c("Herring")) qnts$ssb <- qnts$ssb/1000
-  ### percentiles
-  qnts_perc <- lapply(qnts, quantile, probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
-                      na.rm = TRUE)
-  qnts_perc <- FLQuants(qnts_perc)
-  qnts_perc <- as.data.frame(qnts_perc)
-  qnts_perc <- qnts_perc %>% select(year, iter, data, qname) %>%
-    pivot_wider(names_from = iter, values_from = data)
-  ### individual iterations
-  qnts_iter <- as.data.frame(iter(qnts, 1:5))
-  levels <- c(paste0("Catch [1000t]"), "Recruitment [1000s]",
-              "SSB [1000t]", 
-              paste0("F (ages ", range(stk)[["minfbar"]], "-",
-                     range(stk)[["maxfbar"]], ")"))
-  if (x %in% c("Cod", "Herring")) levels[2] <- "Recruitment [millions]"
-  if (x %in% c("Herring")) levels[3] <- "SSB [million t]"
-  qnts_perc$qname <- factor(qnts_perc$qname,
-                            levels = c("catch", "rec", "ssb", "fbar"),
-                            labels = levels)
-  qnts_iter$qname <- factor(qnts_iter$qname,
-                            levels = c("catch", "rec", "ssb", "fbar"),
-                            labels = levels)
-  p <- ggplot() +
-    geom_ribbon(data = qnts_perc,
-                aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.1,
-                show.legend = FALSE) +
-    geom_ribbon(data = qnts_perc,
-                aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.1,
-                show.legend = FALSE) +
-    geom_line(data = qnts_iter,
-              aes(x = year, y = data, colour = iter), 
-              size = 0.1, show.legend = FALSE) + 
-    geom_line(data = qnts_perc, mapping = aes(x = year, y = `50%`),
-              size = 0.4) +
-    geom_vline(xintercept = 2020.5, size = 0.3) + 
-    geom_vline(xintercept = 2111, colour = "red", size = 0.3) +
-    geom_vline(xintercept = 2120, colour = "red", size = 0.3) +
-    annotate("rect", xmin = 2111, xmax = 2120, ymin = -Inf, ymax = Inf,
-             alpha = .2, fill = "red") + 
-    facet_wrap(~ qname, scales = "free_y", ncol = 1, strip.position = "left") +
-    ylim(c(0, NA)) + 
-    labs(title = switch(x,
-                        "Plaice" = "(a) Plaice",
-                        "Cod" = "(b) Cod",
-                        "Herring" = "(c) Herring")) + 
-    theme_bw(base_size = 8) +
-    theme(strip.placement = "outside",
-          strip.background = element_blank(),
-          strip.text = element_text(size = 8),
-          axis.title.y = element_blank(),
-          plot.title = element_text(face = "bold"))
-  return(p)
-})
-p <- ps[[1]] + ps[[2]] + ps[[3]]
-ggsave(filename = "output/plots/OM/OM_MSY_worm.png", plot = p, 
-       width = 17, height = 13, units = "cm", dpi = 600, type = "cairo")
-ggsave(filename = "output/plots/OM/OM_MSY_worm.pdf", plot = p, 
-       width = 17, height = 13, units = "cm")
 
 
 ### ------------------------------------------------------------------------ ###
-### Plaice: recruitment model and residual visualisation ####
+### Recruitment model and residual visualisation (baseline OM) ####
 ### ------------------------------------------------------------------------ ###
 
-### input data, including discard estimates
-stk_data <- readRDS("input/ple.27.7e/preparation/model_input_stk_d.RDS")
-idx_data <- readRDS("input/ple.27.7e/preparation/model_input_idx.RDS")
-### use configuration similar to accepted XSA assessment
-SAM_conf <- list(keyLogFpar = 
-                   matrix(data = c(rep(-1, 9),
-                                   0:5, 5, -1, -1,
-                                   6:11, 11, 11, -1),
-                          ncol = 9, nrow = 3, byrow = TRUE))
+### SR model fit
+fit <- readRDS("input/ple.27.7e/baseline/1000_100/SAM_fit.rds")
+sr_om <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
+stk <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
+stk <- window(iterMedians(stk), end = 2023)
 
-fit <- FLR_SAM(stk_data, idx_data, conf = SAM_conf)
 fit_stk <- SAM2FLStock(object = fit, stk = stk_data)
 sr <- as.FLSR(fit_stk, model = "bevholtSV")
+rec(sr) <- rec(sr)/1000
+ssb(sr) <- ssb(sr)/1000
 sr <- fmle(sr, method = 'L-BFGS-B', fixed = list(), 
            control = list(trace = 0))
 sr_params <- abPars("bevholt", s = params(sr)["s"], v = params(sr)["v"], 
@@ -988,56 +1104,83 @@ sr_params <- abPars("bevholt", s = params(sr)["s"], v = params(sr)["v"],
 sr_params <- list(a = c(sr_params$a), b = c(sr_params$b))
 sr_model <- function(ssb, a, b) {(a*ssb)/(b + ssb)}
 
-### data.frame with data
+### median - data.frame with data
 df_sr <- data.frame(year = as.numeric(dimnames(sr)$year),
                     ssb = c(ssb(sr)), 
                     rec = c(rec(sr)), 
                     fitted = c(fitted(sr)),
                     residuals = c(residuals(sr)))
-### get density
+### median - get density
 dens <- density(x = df_sr$residuals)
 df_dens <- data.frame(x = dens$x, y = dens$y)
 
+### iterations - get density
+df_dens_iter <- lapply(seq(dim(sr_om)[6]), function(i) {
+  dens <- density(log(c(iter(sr_om@residuals, i))))
+  data.frame(x = dens$x, y = dens$y, iter = i)
+})
+df_dens_iter <- bind_rows(df_dens_iter)
+
 p_res <- df_sr %>%
   ggplot(aes(x = ssb, y = rec)) +
+  geom_blank(data = data.frame(ssb = 9, rec = 18)) +
   geom_linerange(aes(x = ssb, ymin = rec, ymax = fitted), 
                  colour = "blue", size = 0.2, 
                  linetype = "2121") +
   geom_point(size = 0.5) +
   geom_function(fun = sr_model, args = sr_params, size = 0.4) +
   scale_colour_manual(values = c(observation = "black", model = "black")) +
-  scale_y_continuous(breaks = c(0, 5000, 10000, 15000),
-                     labels = c(0, 5, 10, 15),
-                     limits = c(0, 18000), expand = c(0, 0)) +
-  scale_x_continuous(breaks = c(0, 2000, 4000, 6000), 
-                     labels = c(0, 2, 4, 6), 
-                     limits = c(0, 7500), expand = c(0, 0)) +
-  labs(x = "SSB [1000t]", y = "Recruitment [1000s]") +
+  scale_y_continuous(breaks = scales::pretty_breaks(),
+                     limits = c(0, NA), expand = c(0, 0)) +
+  scale_x_continuous(breaks = scales::pretty_breaks(),
+                     limits = c(0, NA), expand = c(0, 0)) +
+  labs(x = "SSB (1000t)", y = "Recruitment (1000s)") +
   theme_bw(base_size = 8)
+df_dens_max <- max(df_dens$y)
 p_hist <- df_sr %>%
   ggplot(aes(residuals)) +
-  geom_histogram(bins = 15, colour = "black", fill = "white", size = 0.4) +
-  geom_line(aes(x = x, y = y * 10, colour = "kernel"), 
-            data = df_dens, show.legend = TRUE, size = 0.4) + 
-  scale_y_continuous(sec.axis = sec_axis(~./10, name = "Density"),
-                     limits = c(-0.05, 10), expand = c(0, 0)) +
+  geom_histogram(bins = 13, colour = "black", fill = "white", size = 0.4,
+                 linewidth = 0.4) +
+  geom_line(aes(x = x, y = y * 10 * df_dens_max, colour = "kernel"), 
+            data = df_dens, show.legend = TRUE, linewidth = 0.4) + 
+  scale_x_continuous(breaks = c(-1, 0, 1),
+                     limits = c(-1.5, 1.5)) +
+  scale_y_continuous(breaks = scales::pretty_breaks(),
+                     sec.axis = sec_axis(~./(10 * df_dens_max), 
+                                         name = "Density", 
+                                         breaks = scales::pretty_breaks()),
+                     limits = c(0, 10.5), expand = c(0, 0)) +
   scale_colour_manual("", values = c(kernel = "red"), 
-                      labels = c("kernel density")) +
+                      labels = c("kernel\ndensity")) +
   labs(y = "Residual count", x = "Log residuals") +
   theme_bw(base_size = 8) +
   theme(axis.title.y.right = element_text(angle = 90),
-        legend.position = c(0.8, 0.8),
+        legend.position = "inside",
+        legend.position.inside = c(0.78, 0.9),
         legend.background = element_blank(),
-        legend.key = element_blank(),
-        legend.key.width = unit(0.8, "lines"))
+        legend.key = element_blank())
+df_dens_iter_max <- max(df_dens_iter$y)
+p_hist_iter <- ggplot() +
+  geom_line(data = df_dens_iter, 
+            aes(x = x, y = y, group = iter), 
+            linewidth = 0.1, alpha = 0.05) + 
+  scale_y_continuous(position = "right",
+                     breaks = scales::pretty_breaks(),
+                     limits = c(0, df_dens_iter_max*1.05), expand = c(0, 0)) +
+  scale_x_continuous(breaks = scales::pretty_breaks(),
+                     limits = c(-2.5, 2.5)) +
+  labs(y = "Density", x = "Log residuals") +
+  theme_bw(base_size = 8) +
+  theme(axis.title.y.right = element_text(angle = 90))
 
-p_res / p_hist + plot_annotation(tag_levels = "a", 
+p <- p_res + p_hist + p_hist_iter + plot_annotation(tag_levels = "a", 
                                  tag_prefix = "(", tag_suffix = ")")  &
   theme(plot.tag = element_text(face = "bold"))
-ggsave(filename = "output/plots/OM/OM_ple_rec.png", 
-       width = 9, height = 9, units = "cm", dpi = 600, type = "cairo")
-ggsave(filename = "output/plots/OM/OM_ple_rec.pdf", 
-       width = 9, height = 9, units = "cm", dpi = 600)
+p
+ggsave(filename = "output/plots/OM/OM_rec_res.png", plot = p,
+       width = 16, height = 5, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_rec_res.pdf", plot = p,
+       width = 16, height = 5, units = "cm", dpi = 600)
 
 
 ### ------------------------------------------------------------------------ ###
@@ -1283,6 +1426,87 @@ ggsave(filename = "output/plots/OM/OM_rec_OMs.png", plot = p,
        width = 16, height = 16, units = "cm", dpi = 600, type = "cairo")
 ggsave(filename = "output/plots/OM/OM_rec_OMs.pdf", plot = p,
        width = 16, height = 16, units = "cm", dpi = 600)
+
+### ------------------------------------------------------------------------ ###
+### surveys (catchability and weights at age) - baseline OM ####
+### ------------------------------------------------------------------------ ###
+### catchability
+### index weights at age
+
+### load data
+uncertainty <- readRDS("input/ple.27.7e/baseline/1000_100/SAM_uncertainty.rds")
+idx <- readRDS("input/ple.27.7e/baseline/1000_100/idx.rds")
+idx_dev <- readRDS("input/ple.27.7e/baseline/1000_100/idx_dev.rds")
+
+### catchability
+q <- uncertainty$survey_catchability
+q <- lapply(q, function(x) propagate(iterMedians(x, 1), dim(x)[6] + 1))
+q <- FLQuants(q)
+names(q) <- c("UK-FSP", "Q1SWBeam")
+### add iterations
+q$`UK-FSP`[,,,,, -1] <- uncertainty$survey_catchability[[1]]
+q$Q1SWBeam[,,,,, -1] <- uncertainty$survey_catchability[[2]]
+### format
+df_q <- as.data.frame(q) %>%
+  mutate(qname = factor(qname, levels = c("Q1SWBeam", "UK-FSP"))) %>%
+  mutate(source = ifelse(iter == 1, "Median", "Simulation\nreplicates"))
+
+p <- df_q %>%
+  ggplot(aes(x = age, y = data, group = iter, 
+             colour = source, linewidth = source, alpha = source)) +
+  geom_line(data = . %>% filter(source == "Simulation\nreplicates")) +
+  geom_line(data = . %>% filter(source == "Median")) +
+  scale_colour_manual("", values = c("Median" = "red",
+                                     "Simulation\nreplicates" = "black")) +
+  scale_alpha_manual("", values = c("Median" = 1,
+                                    "Simulation\nreplicates" = 0.05)) +
+  scale_linewidth_manual("", values = c("Median" = 0.5,
+                                        "Simulation\nreplicates" = 0.1)) +
+  facet_wrap(~ qname, scales = "free_y") +
+  scale_y_continuous(limits = c(0, NA), breaks = scales::pretty_breaks()) +
+  labs(x = "Age (years)", y = "Survey catchability (q)") +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.6, "lines"))
+p
+ggsave(filename = "output/plots/OM/OM_idx_q.png", plot = p, 
+       width = 12, height = 5, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_idx_q.pdf", plot = p, 
+       width = 12, height = 5, units = "cm")
+
+
+### index weights at age
+df_idx_wts <- FLQuants(Q1SWBeam = FLQuant(iterMedians(catch.wt(idx$Q1SWBeam))),
+                       "UK-FSP" = FLQuant(iterMedians(catch.wt(idx$`UK-FSP`))))
+df_idx_wts <- as.data.frame(df_idx_wts) %>% 
+  filter(year <= 2023) %>%
+  mutate(age = factor(age, levels = 9:2))
+cols <- scales::hue_pal()(length(2:9))
+cols <- cols[c(seq(from = 1, to = length(cols), by = 3),
+               seq(from = 2, to = length(cols), by = 3),
+               seq(from = 3, to = length(cols), by = 3))]
+
+p <- df_idx_wts %>%
+  mutate(data = ifelse(data == 0, NA, data)) %>%
+  ggplot(aes(x = year, y = data, colour = age)) +
+  annotate("rect", xmin = 2018.5, xmax = 2023.5, ymin = -Inf, ymax = Inf,
+           alpha = 0.05, fill = "red") + 
+  geom_line(linewidth = 0.3) +
+  geom_point(size = 0.3) + 
+  geom_vline(xintercept = 2018.5, colour = "red", linewidth = 0.3) +
+  geom_vline(xintercept = 2023.5, colour = "red", linewidth = 0.3) +
+  scale_colour_manual("Age (years)", values = cols) + 
+  facet_wrap(~ qname) + 
+  coord_cartesian(xlim = c(NA, 2023), ylim = c(0, NA)) +
+  labs(x = "Year", y = "Index catch weight (kg)") + 
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"))
+p
+ggsave(filename = "output/plots/OM/OM_idx_wts.png", plot = p, 
+       width = 16, height = 6, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_idx_wts.pdf", plot = p, 
+       width = 16, height = 6, units = "cm")
+
 
 ### ------------------------------------------------------------------------ ###
 ### fishery selectivity ####
