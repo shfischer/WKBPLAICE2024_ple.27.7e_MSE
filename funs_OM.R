@@ -42,6 +42,8 @@ create_OM <- function(stk_data, idx_data,
                       ### natural mortality
                       M_alternative = NULL, ### 1 value (const.) or M@age
                       M_alternative_mult = FALSE,
+                      ### stf settings
+                      stf_nyrs = 5,
                       ### intermediate year
                       int_yr = FALSE,
                       int_yr_add = FALSE,
@@ -189,7 +191,8 @@ create_OM <- function(stk_data, idx_data,
   ### ---------------------------------------------------------------------- ###
   ### extend stock for MSE simulation ####
   message("extend OM stock for projection")
-  stk_stf <- stf(stk, n_years_new)
+  stk_stf <- stf(stk, n_years_new, wts.nyears = stf_nyrs, 
+                 disc.nyears = stf_nyrs)
   
   ### ---------------------------------------------------------------------- ###
   ### biological data for OM ####
@@ -366,7 +369,7 @@ create_OM <- function(stk_data, idx_data,
     if (isTRUE(disc_survival_OM > 0)) {
       ### if some discards survive, adjust catch for this survival
       d_rate <- yearMeans(tail(discards(stk_data_input)/
-                             catch(stk_data_input), 3))
+                             catch(stk_data_input), stf_nyrs))
       c_prop <- (1 - d_rate + d_rate * (1 - disc_survival_OM))
       int_yr_value <- c(int_yr_value * c_prop)
       message("-> include discard survival in intermediate year")
