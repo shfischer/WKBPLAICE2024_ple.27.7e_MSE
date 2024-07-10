@@ -1267,6 +1267,105 @@ ggsave(filename = "output/plots/OM/OM_rec_baseline.pdf", plot = p,
        width = 10, height = 5, units = "cm", dpi = 600)
 
 ### ------------------------------------------------------------------------ ###
+### Recruitment - SAM estimates vs simulated ####
+### ------------------------------------------------------------------------ ###
+
+sr <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
+
+### auto-correlation from baseline OM
+sr_rho <- 0.543945377878967573082036324194632470607757568359375
+yrs_res <- 1982:2023
+
+### create simulated residuals for historical period
+### same approach as used in create_OM()
+res_new <- foreach(iter_i = seq(dim(sr)[6])) %do% {
+  set.seed(iter_i)
+  ### get residuals for current iteration
+  ### log residuals here - create_OM() used exp() to get multiplicative values
+  res_i <- c(FLCore::iter(log(residuals(sr)), iter_i))
+  res_i <- res_i[!is.na(res_i)]
+  ### calculate kernel density of residuals
+  density <- density(x = res_i)
+  ### sample residuals
+  mu <- sample(x = res_i, size = length(yrs_res), replace = TRUE)
+  ### "smooth", i.e. sample from density distribution
+  res_new <- rnorm(n = length(yrs_res), mean = mu, sd = density$bw)
+  ### "add" autocorrelation
+  if (TRUE) {
+    sr_acf_i <- acf(res_i, lag.max = 1, plot = FALSE, na.action = na.exclude)
+    sr_rho_i <- sr_acf_i$acf[2]
+    res_ac <- rep(0, length(yrs_res))
+    res_ac[1] <- sr_rho * tail(res_i, 1) + sqrt(1 - sr_rho^2) * res_new[1]
+    for (r in 2:length(res_ac)) {
+      res_ac[r] <- sr_rho * res_ac[r - 1] + sqrt(1 - sr_rho^2) * res_new[r]
+    }
+  }
+  return(list(default = res_new, ac = res_ac))
+}
+### residuals
+res_default <- res_ac <- window(residuals(sr), end = 2023) %=% NA_real_
+res_default[] <- exp(unlist(lapply(res_new, "[", "default")))
+res_ac[] <- exp(unlist(lapply(res_new, "[", "ac")))
+### modelled recruitment (fitted value plus noise)
+r_default <- window(fitted(sr), end = 2023) * res_default
+r_ac <- window(fitted(sr), end = 2023) * res_ac
+### combine data and format
+qnts_r <- FLQuants(r_data = window(rec(sr), end = 2023),
+                   r_modelled = r_default,
+                   r_modelled_ac = r_ac)
+df <- as.data.frame(window(ssb(sr), start = 1982, end = 2023)) %>%
+  select(year, SSB = data, iter) %>%
+  full_join(as.data.frame(qnts_r) %>%
+              select(year, R = data, source = qname, iter),
+            relationship = "many-to-many")
+df <- bind_rows(df %>%
+                  filter(iter %in% 1:3),
+                df %>%
+                  mutate(iter = "all")) %>%
+  mutate(iter_group = ifelse(iter == "all", "all", "iter")) %>%
+  mutate(iter_group = factor(iter_group, levels = c("iter", "all"))) %>%
+  mutate(source = factor(source, 
+                         levels = c("r_modelled", "r_modelled_ac", "r_data"),
+                         labels = c("Modelled",
+                                    "Modelled (with\nauto-correlation)",
+                                    "Data")))
+
+### plot SR pairs
+p_pairs <- df %>%
+  ggplot(aes(x = SSB/1000, y = R/1000, colour = source, alpha = iter_group)) +
+  geom_point(shape = 19, size = 0.4) + 
+  scale_alpha_manual(values = c("iter" = 0.5, "all" = 0.05), 
+                     guide = "none") +
+  scale_colour_manual("", values = rev(scales::hue_pal()(3))) + 
+  facet_wrap(~ iter, nrow = 1) +
+  xlim(c(0, NA)) +
+  ylim(c(0, NA)) + 
+  labs(x = "SSB (1000t)", y = "Recruitment (millions)") +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"))
+p_pairs
+
+### plot empirical cumulative distribution
+p_ecdf <- df %>%
+  ggplot() +
+  stat_ecdf(aes(R/1000, colour = source), linewidth = 0.4, alpha = 0.8) +
+  scale_colour_manual("", values = rev(scales::hue_pal()(3))) + 
+  facet_wrap(~ iter, nrow = 1) +
+  xlim(c(0, NA)) +
+  ylim(c(0, NA)) + 
+  labs(x = "Recruitment (millions)", y = "Empirical cumulative\ndistribution") +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"))
+p_ecdf  
+
+p <- p_pairs / p_ecdf
+p
+ggsave(filename = "output/plots/OM/OM_rec_data_vs_model.png", plot = p,
+       width = 16, height = 8, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_rec_data_vs_model.pdf", plot = p,
+       width = 16, height = 8, units = "cm", dpi = 600)
+  
+### ------------------------------------------------------------------------ ###
 ### Recruitment models of alternative OMs (all stocks) ####
 ### ------------------------------------------------------------------------ ###
 
