@@ -571,6 +571,7 @@ create_OM <- function(stk_data, idx_data,
     ### exponentiate to get from normal to log-normal scale
     idx_dev[[idx_i]] <- exp(idx_dev[[idx_i]])
   }
+  idx_dev_raw <- idx_dev
   ### modify residuals for historical period so that index values passed to 
   ### stock assessment are the ones observed in reality
   for (idx_i in seq_along(idx_dev)) {
@@ -692,6 +693,7 @@ create_OM <- function(stk_data, idx_data,
     ### surveys
     saveRDS(idx, file = paste0(input_path, "idx.rds"))
     saveRDS(idx_dev, file = paste0(input_path, "idx_dev.rds"))
+    saveRDS(idx_dev_raw, file = paste0(input_path, "idx_dev_raw.rds"))
     ### catch noise
     saveRDS(catch_res, file = paste0(input_path, "catch_res.rds"))
     ### process error
