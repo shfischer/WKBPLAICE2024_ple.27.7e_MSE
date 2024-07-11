@@ -1606,75 +1606,309 @@ ggsave(filename = "output/plots/OM/OM_idx_wts.png", plot = p,
 ggsave(filename = "output/plots/OM/OM_idx_wts.pdf", plot = p, 
        width = 16, height = 6, units = "cm")
 
+### ------------------------------------------------------------------------ ###
+### surveys - simulated historical values ####
+### ------------------------------------------------------------------------ ###
+idx <- readRDS("input/ple.27.7e/baseline/1000_100/idx.rds")
+idx_dev <- readRDS("input/ple.27.7e/baseline/1000_100/idx_dev.rds")
+idx_dev_raw <- readRDS("input/ple.27.7e/baseline/1000_100/idx_dev_raw.rds")
+
+### observed numbers and biomass
+idx_Q1 <- window(index(idx$Q1SWBeam) * idx_dev$Q1SWBeam, end = 2023)
+idx_FSP <- window(index(idx$`UK-FSP`) * idx_dev$`UK-FSP`, end = 2023)
+idxB_Q1 <- window(quantSums(index(idx$Q1SWBeam) * catch.wt(idx$Q1SWBeam) *
+                              idx_dev$Q1SWBeam), end = 2023)
+idxB_FSP <- window(quantSums(index(idx$`UK-FSP`) * catch.wt(idx$`UK-FSP`) *
+                               idx_dev$`UK-FSP`), end = 2023)
+
+### simulated values
+idx_sim_Q1 <- window(index(idx$Q1SWBeam) * idx_dev_raw$Q1SWBeam, end = 2023)
+idx_sim_FSP <- window(index(idx$`UK-FSP`) * idx_dev_raw$`UK-FSP`, end = 2023)
+idxB_sim_Q1 <- window(quantSums(index(idx$Q1SWBeam) * catch.wt(idx$Q1SWBeam) *
+                                  idx_dev_raw$Q1SWBeam), end = 2023)
+idxB_sim_FSP <- window(quantSums(index(idx$`UK-FSP`) * catch.wt(idx$`UK-FSP`) *
+                                   idx_dev_raw$`UK-FSP`), end = 2023)
+
+qnts_sim <- FLQuants(Q1SWBeam = idx_sim_Q1,
+                     `UK-FSP` = idx_sim_FSP)
+qnts_sim_perc <- lapply(qnts_sim, quantile, 
+                        probs = c(0.025, 0.25, 0.5, 0.75, 0.975),
+                    na.rm = TRUE)
+qnts_sim_perc <- FLQuants(qnts_sim_perc)
+df_sim_perc <- as.data.frame(qnts_sim_perc)
+df_sim_perc <- df_sim_perc %>% 
+  select(year, age, iter, data, survey = qname) %>%
+  pivot_wider(names_from = iter, values_from = data) %>%
+  mutate(source = "simulated")
+df_obs_perc <- FLQuants(Q1SWBeam = idx_Q1,
+                        `UK-FSP` = idx_FSP) |>
+  lapply(quantile, probs = c(0.5)) |>
+  as(Class = "FLQuants") |>
+  as.data.frame() %>%
+  select(year, age, iter, data, survey = qname) %>%
+  pivot_wider(names_from = iter, values_from = data) %>%
+  mutate(source = "observed")
+df_perc <- bind_rows(df_sim_perc, df_obs_perc) %>%
+  mutate(survey = factor(survey, levels = c("Q1SWBeam", "UK-FSP"),
+                         labels = c("Q1SWBeam", "UK-FSP")),
+         source = factor(source, levels = c("simulated", "observed")))
+
+p_N_Q1 <- df_perc %>%
+  filter(survey == "Q1SWBeam") %>%
+  ggplot() +
+  geom_ribbon(data = . %>%
+                filter(source == "simulated"),
+              aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_ribbon(data = . %>%
+                filter(source == "simulated"),
+              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_line(aes(x = year, y = `50%`, colour = source, linetype = source)) +
+  facet_grid(paste0("Age ", age) ~ survey, scales = "free") +
+  scale_y_continuous(limits = c(0, NA)) +
+  scale_colour_manual("", values = c("simulated" = "black", 
+                                     "observed" = "red")) +
+  scale_linetype_manual("", values = c("simulated" = "solid", 
+                                       "observed" = "2121")) +
+  labs(x = "Year", y = "Index numbers") +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        #strip.text.y = element_blank(),
+        legend.position = "none")
+p_N_FSP <- df_perc %>%
+  filter(survey == "UK-FSP") %>%
+  ggplot() +
+  geom_ribbon(data = . %>%
+                filter(source == "simulated"),
+              aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_ribbon(data = . %>%
+                filter(source == "simulated"),
+              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_line(aes(x = year, y = `50%`, colour = source, linetype = source)) +
+  facet_grid(paste0("Age ", age) ~ survey, scales = "free") +
+  scale_y_continuous(limits = c(0, NA)) +
+  scale_colour_manual("", values = c("simulated" = "black", 
+                                     "observed" = "red")) +
+  scale_linetype_manual("", values = c("simulated" = "solid", 
+                                       "observed" = "2121")) +
+  labs(x = "Year", y = "Index numbers") +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+p_N_Q1 + p_N_FSP
+
+
+### plot biomass
+qntsB_sim <- FLQuants(Q1SWBeam = idxB_sim_Q1,
+                     `UK-FSP` = idxB_sim_FSP)
+qntsB_sim_perc <- lapply(qntsB_sim, quantile, 
+                        probs = c(0.025, 0.25, 0.5, 0.75, 0.975),
+                        na.rm = TRUE)
+qntsB_sim_perc <- FLQuants(qntsB_sim_perc)
+dfB_sim_perc <- as.data.frame(qntsB_sim_perc)
+dfB_sim_perc <- dfB_sim_perc %>% 
+  select(year, age, iter, data, survey = qname) %>%
+  pivot_wider(names_from = iter, values_from = data) %>%
+  mutate(source = "simulated")
+dfB_obs_perc <- FLQuants(Q1SWBeam = idxB_Q1,
+                        `UK-FSP` = idxB_FSP) |>
+  lapply(quantile, probs = c(0.5)) |>
+  as(Class = "FLQuants") |>
+  as.data.frame() %>%
+  select(year, age, iter, data, survey = qname) %>%
+  pivot_wider(names_from = iter, values_from = data) %>%
+  mutate(source = "observed")
+dfB_perc <- bind_rows(dfB_sim_perc, dfB_obs_perc) %>%
+  mutate(survey = factor(survey, levels = c("Q1SWBeam", "UK-FSP"),
+                         labels = c("Q1SWBeam", "UK-FSP")),
+         source = factor(source, levels = c("simulated", "observed")))
+
+p_B_Q1 <- dfB_perc %>%
+  filter(survey == "Q1SWBeam") %>%
+  ggplot() +
+  geom_ribbon(data = . %>%
+                filter(source == "simulated"),
+              aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_ribbon(data = . %>%
+                filter(source == "simulated"),
+              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_line(aes(x = year, y = `50%`, colour = source, linetype = source)) +
+  facet_grid("Biomass" ~ survey, scales = "free") +
+  scale_y_continuous(limits = c(0, NA)) +
+  scale_colour_manual("", values = c("simulated" = "black", 
+                                     "observed" = "red")) +
+  scale_linetype_manual("", values = c("simulated" = "solid", 
+                                       "observed" = "2121")) +
+  labs(x = "Year", y = "Index biomass") +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"),
+        strip.text.x = element_blank(),
+        legend.position = "none")
+p_B_FSP <- dfB_perc %>%
+  filter(survey == "UK-FSP") %>%
+  ggplot() +
+  geom_ribbon(data = . %>%
+                filter(source == "simulated"),
+              aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_ribbon(data = . %>%
+                filter(source == "simulated"),
+              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_line(aes(x = year, y = `50%`, colour = source, linetype = source)) +
+  facet_grid("Biomass" ~ survey, scales = "free") +
+  scale_y_continuous(limits = c(0, NA)) +
+  scale_colour_manual("", values = c("simulated" = "black", 
+                                     "observed" = "red")) +
+  scale_linetype_manual("", values = c("simulated" = "solid", 
+                                       "observed" = "2121")) +
+  labs(x = "Year", y = "Index numbers") +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"),
+        axis.title.y = element_blank(),
+        strip.text.x = element_blank(),
+        legend.position = "none")
+p <- p_N_Q1 + p_N_FSP + p_B_Q1 + p_B_FSP + 
+  plot_layout(ncol = 2, heights = c(1, 0.3))
+p
+ggsave(filename = "output/plots/OM/OM_idx_sim.png", plot = p, 
+       width = 16, height = 16, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_idx_sim.pdf", plot = p, 
+       width = 16, height = 16, units = "cm")
+
 
 ### ------------------------------------------------------------------------ ###
-### fishery selectivity ####
+### MCMC ####
 ### ------------------------------------------------------------------------ ###
+### use MCMC and compare output with OM
+library(tmbstan)
 
-fit_ple <- readRDS("input/ple.27.7e/baseline/1000_100/SAM_fit.rds")
-fit_her <- readRDS("input/her.27.3a47d/baseline/1000_100/SAM_fit.rds")
-fit_cod <- readRDS("input/cod.27.47d20/baseline/1000_100/SAM_fit.rds")
+stk_data <- readRDS("input/ple.27.7e/preparation/model_input_stk.RDS")
+fit <- readRDS("input/ple.27.7e/baseline/1000_100/SAM_fit.rds")
+stk_fit <- SAM2FLStock(object = fit, stk = stk_data)
+stk_om <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
 
-bind_rows(as.data.frame(apply(faytable(fit_ple), 1, function(x) x/max(x))) %>%
-            rownames_to_column("age") %>%
-            mutate(age = as.numeric(age)) %>%
-            pivot_longer(-age, names_to = c("year"), 
-                         names_transform = c(year = "as.numeric")) %>%
-            mutate(stock = "Plaice"),
-          as.data.frame(apply(faytable(fit_cod), 1, function(x) x/max(x))) %>%
-            rownames_to_column("age") %>%
-            mutate(age = as.numeric(age)) %>%
-            pivot_longer(-age, names_to = c("year"), 
-                         names_transform = c(year = "as.numeric")) %>%
-            mutate(stock = "Cod"),
-          as.data.frame(apply(faytable(fit_her), 1, function(x) x/max(x))) %>%
-            rownames_to_column("age") %>%
-            mutate(age = as.numeric(age)) %>%
-            pivot_longer(-age, names_to = c("year"), 
-                         names_transform = c(year = "as.numeric")) %>%
-            mutate(stock = "Herring")
-          ) %>%
-  mutate(stock = factor(stock, levels = c("Plaice", "Cod", "Herring"))) %>%
-  filter(year >= 2010) %>%
-  ggplot(aes(x = age, y = value, colour = as.factor(year))) +
-  geom_line() +
-  scale_color_discrete("year") +
-  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10)) +
-  facet_wrap(~ stock) + 
-  labs(y = "Fishery selectivity") +
-  theme_bw(base_size = 8)
-  
-  
-  
-  
-as.data.frame(apply(faytable(fit_ple), 1, function(x) x/max(x))) %>%
-  rownames_to_column("age") %>%
-  mutate(age = as.numeric(age)) %>%
-  pivot_longer(-age, names_to = c("year"), 
-               names_transform = c(year = "as.numeric")) %>%
-  filter(year >= 2010) %>%
-  ggplot(aes(x = age, y = value, colour = as.factor(year))) +
-  geom_line() +
-  scale_color_discrete("year") +
-  labs(y = "Fishery selectivity") +
-  theme_bw(base_size = 8)
-as.data.frame(apply(faytable(fit_her), 1, function(x) x/max(x))) %>%
-  rownames_to_column("age") %>%
-  mutate(age = as.numeric(age)) %>%
-  pivot_longer(-age, names_to = c("year"), 
-               names_transform = c(year = "as.numeric")) %>%
-  filter(year >= 2010) %>%
-  ggplot(aes(x = age, y = value, colour = as.factor(year))) +
-  geom_line() +
-  scale_color_discrete("year") +
-  theme_bw(base_size = 8)
-as.data.frame(apply(faytable(fit_cod), 1, function(x) x/max(x))) %>%
-  rownames_to_column("age") %>%
-  mutate(age = as.numeric(age)) %>%
-  pivot_longer(-age, names_to = c("year"), 
-               names_transform = c(year = "as.numeric")) %>%
-  filter(year >= 2010) %>%
-  ggplot(aes(x = age, y = value, colour = as.factor(year))) +
-  geom_line() +
-  scale_color_discrete("year") +
-  theme_bw(base_size = 8)
+### create template stock for storing results
+MCMC_iter <- 1000
+MCMC_warmup <- 1000
+MCMC_chains <- 10
+#stk_MCMC <- propagate(stk_data, MCMC_iter)
+stk_MCMC <- propagate(window(stk_om, end = 2023)[,,,,, 1], 10*1000)
+harvest(stk_MCMC)[] <- NA
+stock.n(stk_MCMC)[] <- NA
+
+### run MCMC
+system.time(mcmc <- tmbstan(fit$obj, chains = MCMC_chains, 
+                            iter = MCMC_warmup + MCMC_iter,
+                            warmup = MCMC_warmup,
+                            seed = 1, control = list(max_treedepth = 15)))
+saveRDS(mcmc, file = "input/ple.27.7e/baseline/1000_100/MCMC.rds")
+### extract
+mc <- extract(mcmc, inc_warmup = FALSE, permuted = TRUE)
+idxF <- fit$conf$keyLogFsta[1, ] + 1
+
+### in the MCMC results age and years are mixed within the same row,
+### each row represents one iteration
+### this needs to be reformatted to be useful...
+
+### fishing mortality
+harvest(stk_MCMC)[unique(idxF)] <- 
+  aperm(array(data = c(exp(mc$logF)),
+              dim = c(dim(stk_MCMC)[6], length(unique(idxF)), dim(stk_MCMC)[2],
+                      1, 1, 1)),
+        perm = c(2:6, 1))
+harvest(stk_MCMC)[] <- harvest(stk_MCMC)[idxF] ### coupled ages
+#plot(harvest(stk_MCMC))
+
+### stock numbers at age
+stock.n(stk_MCMC)[] <- aperm(array(data = c(exp(mc$logN)),
+                                   dim = dim(stock.n(stk_MCMC))[c(6, 1:5)]),
+                             perm = c(2:6, 1))
+stock(stk_MCMC) <- computeStock(stk_MCMC)
+#plot(stock.n(stk_MCMC))
+#plot(window(stock.n(stk_om), end = 2023))
+
+### plot MCMC stock
+plot(stk_MCMC)
+### compare with original SAM fit
+plot(window(FLStocks(MCMC = stk_MCMC, original = stk_fit), end = 2023))
+### compare with first uncertainty approach
+plot(window(FLStocks(MCMC = stk_MCMC, VarCov = stk_om), end = 2023))
+
+### plot SSB and F
+### OM metrics
+qnts <- FLQuants(OM_ssb = ssb(stk_om)/1000, OM_fbar = fbar(stk_om),
+                 MCMC_ssb = ssb(stk_MCMC)/1000, MCMC_fbar = fbar(stk_MCMC))
+qnts <- window(qnts, end = 2023)
+### percentiles
+qnts_perc <- lapply(qnts, quantile, probs = c(0.025, 0.25, 0.5, 0.75, 0.975),
+                    na.rm = TRUE)
+qnts_perc <- FLQuants(qnts_perc)
+df_perc <- as.data.frame(qnts_perc) %>%
+  select(year, iter, data, qname) %>%
+  separate_wider_delim(qname, delim = "_", names = c("source", "quant")) %>%
+  pivot_wider(names_from = iter, values_from = data) %>%
+  mutate(source = factor(source, levels = c("OM", "MCMC"),
+                         labels = c("Operating model", "MCMC"))) %>%
+  mutate(quant = factor(quant,
+                        levels = c("ssb", "fbar"),
+                        labels = c("SSB (1000t)", "F (ages 3-6)")))
+### plot
+p <- df_perc %>%
+  ggplot() +
+  geom_ribbon(aes(x = year, ymin = `2.5%`, ymax = `97.5%`, fill = source), 
+              alpha = 0.15, linewidth = 0,
+              show.legend = FALSE) +
+  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`, fill = source), 
+              alpha = 0.15, linewidth = 0,
+              show.legend = FALSE) +
+  geom_line(aes(x = year, y = `2.5%`, colour = source, linetype = source),
+            linewidth = 0.2, alpha = 0.15) +
+  geom_line(aes(x = year, y = `97.5%`, colour = source, linetype = source),
+            linewidth = 0.2, alpha = 0.15) +
+  geom_line(aes(x = year, y = `25%`, colour = source, linetype = source),
+            linewidth = 0.3, alpha = 0.3) +
+  geom_line(aes(x = year, y = `75%`, colour = source, linetype = source),
+            linewidth = 0.3, alpha = 0.3) +
+  geom_line(aes(x = year, y = `50%`, colour = source, linetype = source)) +
+  facet_wrap(~ quant, scales = "free_y", strip.position = "left", ncol = 2) +
+  scale_y_continuous(limits = c(0, NA), breaks = scales::pretty_breaks()) +
+  scale_colour_manual("", values = c("Operating model" = "red", 
+                                     "MCMC" = "blue")) +
+  scale_fill_manual("", values = c("Operating model" = "red", 
+                                   "MCMC" = "blue")) +
+  scale_linetype_manual("", values = c("Operating model" = "solid", 
+                                       "MCMC" = "2121")) +
+  labs(x = "Year") +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"),  
+        legend.position = "inside",
+        legend.position.inside = c(0.15, 0.15), 
+        legend.background = element_blank(),
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        strip.text = element_text(size = 8),
+        axis.title.y = element_blank())
+p
+ggsave(filename = "output/plots/OM/OM_MCMC_vs_OM.png", plot = p, 
+       width = 16, height = 5, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_MCMC_vs_OM.pdf", plot = p, 
+       width = 16, height = 5, units = "cm")
+
+
+### ------------------------------------------------------------------------ ###
+### TODO ####
+### ------------------------------------------------------------------------ ###
+### number of iterations
+
