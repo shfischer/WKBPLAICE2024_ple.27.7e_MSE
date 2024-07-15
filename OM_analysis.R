@@ -1801,7 +1801,7 @@ stk_om <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
 
 ### create template stock for storing results
 MCMC_iter <- 1000
-MCMC_warmup <- 1000
+MCMC_warmup <- 10000
 MCMC_chains <- 10
 #stk_MCMC <- propagate(stk_data, MCMC_iter)
 stk_MCMC <- propagate(window(stk_om, end = 2023)[,,,,, 1], 10*1000)
