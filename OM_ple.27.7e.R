@@ -42,114 +42,174 @@ refpts <- list(
 ### intermediate year catch advice
 int_yr_catch <- 1219 ### from 2023 advice sheet
 
-### default OM
+### baseline OM
+create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
+          yr_data = 2023, 
+          disc_survival_OM = 0.5, disc_survival_MP = 0.5,
+          int_yr_add = TRUE, 
+          int_yr_catch = int_yr_catch, int_yr_catch_split = TRUE,
+          n_sample_yrs = 5, sr_model = "bevholtSV", sr_parallel = 10,
+          sr_ar_check = TRUE, 
+          idxB = "UK-FSP", 
+          idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
+          length_samples = 2000,
+          PA_status = TRUE,
+          refpts = refpts, stock_id = "ple.27.7e", OM = "baseline")
+
+### alternative OMs - discard survival ####
+### all discards die
+create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
+          yr_data = 2023, 
+          disc_survival_OM = 0.0, disc_survival_MP = 0.5,
+          int_yr_add = TRUE, 
+          int_yr_catch = int_yr_catch, int_yr_catch_split = TRUE,
+          n_sample_yrs = 5, sr_model = "bevholtSV", sr_parallel = 10,
+          sr_ar_check = TRUE, 
+          idxB = "UK-FSP", 
+          idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
+          length_samples = 2000,
+          PA_status = TRUE,
+          refpts = refpts, stock_id = "ple.27.7e", OM = "Catch_no_surv")
+### all discards survive
+create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
+          yr_data = 2023, 
+          disc_survival_OM = 1, disc_survival_MP = 0.5,
+          int_yr_add = TRUE, 
+          int_yr_catch = int_yr_catch, int_yr_catch_split = TRUE,
+          n_sample_yrs = 5, sr_model = "bevholtSV", sr_parallel = 10,
+          sr_ar_check = TRUE, 
+          idxB = "UK-FSP", 
+          idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
+          length_samples = 2000,
+          PA_status = TRUE,
+          refpts = refpts, stock_id = "ple.27.7e", OM = "Catch_no_disc")
+
+
+
+
+### alternative OMs - natural mortality M ####
+### M_high: M +50%
 create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
           yr_data = 2023, 
           disc_survival_OM = 0.5, disc_survival_MP = 0.5,
           int_yr_add = TRUE, 
           int_yr_catch = int_yr_catch, 
           int_yr_catch_split = TRUE,
-          SAM_newtonsteps = 0, SAM_rel.tol = 0.001,
           n_sample_yrs = 5, sr_model = "bevholtSV", sr_parallel = 10,
-          sr_ar_check = TRUE, process_error = TRUE, catch_oem_error = TRUE,
+          sr_ar_check = TRUE, 
           idxB = "UK-FSP", 
           idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
           length_samples = 2000,
           PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "baseline", save = TRUE,
-          return = FALSE)
+          refpts = refpts, stock_id = "ple.27.7e", OM = "M_high",
+          M_alternative_mult = TRUE, M_alternative = 1.5)
 
-### discard survival
-### disc_survival_OM = 0 could cause issues for landings fraction
-### -> use small number, e.g. 0.001
-### but check, may work regardless
+### M_low: M -50%
+create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
+          yr_data = 2023, 
+          disc_survival_OM = 0.5, disc_survival_MP = 0.5,
+          int_yr_add = TRUE, 
+          int_yr_catch = int_yr_catch, 
+          int_yr_catch_split = TRUE,
+          n_sample_yrs = 5, sr_model = "bevholtSV", sr_parallel = 10,
+          sr_ar_check = TRUE, 
+          idxB = "UK-FSP", 
+          idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
+          length_samples = 2000,
+          PA_status = TRUE,
+          refpts = refpts, stock_id = "ple.27.7e", OM = "M_low",
+          M_alternative_mult = TRUE, M_alternative = 0.5)
+
+### M_Gislason: age-dependent M according to Gislason et al. (2010)
+M_Gislason <- readRDS("input/ple.27.7e/preparation/M_Gislason.rds")
+create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
+          yr_data = 2023, 
+          disc_survival_OM = 0.5, disc_survival_MP = 0.5,
+          int_yr_add = TRUE, 
+          int_yr_catch = int_yr_catch, 
+          int_yr_catch_split = TRUE,
+          n_sample_yrs = 5, sr_model = "bevholtSV", sr_parallel = 10,
+          sr_ar_check = TRUE, 
+          idxB = "UK-FSP", 
+          idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
+          length_samples = 2000,
+          PA_status = TRUE,
+          refpts = refpts, stock_id = "ple.27.7e", OM = "M_Gislason",
+          M_alternative_mult = FALSE, M_alternative = M_Gislason)
+
+### alternative OMs - Recruitment ####
+### R_no_AC: no auto-correlation in recruitment residuals
+create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
+          yr_data = 2023, 
+          disc_survival_OM = 0.5, disc_survival_MP = 0.5,
+          int_yr_add = TRUE, 
+          int_yr_catch = int_yr_catch, 
+          int_yr_catch_split = TRUE,
+          n_sample_yrs = 5, sr_model = "bevholtSV", sr_parallel = 10,
+          sr_ar_check = FALSE, 
+          idxB = "UK-FSP", 
+          idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
+          length_samples = 2000,
+          PA_status = TRUE,
+          refpts = refpts, stock_id = "ple.27.7e", OM = "R_no_AC")
+
+### R_higher: recruitment +20%
+### use files from baseline OM and adapt recruitment residuals
+### instead of copying file, create a hard link (on Windows)
+path_baseline <- "input/ple.27.7e/baseline/1000_100/"
+# list.files(path_baseline)
+files_link <- c("ALKs.rds", "catch_res.rds", "idx.rds", "idx_dev.rds", 
+                "idx_dev_raw.rds", 
+                "proc_res.rds", "SAM_conf.rds", "SAM_fit.rds",
+                "SAM_initial.rds", "SAM_uncertainty.rds", 
+                "stk.rds", "stk_oem.rds")
+path_new <- "input/ple.27.7e/R_higher/1000_100/"
+dir.create(path_new, recursive = TRUE)
+file.link(from = paste0(path_baseline, files_link), 
+          to = paste0(path_new, files_link))
+### copy some other files so that they can be changed
+files_copy <- c("refpts_mse.rds")
+file.copy(from = paste0(path_baseline, files_copy), 
+          to = paste0(path_new, files_copy))
+### adapt recruitment model
+sr_R_higher <- readRDS(paste0(path_baseline, "sr.rds"))
+params(sr_R_higher)["a"] <- params(sr_R_higher)["a"] * 1.2
+saveRDS(sr_R_higher, file = paste0(path_new, "sr.rds"))
 
 
-### high M: +50%
-create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
-          yr_data = 2020, 
-          SAM_conf = SAM_conf, SAM_newtonsteps = 0, SAM_rel.tol = 0.001,
-          n_sample_yrs = 5, sr_model = "bevholt", sr_parallel = 10,
-          sr_ar_check = TRUE, process_error = TRUE, catch_oem_error = TRUE,
-          idx_weights = c("catch.wt", "stock.wt"), idxB = "FSP-7e", 
-          idxL = TRUE, ALKs = ALKs, ALK_yrs = 2016:2020, length_samples = 2000,
-          PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "M_high", save = TRUE,
-          return = FALSE, M_alternative = 0.18)
-### low M: -50%
-create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
-          yr_data = 2020, 
-          SAM_conf = SAM_conf, SAM_newtonsteps = 0, SAM_rel.tol = 0.001,
-          n_sample_yrs = 5, sr_model = "bevholt", sr_parallel = 10,
-          sr_ar_check = TRUE, process_error = TRUE, catch_oem_error = TRUE,
-          idx_weights = c("catch.wt", "stock.wt"), idxB = "FSP-7e", 
-          idxL = TRUE, ALKs = ALKs, ALK_yrs = 2016:2020, length_samples = 2000,
-          PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "M_low", save = TRUE,
-          return = FALSE, M_alternative = 0.06)
-### Gislason age-dependent M 
-Linf = 66 ### from WGCSE 2021
-k = 0.1   ### from WGCSE 2021
-t0 = -2   ### from WGCSE 2021
-ages <- (2:10) + 0.5
-lengths <- Linf * (1 - exp(-k * (ages - t0)))
-M_age <- exp(0.55 - 1.61*log(lengths) + 1.44*log(Linf) + log(k))
-create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
-          yr_data = 2020, 
-          SAM_conf = SAM_conf, SAM_newtonsteps = 0, SAM_rel.tol = 0.001,
-          n_sample_yrs = 5, sr_model = "bevholt", sr_parallel = 10,
-          sr_ar_check = TRUE, process_error = TRUE, catch_oem_error = TRUE,
-          idx_weights = c("catch.wt", "stock.wt"), idxB = "FSP-7e", 
-          idxL = TRUE, ALKs = ALKs, ALK_yrs = 2016:2020, length_samples = 2000,
-          PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "M_Gislason", 
-          save = TRUE, return = FALSE, M_alternative = M_age)
-### default OM but no auto-correlated recruitment
-create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
-          yr_data = 2020, 
-          SAM_conf = SAM_conf, SAM_newtonsteps = 0, SAM_rel.tol = 0.001,
-          n_sample_yrs = 5, sr_model = "bevholt", sr_parallel = 10,
-          sr_ar_check = FALSE, process_error = TRUE, catch_oem_error = TRUE,
-          idx_weights = c("catch.wt", "stock.wt"), idxB = "FSP-7e", 
-          idxL = TRUE, ALKs = ALKs, ALK_yrs = 2016:2020, length_samples = 2000,
-          PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "rec_no_AC", save = TRUE,
-          return = FALSE, M_alternative = NULL)
+### R_lower: recruitment -20%
+path_new <- "input/ple.27.7e/R_lower/1000_100/"
+dir.create(path_new, recursive = TRUE)
+file.link(from = paste0(path_baseline, files_link), 
+          to = paste0(path_new, files_link))
+### copy some other files so that they can be changed
+files_copy <- c("refpts_mse.rds")
+file.copy(from = paste0(path_baseline, files_copy), 
+          to = paste0(path_new, files_copy))
+### adapt recruitment model
+sr_R_lower <- readRDS(paste0(path_baseline, "sr.rds"))
+params(sr_R_lower)["a"] <- params(sr_R_lower)["a"] * 0.8
+saveRDS(sr_R_lower, file = paste0(path_new, "sr.rds"))
 
-# plot(FLStocks(default = stk, M_low = stk_M_low, M_high = stk_M_high, M_Gislason = stk_M_Gislason), probs = c(0.05, 0.25, 0.5, 0.75, 0.95)) + xlim(c(NA, 2020))
 
-### no discards - 100% discard survival
-### - assume 0 discards in OM, but MP assumes discards do happen
-### (discards appear in OM stk for easier conditioning of OM, but do not 
-###  affect stock numbers or F)
-# debugonce(create_OM)
-create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
-          yr_data = 2020,
-          SAM_conf = SAM_conf, SAM_newtonsteps = 0, SAM_rel.tol = 0.001,
-          n_sample_yrs = 5, sr_model = "bevholt", sr_parallel = 10, 
-          sr_start = 1990,
-          sr_ar_check = TRUE, process_error = TRUE, catch_oem_error = TRUE,
-          idx_weights = c("catch.wt", "stock.wt"), idxB = "FSP-7e", 
-          idxL = TRUE, ALKs = ALKs, ALK_yrs = 2016:2020, length_samples = 2000,
-          PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "no_discards",
-          save = TRUE, return = FALSE, M_alternative = NULL,
-          disc_survival = 1, disc_survival_hidden = TRUE)
-### repeat but exclude dead discards in OM
-### only used for MSY calculation,
-create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
-          yr_data = 2020,
-          SAM_conf = SAM_conf, SAM_newtonsteps = 0, SAM_rel.tol = 0.001,
-          n_sample_yrs = 5, sr_model = "bevholt", sr_parallel = 10,
-          sr_start = 1990,
-          sr_ar_check = TRUE, process_error = TRUE, catch_oem_error = TRUE,
-          idx_weights = c("catch.wt", "stock.wt"), idxB = "FSP-7e", 
-          idxL = TRUE, ALKs = ALKs, ALK_yrs = 2016:2020, length_samples = 2000,
-          PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", 
-          OM = "no_discards_not_hidden",
-          save = TRUE, return = FALSE, M_alternative = NULL,
-          disc_survival = 1, disc_survival_hidden = FALSE)
+### R_failure: recruitment failure 2025-2029
+path_new <- "input/ple.27.7e/R_failure/1000_100/"
+dir.create(path_new, recursive = TRUE)
+file.link(from = paste0(path_baseline, files_link), 
+          to = paste0(path_new, files_link))
+### copy some other files so that they can be changed
+files_copy <- c("refpts_mse.rds")
+file.copy(from = paste0(path_baseline, files_copy), 
+          to = paste0(path_new, files_copy))
+### adapt recruitment residuals
+sr_R_failure <- readRDS(paste0(path_baseline, "sr.rds"))
+residuals(sr_R_failure)[, ac(2025:2029)] <- 
+  residuals(sr_R_failure)[, ac(2025:2029)] * 0.1
+saveRDS(sr_R_failure, file = paste0(path_new, "sr.rds"))
+
+
+
+
 
 
 ### ------------------------------------------------------------------------ ###
