@@ -174,6 +174,7 @@ obs_generic <- function(stk, observations, deviances, args, tracking,
                         PA_Bmsy = FALSE, PA_Fmsy = FALSE,
                         use_stk_oem = FALSE, ### biological parameters, wts etc
                         use_catch_residuals = FALSE,
+                        use_catch_residuals_disc = FALSE, ### discard survival
                         use_idx_residuals = FALSE,
                         cut_idx = FALSE, ### cut off indices years after ay
                         catch_timing = -1,
@@ -215,19 +216,38 @@ obs_generic <- function(stk, observations, deviances, args, tracking,
   ### add uncertainty to catch
   if (isTRUE(use_catch_residuals)) {
     
-    ### implement for catch at age
-    catch.n(stk0) <- catch.n(stk) * deviances$stk$catch.dev
-    
-    ### split catch into discards and landings, based on landing fraction
-    landings.n(stk0) <- catch.n(stk0) * (landings.n(stk) / catch.n(stk))
-    discards.n(stk0) <- catch.n(stk0) * (1 - landings.n(stk) / catch.n(stk))
+    ### apply directly to catch numbers and split into landings/discards
+    if (!isTRUE(use_catch_residuals_disc)) {
+      
+      ### implement for catch at age
+      catch.n(stk0) <- catch.n(stk) * deviances$stk$catch_res
+      
+      ### split catch into discards and landings, based on landing fraction
+      landings.n(stk0) <- catch.n(stk0) * (landings.n(stk) / catch.n(stk))
+      discards.n(stk0) <- catch.n(stk0) * (1 - landings.n(stk) / catch.n(stk))
+      
+    ### account for discard survival
+    ### get landings and discards from OM
+    ### -> then adapt discards for survival
+    } else {
+      
+      ### implement discard survival "correction"
+      landings.n(stk0) <- landings.n(stk) * deviances$stk$catch_res
+      discards.n(stk0) <- discards.n(stk) * deviances$stk$catch_res *
+        deviances$stk$disc_res
+      
+      ### adjust total catch
+      ### (adjusts catch/landings/discards/catch.n/catch.wt)
+      catch(stk0) <- computeCatch(stk0, slot = "all")
+      
+    }
     
     ### update total catch/discards/landings
     catch(stk0) <- computeCatch(stk0)
     landings(stk0) <- computeLandings(stk0)
     discards(stk0) <- computeDiscards(stk0)
     
-  }
+  } 
   
   ### calculate age indices
   if (is.null(use_age_idcs)) use_age_idcs <- names(observations$idx)

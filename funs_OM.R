@@ -88,6 +88,11 @@ create_OM <- function(stk_data, idx_data,
   
   ### ---------------------------------------------------------------------- ###
   ### Discard survival ####
+  
+  ### if survival = 1 (all discards die),
+  ### include small proportion to avoid computational issues with observations
+  if (identical(disc_survival_OM, 1)) disc_survival_OM <- 1 - 0.001
+  
   ### OM data
   if (isTRUE(disc_survival_OM > 0)) {
     message(paste0("OM - Using discard survival ", disc_survival_OM))
@@ -396,6 +401,8 @@ create_OM <- function(stk_data, idx_data,
   
   ### if alternative M scenario, MP does not know this
   if (!is.null(M_alternative)) {
+    ### adapt M in historical years
+    ### future years changed later with other biological data
     M_yrs <- dimnames(stk_data_input)$year
     m(stk_oem)[, M_yrs] <- m(stk_data_input)
   }
@@ -417,8 +424,8 @@ create_OM <- function(stk_data, idx_data,
   ### -> include as observation error
   
   ### MP catch observations (with observed discard survival)
-  yrs_hist_int <- yrs_hist
-  if (isTRUE(int_yr_add)) yrs_hist_int <- c(yrs_hist, max(yrs_hist) + 1)
+
+  ### historical years - insert total catch (no discard survival)
   catch(stk_oem)[, ac(yrs_hist)]    <- catch(stk_data_input)[, ac(yrs_hist)]
   catch.n(stk_oem)[, ac(yrs_hist)]  <- catch.n(stk_data_input)[, ac(yrs_hist)]
   catch.wt(stk_oem)[, ac(yrs_hist)] <- catch.wt(stk_data_input)[, ac(yrs_hist)]
@@ -428,18 +435,19 @@ create_OM <- function(stk_data, idx_data,
   discards(stk_oem)[, ac(yrs_hist)]    <- discards(stk_data_input)[, ac(yrs_hist)]
   discards.n(stk_oem)[, ac(yrs_hist)]  <- discards.n(stk_data_input)[, ac(yrs_hist)]
   discards.wt(stk_oem)[, ac(yrs_hist)] <- discards.wt(stk_data_input)[, ac(yrs_hist)]
-  ### discard survival
-  discards.n(stk_oem)[, ac(yrs_hist_int)] <- 
-    discards.n(stk_oem)[, ac(yrs_hist_int)] * (1 - disc_survival_MP)
+
+  ### account for discard survival (historical years and intermediate year)
+  discards.n(stk_oem)[, ac(yrs_hist)] <- 
+    discards.n(stk_oem)[, ac(yrs_hist)] * (1 - disc_survival_MP)
   # "catch.wt" "catch.n"  "catch"    "landings" "discards"
-  catch_tmp <- computeCatch(stk_oem[, ac(yrs_hist_int)], slot = "all")
-  catch.wt(stk_oem)[, ac(yrs_hist_int)] <- catch_tmp$catch.wt
-  catch.n(stk_oem)[, ac(yrs_hist_int)] <- catch_tmp$catch.n
-  catch(stk_oem)[, ac(yrs_hist_int)] <- catch_tmp$catch
-  landings(stk_oem)[, ac(yrs_hist_int)] <- catch_tmp$landings
-  discards(stk_oem)[, ac(yrs_hist_int)] <- catch_tmp$discards
+  catch_tmp <- computeCatch(stk_oem[, ac(yrs_hist)], slot = "all")
+  catch.wt(stk_oem)[, ac(yrs_hist)] <- catch_tmp$catch.wt
+  catch.n(stk_oem)[, ac(yrs_hist)] <- catch_tmp$catch.n
+  catch(stk_oem)[, ac(yrs_hist)] <- catch_tmp$catch
+  landings(stk_oem)[, ac(yrs_hist)] <- catch_tmp$landings
+  discards(stk_oem)[, ac(yrs_hist)] <- catch_tmp$discards
   
-  ### catch weights
+  ### catch weights for projection years
   catch.wt(stk_oem)[, ac(proj_yrs)] <- 
     yearMeans(catch.wt(stk_oem)[, ac(sample_yrs)])
   landings.wt(stk_oem)[, ac(proj_yrs)] <- 
@@ -466,49 +474,25 @@ create_OM <- function(stk_data, idx_data,
     ### for historical period, pass on real observed catch
     ### -> remove deviation
     ### -> includes difference between OM and MP discard survival
-    catch_res[, dimnames(catch_res)$year <= yr_data] <- 
+    catch_res[, ac(yrs_hist)] <- 
       window(catch.n(stk_oem), end = yr_data) / 
       window(catch.n(stk_fwd), end = yr_data)
     
     ### account for discard survival: OM vs MP in projection period
-    ### -> include as observation error
-    if (!identical(disc_survival_OM, disc_survival_MP)) {
-      message("- also including discard survival")
-      ### update landings and discards fraction
-      yrs_proj_d <- yrs_proj
-      # if (isTRUE(int_yr_add)) yrs_proj_d <- yrs_proj_d[-1]
-      d_factor <- 1 / (1 - disc_survival_OM) * (1 - disc_survival_MP)
-      discards.n(stk_oem)[, ac(yrs_proj_d)] <- 
-        discards.n(stk_fwd)[, ac(yrs_proj_d)] * d_factor
-      landings.n(stk_oem)[, ac(yrs_proj_d)] <- 1 - discards.n(stk_oem)[, ac(yrs_proj_d)]
-      ### adjust catch residuals to account for survival
-      ### - discard rate in data (0% discard survival)
-      d_rate_raw <- c(yearMeans(tail(discards(stk_data_input)/
-                                       catch(stk_data_input), 3)))
-      ### - corresponding landings rate
-      l_rate_raw <- 1 - d_rate_raw
-      ### - proportion of dead catch in OM
-      c_dead_OM <- l_rate_raw + d_rate_raw * (1 - disc_survival_OM)
-      ### - proportion of dead catch in MP
-      c_dead_MP <- l_rate_raw + d_rate_raw * (1 - disc_survival_MP)
-      ### -> correction factor (OM -> MP observations)
-      c_surv_correction <- 1/c_dead_OM*c_dead_MP
-      ### -> insert into catch observation error
-      catch_res[, ac(yrs_proj_d)] <- catch_res[, ac(yrs_proj_d)] * c_surv_correction
-      
-    }
+    ### correction factor discards
+    ### (historical data is already corrected for discard survival)
+    disc_res <- catch_res %=% 1
+    disc_res[, ac(yrs_proj)] <- 1/(1 - disc_survival_OM) * (1 - disc_survival_MP)
     
     ### update intermediate year
     if (isTRUE(int_yr_add)) {
-      catch.n(stk_oem)[, ac(int_yr_yr)] <- 
-        catch.n(stk_fwd)[, ac(int_yr_yr)] * catch_res[, ac(int_yr_yr)]
-      ### MP landings fraction at age
-      l_frac_age <- landings.n(stk_oem)[, ac(int_yr_yr)]/
-        (discards.n(stk_oem)[, ac(int_yr_yr)] + landings.n(stk_oem)[, ac(int_yr_yr)])
+      ### get landings
       landings.n(stk_oem)[, ac(int_yr_yr)] <- 
-        catch.n(stk_oem)[, ac(int_yr_yr)] * l_frac_age
-      discards.n(stk_oem)[, ac(int_yr_yr)] <- 
-        catch.n(stk_oem)[, ac(int_yr_yr)] * (1 - l_frac_age)
+        landings.n(stk_fwd)[, ac(int_yr_yr)] * catch_res[, ac(int_yr_yr)]
+      ### get discards and correct for assumed survival
+      discards.n(stk_oem)[, ac(int_yr_yr)] <-
+        discards.n(stk_fwd)[, ac(int_yr_yr)] * catch_res[, ac(int_yr_yr)] *
+        disc_res[, ac(int_yr_yr)]
       ### update total catch and weights
       catch_tmp <- computeCatch(stk_oem[, ac(int_yr_yr)], slot = "all")
       catch.wt(stk_oem)[, ac(int_yr_yr)] <- catch_tmp$catch.wt
@@ -516,15 +500,17 @@ create_OM <- function(stk_data, idx_data,
       catch(stk_oem)[, ac(int_yr_yr)] <- catch_tmp$catch
       landings(stk_oem)[, ac(int_yr_yr)] <- catch_tmp$landings
       discards(stk_oem)[, ac(int_yr_yr)] <- catch_tmp$discards
-      ### TODO: check if MP survival = 1, OM survival = 0
-      ###       -> catches (i.e. landings) are a bit too high
-      ### catch.wt in stk_oem too high... landings weights
+      
+      ### combine catch residuals
+      catch_res <- FLQuants(catch_res = catch_res,
+                            disc_res = disc_res)
       
     }
 
   } else {
     message("NOT including catch observation error")
-    catch_res <- catch.n(stk_fwd) %=% 1
+    catch_res <- FLQuants(catch_res = catch.n(stk_fwd) %=% 1,
+                          disc_res = catch.n(stk_fwd) %=% 1)
   }
   
   ### ---------------------------------------------------------------------- ###
@@ -733,7 +719,9 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                      cut_hist = TRUE, MP = "rfb",
                      hr_years = NULL,
                      migration = NULL,
-                     disc_survival = 0, rec_failure = FALSE,
+                     disc_survival = 0, 
+                     rec_failure = FALSE, ### FALSE or vector of years
+                     rec_alternative = FALSE, ### FALSE or multiplier
                      use_age_idcs = NULL, biomass_index = NULL,
                      idx_timing = NULL, catch_timing = NULL,
                      fwd_yrs_rec_start = NULL,
@@ -799,11 +787,19 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   }
   
   ### ---------------------------------------------------------------------- ###
-  ### recruitment failure? ####
+  ### alternative recruitment? ####
   ### ---------------------------------------------------------------------- ###
+  ### recruitment failure?
   if (!isFALSE(rec_failure)) {
     
     residuals(sr)[, ac(rec_failure)] <- residuals(sr)[, ac(rec_failure)] * 0.1
+    
+  }
+  
+  ### lower/higher recruitment?
+  if (!isFALSE(rec_alternative)) {
+    
+    residuals(sr) <- residuals(sr) * rec_alternative
     
   }
   
@@ -870,7 +866,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                  stk = stk_oem, 
                  idx = idx), 
                deviances = list(
-                 stk = FLQuants(catch.dev = catch_res), 
+                 stk = catch_res, 
                  idx = idx_dev),
                args = list(use_catch_residuals = TRUE, 
                            use_idx_residuals = TRUE,
