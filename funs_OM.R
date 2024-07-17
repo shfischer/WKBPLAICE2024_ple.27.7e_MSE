@@ -371,7 +371,7 @@ create_OM <- function(stk_data, idx_data,
   if (isTRUE(int_yr_add)) {
     message("include intermediate year forecast")
     int_yr_value <- int_yr_catch
-    if (isTRUE(disc_survival_OM > 0)) {
+    if (isTRUE(disc_survival_OM > 0) & isTRUE(int_yr_catch_split)) {
       ### if some discards survive, adjust catch for this survival
       d_rate <- yearMeans(tail(discards(stk_data_input)/
                              catch(stk_data_input), stf_nyrs))
