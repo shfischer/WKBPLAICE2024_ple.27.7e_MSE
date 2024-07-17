@@ -22,7 +22,7 @@ source("funs_analysis.R")
 ### ------------------------------------------------------------------------ ###
 ### MSY reference points
 refpts <- readRDS("input/ple.27.7e/baseline/1000_100/refpts_mse.rds")
-refpts <- iterMedians(refpts_ple)
+refpts <- iterMedians(refpts)
 ### OM stk
 stk <- readRDS(paste0("input/ple.27.7e/baseline/1000_100/stk.rds"))
 ### SAM model fit
@@ -310,7 +310,7 @@ ggsave(filename = "output/plots/OM/OM_biol_sel.pdf", plot = p,
 
 
 ### ------------------------------------------------------------------------ ###
-### plot OM trajectories vs. ICES assessment - alternative OMs ####
+### __TODO plot OM trajectories vs. ICES assessment - alternative OMs ####
 ### ------------------------------------------------------------------------ ###
 ### find alternative OMs
 res_alt <- readRDS("output/MPs_alternative_OMs.rds")
@@ -830,6 +830,68 @@ ggsave(filename = "output/plots/risk_OM_vs_ICES_cod_her.pdf", plot = p_cod_her,
 
 
 ### ------------------------------------------------------------------------ ###
+### baseline OM - historical SSB and Blim ####
+### ------------------------------------------------------------------------ ###
+### MSY reference points
+refpts <- readRDS("input/ple.27.7e/baseline/1000_100/refpts_mse.rds")
+refpts <- iterMedians(refpts)
+### OM stk
+stk <- readRDS(paste0("input/ple.27.7e/baseline/1000_100/stk.rds"))
+
+### SSB
+qnt <- ssb(stk)/1000
+qnt <- window(qnt, end = 2023)
+### percentiles
+qnt_perc <- quantile(qnt, probs = c(0.025, 0.25, 0.5, 0.75, 0.975),
+                     na.rm = TRUE)
+qnt_perc <- as.data.frame(qnt_perc)
+qnt_perc <- qnt_perc %>% select(year, iter, data) %>%
+  pivot_wider(names_from = iter, values_from = data) %>%
+  mutate(source = "Operating model (median)")
+
+df_iters <- as.data.frame(qnt) %>% 
+  select(year, iter, data)
+
+df_refs <- data.frame(source = c("Bmsy", "Blim"),
+                      data = c(refpts$Bmsy/1000, refpts$Blim/1000))
+p <- ggplot() +
+  geom_ribbon(data = qnt_perc,
+              aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_ribbon(data = qnt_perc,
+              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_line(data = qnt_perc,
+            aes(x = year, y = `50%`),
+            colour = "black", show.legend = FALSE) +
+  geom_line(data = df_iters %>% filter(iter %in% 1:5),
+            aes(x = year, y = data, colour = iter),
+            linewidth = 0.1,
+            show.legend = FALSE) +
+  geom_hline(yintercept = c(refpts$Bmsy/1000), 
+             colour = "red", linetype = "2121",
+             show.legend = FALSE) + 
+  geom_hline(yintercept = c(refpts$Blim/1000), 
+             colour = "red", linetype = "1111",
+             show.legend = FALSE) + 
+  annotate("text", x = 2020, y = c(refpts$Bmsy/1000), 
+           label = expression(B[MSY]), size = 3, colour = "red", 
+           hjust = 0, vjust = -0.2) +
+  annotate("text", x = 2020, y = c(refpts$Blim/1000), 
+           label = expression(B[lim]), size = 3, colour = "red", 
+           hjust = 0, vjust = -0.2) +
+  scale_y_continuous(limits = c(0, NA)) +
+  labs(x = "Year", y = "SSB (1000t)") +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"))
+p
+ggsave(filename = "output/plots/OM/OM_SSB_Blim.png", plot = p, 
+       width = 10, height = 4, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_SSB_Blim.pdf", plot = p, 
+       width = 10, height = 4, units = "cm")
+
+
+### ------------------------------------------------------------------------ ###
 ### baseline OM - MSY search ####
 ### ------------------------------------------------------------------------ ###
 MSY_trace <- readRDS("input/ple.27.7e/baseline/1000_100/MSY_trace.rds")
@@ -892,11 +954,13 @@ ggsave(filename = "output/plots/OM/OM_baseline_MSY_search.pdf", plot = p,
        width = 10, height = 7, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
-### baseline OM - MSY projection wormplot ####
+### baseline OM - projection wormplot - MSY and F0 ####
 ### ------------------------------------------------------------------------ ###
 
 stk <- readRDS(paste0("input/ple.27.7e/baseline/1000_100/stk.rds"))
-mp_f <- readRDS(paste0("output/ple.27.7e/baseline/1000_100/constF/mp_MSY.rds"))
+
+### Fmsy
+mp_f <- readRDS(paste0("output/ple.27.7e/baseline/1000_100/OM/constF/mp_MSY.rds"))
 stk[, ac(2024:2124)] <- mp_f@om@stock
 qnts <- FLQuants(catch = catch(stk)/1000, rec = rec(stk)/1000,
                  ssb = ssb(stk)/1000, fbar = fbar(stk))
@@ -949,9 +1013,62 @@ ggsave(filename = "output/plots/OM/OM_baseline_MSY_worm.png", plot = p,
 ggsave(filename = "output/plots/OM/OM_baseline_MSY_worm.pdf", plot = p, 
        width = 16, height = 13, units = "cm")
 
+### same for F=0
+mp_0 <- readRDS(paste0("output/ple.27.7e/baseline/1000_100/OM/constF/mp_0.rds"))
+stk[, ac(2024:2124)] <- mp_0@om@stock
+qnts <- FLQuants(catch = catch(stk)/1000, rec = rec(stk)/1000,
+                 ssb = ssb(stk)/1000, fbar = fbar(stk))
+### percentiles
+qnts_perc <- lapply(qnts, quantile, probs = c(0.025, 0.25, 0.5, 0.75, 0.975),
+                    na.rm = TRUE)
+qnts_perc <- FLQuants(qnts_perc)
+qnts_perc <- as.data.frame(qnts_perc)
+qnts_perc <- qnts_perc %>% select(year, iter, data, qname) %>%
+  pivot_wider(names_from = iter, values_from = data)
+### individual iterations
+qnts_iter <- as.data.frame(iter(qnts, 1:5))
+levels <- c(paste0("Catch (1000t)"), "Recruitment (1000s)",
+            "SSB (1000t)", 
+            paste0("F (ages ", range(stk)[["minfbar"]], "-",
+                   range(stk)[["maxfbar"]], ")"))
+qnts_perc$qname <- factor(qnts_perc$qname,
+                          levels = c("catch", "rec", "ssb", "fbar"),
+                          labels = levels)
+qnts_iter$qname <- factor(qnts_iter$qname,
+                          levels = c("catch", "rec", "ssb", "fbar"),
+                          labels = levels)
+p <- ggplot() +
+  geom_ribbon(data = qnts_perc,
+              aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.1,
+              show.legend = FALSE) +
+  geom_ribbon(data = qnts_perc,
+              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.1,
+              show.legend = FALSE) +
+  geom_line(data = qnts_iter,
+            aes(x = year, y = data, colour = iter), 
+            linewidth = 0.1, show.legend = FALSE) + 
+  geom_line(data = qnts_perc, mapping = aes(x = year, y = `50%`),
+            linewidth = 0.4) +
+  geom_vline(xintercept = 2024.5, linewidth = 0.3) + 
+  geom_vline(xintercept = 2115, colour = "red", linewidth = 0.3) +
+  geom_vline(xintercept = 2124, colour = "red", linewidth = 0.3) +
+  annotate("rect", xmin = 2115, xmax = 2124, ymin = -Inf, ymax = Inf,
+           alpha = .2, fill = "red") + 
+  facet_wrap(~ qname, scales = "free_y", ncol = 1, strip.position = "left") +
+  ylim(c(0, NA)) + 
+  theme_bw(base_size = 8) +
+  theme(strip.placement = "outside",
+        strip.background = element_blank(),
+        strip.text = element_text(size = 8),
+        axis.title.y = element_blank())
+p
+ggsave(filename = "output/plots/OM/OM_baseline_F0_worm.png", plot = p, 
+       width = 16, height = 13, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_baseline_F0_worm.pdf", plot = p, 
+       width = 16, height = 13, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
-### visualisation of OM MSY values ####
+### __TODO visualisation of OM MSY values ####
 ### ------------------------------------------------------------------------ ###
 
 MSY_runs <- foreach(stock = c("ple.27.7e", "cod.27.47d20", "her.27.3a47d"),
