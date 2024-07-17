@@ -208,9 +208,31 @@ residuals(sr_R_failure)[, ac(2025:2029)] <-
 saveRDS(sr_R_failure, file = paste0(path_new, "sr.rds"))
 
 
+### alternative OMs - migration ####
 
-
-
+### migr_none: no migration
+### load new stock object 
+### - landings are 7.e catches, discards are 7.d catches
+### - both assuming 50% discard survival
+### -> discard rate of this stock object controls migration element
+stk_migr <- readRDS("input/ple.27.7e/preparation/model_input_stk_migration_LD.rds")
+### update intermediate year catch: 
+### -> from 2022 (biennial) advice sheet, for 2024, for area 7.e: 1104
+### -> correct for 50% discard survival (in 7.e)
+int_yr_catch_7e <- 1104 * (1 - 0.08771373 * 0.5)
+create_OM(stk_data = stk_migr, idx_data = idx_data, n = 1000, n_years = 100,
+          yr_data = 2023, 
+          disc_survival_OM = 1, disc_survival_MP = 1,
+          int_yr_add = TRUE, 
+          int_yr_catch = int_yr_catch_7e, 
+          int_yr_catch_split = FALSE, ### don't split
+          n_sample_yrs = 5, sr_model = "bevholtSV", sr_parallel = 10,
+          sr_ar_check = TRUE, 
+          idxB = "UK-FSP", 
+          idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
+          length_samples = 2000,
+          PA_status = TRUE,
+          refpts = refpts, stock_id = "ple.27.7e", OM = "migr_none")
 
 ### ------------------------------------------------------------------------ ###
 ### MSY reference points ####
@@ -239,11 +261,12 @@ if (FALSE) {
   res <- est_MSY(OM = "baseline", stock_id = "ple.27.7e", yr_start = 2025, 
                  n_blocks = 5, n_iter = 1000)
   res$result[which.max(res$result$catch), ]
-  #        Ftrgt   catch      ssb      tsb      rec
-  # 15 0.1638845 1702.92 9536.053 11136.77 6542.729 paper
-  # 16 0.222343  1209.94 5500.133 6371.131 6538.489 WKBPLAICE - MSY
-  #  1 0            0    21019.86 22030.98 7192.005 WKBPLAICE - unfished
+  #        Ftrgt     catch       ssb       tsb      rec
+  # 15 0.1638845   1702.92  9536.053  11136.77 6542.729 paper
+  # 24 0.2334596 1200.3999  5278.768  6147.824 6497.135 WKBPLAICE - MSY
+  #  1 0.0000000    0.0000 20982.801 22037.208 7195.251 WKBPLAICE - unfished
   
+  plan(sequential)
 }
 
 ### ------------------------------------------------------------------------ ###
@@ -260,7 +283,7 @@ RR0 <- c(((iterMedians(params(sr_baseline)["a"])*Blim) /
             (iterMedians(params(sr_baseline))["b"] + Blim)) /
            iterMedians(params(sr_baseline))["a"])
 RR0
-### Blim corresponds to SSB at ~ 79% of R0
+### Blim corresponds to SSB at ~ 79.5% of R0
 
 refpts <- FLPar(refpts, iter = 1000, unit = "")
 update_refpts <- function(stock_id = "ple.27.7e", OM, refpts, RR0) {
