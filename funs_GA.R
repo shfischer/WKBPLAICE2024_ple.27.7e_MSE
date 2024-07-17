@@ -2,6 +2,7 @@
 ### objective function for multi species run ####
 ### ------------------------------------------------------------------------ ###
 mp_fitness <- function(params, inp_file, path, check_file = FALSE,
+                   refpts,
                    scenario, MP, 
                    return_res = FALSE,
                    save_MP = FALSE, ### save MP results
@@ -117,6 +118,7 @@ mp_fitness <- function(params, inp_file, path, check_file = FALSE,
     
     ### calculate stats
     stats <- mp_stats(input = input, res_mp = res_mp, stat_yrs = stat_yrs,
+                      refpts = repfts,
                       collapse_correction = collapse_correction)
     
     ### save result in file
@@ -189,7 +191,7 @@ mp_fitness <- function(params, inp_file, path, check_file = FALSE,
 ### ------------------------------------------------------------------------ ###
 
 ### function for calculating stats
-mp_stats <- function(input, res_mp, stat_yrs = "multiple", 
+mp_stats <- function(input, res_mp, stat_yrs = "multiple", refpts, 
                      collapse_correction = TRUE, start_yr = input$args$iy) {
   
   ### stock metrics
@@ -221,10 +223,10 @@ mp_stats <- function(input, res_mp, stat_yrs = "multiple",
   Cs_long <- FLCore::window(Cs, start = start_yr)
   Cs_long[, ac(start_yr)] <- catch(res_mp@om@stock)[, ac(start_yr)]
   ### refpts
-  Bmsy <- c(input$refpts["Bmsy"])
-  Fmsy <- c(input$refpts["Fmsy"])
-  Cmsy <- c(input$refpts["Cmsy"])
-  Blim <- c(input$refpts["Blim"])
+  Bmsy <- c(refpts["Bmsy"])
+  Fmsy <- c(refpts["Fmsy"])
+  Cmsy <- c(refpts["Cmsy"])
+  Blim <- c(refpts["Blim"])
   ### TAC interval
   if (!is.null(input$ctrl$hcr@args$interval)) {
     TAC_intvl <- input$ctrl$hcr@args$interval
