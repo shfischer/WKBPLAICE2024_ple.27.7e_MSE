@@ -15,7 +15,7 @@ for (i in seq_along(args)) eval(parse(text = args[[i]]))
 if (!exists("n_workers")) n_workers <- 5
 if (!exists("stock_id")) stock_id <- "ple.27.7e"
 if (!exists("OM")) OM <- "baseline"
-#OM <- c("baseline", "M_low", "M_high", "M_Gislason", "rec_no_AC")
+#OM <- c("Catch_no_surv", "Catch_no_disc", "M_low", "M_high", "M_Gislason", "R_no_AC", "migr_none")
 if (!exists("yr_start")) yr_start <- 2025
 if (!exists("n_iter")) n_iter <- 1000
 if (!exists("vals_ini")) vals_ini <- seq(0, 1, 0.1)
