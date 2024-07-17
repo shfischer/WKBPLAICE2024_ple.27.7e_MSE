@@ -24,11 +24,10 @@ if (length(args) > 0) {
   ### scenario definition
   if (!exists("n_iter")) n_iter <- 1000
   if (!exists("n_yrs")) n_yrs <- 20
-  if (!exists("yr_start")) yr_start <- 2021
+  if (!exists("yr_start")) yr_start <- 2025
   if (!exists("scenario")) scenario <- "multiplier"
   if (!exists("MP")) MP <- "rfb"
   if (!exists("Ftrgt")) Ftrgt <- "MSY" # only for constF MP
-  if (!exists("disc_survival")) disc_survival <- 0
   if (!exists("rec_failure")) rec_failure <- FALSE
   ### OM
   if (!exists("stock_id")) stock_id <- "ple.27.7e"
@@ -73,10 +72,8 @@ for (i in req_pckgs)
   suppressMessages(library(package = i, character.only = TRUE))
 
 ### load additional functions
-source("funs.R")
-source("funs_GA.R")
-source("funs_WKNSMSE.R")
-source("funs_OM.R")
+req_scripts <- c("funs.R", "funs_GA.R", "funs_WKNSMSE.R", "funs_OM.R")
+for (i in req_scripts) source(i)
 
 ### ------------------------------------------------------------------------ ###
 ### setup parallel environment ####
@@ -128,18 +125,16 @@ if (isTRUE(use_MPI)) {
   message("setting up doParallel inside MPI succeeded")
 } else {
   if (isTRUE(n_workers > 1)) {
-    ### start doParallel cluster
-    cl1 <- makeCluster(n_workers)
-    registerDoParallel(cl1)
-    cl_length_1 <- length(cl1)
+    ### use doFuture
+    plan(multisession, workers = n_workers)
     ### load packages and functions into parallel workers
-    . <- foreach(i = seq(cl_length_1)) %dopar% {
-      for (i in req_pckgs) library(package = i, character.only = TRUE,
-                                   warn.conflicts = FALSE, verbose = FALSE,
-                                   quietly = TRUE)
-      source("funs.R", echo = FALSE)
-      source("funs_GA.R", echo = FALSE)
-      source("funs_WKNSMSE.R", echo = FALSE)
+    . <- foreach(i = seq(n_workers)) %dofuture% {
+      for (i in req_pckgs) 
+        suppressPackageStartupMessages(
+          library(package = i, character.only = TRUE, warn.conflicts = FALSE, 
+                  verbose = FALSE, quietly = TRUE))
+        
+      for (i in req_scripts) source(i)
     }
   } else {
     cl1 <- FALSE
@@ -152,8 +147,10 @@ if (isTRUE(use_MPI)) {
 
 input <- input_mp(stock_id = stock_id, OM = OM, n_iter = n_iter,
                   n_yrs = n_yrs, yr_start = yr_start, n_blocks = n_blocks,
-                  MP = MP, disc_survival = disc_survival, 
+                  MP = MP, 
                   rec_failure = rec_failure)
+refpts <- readRDS(paste0("input/", stock_id, "/", OM, "/", 
+                         "1000_100/refpts_mse.rds"))
 
 ### ------------------------------------------------------------------------ ###
 ### GA set-up ####
@@ -394,14 +391,15 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
   }
   
   ### other MPs
-} else if (identical(MP, "constF")) {
-  if (identical(Ftrgt, "MSY")) {
-    input$ctrl$hcr@args$ftrg <- c(input$refpts["Fmsy"])
-  } else {
-    input$ctrl$hcr@args$ftrg <- Ftrgt
-  }
-  
 } else {
+  
+  if (identical(MP, "constF")) {
+    if (identical(Ftrgt, "MSY")) {
+      input$ctrl$hcr@args$ftrg <- median(c(refpts["Fmsy"]))
+    } else {
+      input$ctrl$hcr@args$ftrg <- Ftrgt
+    }
+  }
   
   ### output path
   path_out <- paste0("output/", stock_id, "/", OM, "/", n_iter, "_", n_yrs, "/",
@@ -427,7 +425,8 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
     saveRDS(res_mp, paste0(path_out, file_name, ".rds"))
   
   ### stats
-  stats <- mp_stats(input = input, res_mp = res_mp, stat_yrs = stat_yrs)
+  stats <- mp_stats(input = input, res_mp = res_mp, refpts = refpts, 
+                    stat_yrs = stat_yrs)
   saveRDS(stats, paste0(path_out, "stats", ".rds"))
   
 }
