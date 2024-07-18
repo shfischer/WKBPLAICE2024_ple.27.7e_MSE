@@ -12,15 +12,15 @@ print(args)
 ### extract arguments
 for (i in seq_along(args)) eval(parse(text = args[[i]]))
 ### set default arguments
-if (!exists("n_workers")) n_workers <- 5
+if (!exists("n_workers")) n_workers <- 10
 if (!exists("stock_id")) stock_id <- "ple.27.7e"
 if (!exists("OM")) OM <- "baseline"
-#OM <- c("Catch_no_surv", "Catch_no_disc", "M_low", "M_high", "M_Gislason", "R_no_AC", "migr_none")
+#OM <- c("Catch_no_surv", "Catch_no_disc", "M_low", "M_high", "M_Gislason", "R_no_AC", "migr_none", "R_lower", "R_higher", "R_failure")
 if (!exists("yr_start")) yr_start <- 2025
 if (!exists("n_iter")) n_iter <- 1000
 if (!exists("vals_ini")) vals_ini <- seq(0, 1, 0.1)
 if (!exists("lower")) lower <- 0
-if (!exists("upper")) upper <- 0.3
+if (!exists("upper")) upper <- 0.4
 if (!exists("tol")) tol <- 0.001
 if (!exists("plot")) plot <- TRUE
 if (!exists("x_label")) x_label <- "F (ages 3-6)"
