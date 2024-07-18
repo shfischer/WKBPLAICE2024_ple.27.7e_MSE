@@ -1140,7 +1140,7 @@ est_MSY <- function(stock_id = "ple.27.7e", OM = "baseline",
                                                   function(x) x$Ftrgt))[[1]]]]
       catch_i <- res_i$catch
       ssb_i <- res_i$ssb
-      tsb_i <- res_i$ssb
+      tsb_i <- res_i$tsb
       rec_i <- res_i$rec
     } else {
       ### run projection
