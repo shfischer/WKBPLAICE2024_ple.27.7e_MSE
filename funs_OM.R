@@ -716,20 +716,39 @@ create_OM <- function(stk_data, idx_data,
 input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                      n_yrs = 100, yr_start = 2021, iy = yr_start - 1,
                      n_blocks = FALSE, parallel = n_blocks, seed = 1, 
-                     cut_hist = TRUE, MP = "rfb",
+                     cut_hist = TRUE, MP = "chr",
                      hr_years = NULL,
                      migration = NULL,
                      disc_survival = 0, 
-                     rec_failure = FALSE, ### FALSE or vector of years
+                     ### recruitment
+                     rec_failure = FALSE, ### FALSE 
+                     rec_failure_yrs = 2025:2029,
+                     rec_failure_reduction = 0.9,
                      rec_alternative = FALSE, ### FALSE or multiplier
+                     ### observations
+                     use_catch_residuals = TRUE,
+                     use_catch_residuals_disc = FALSE,
+                     oem_catch_bias = FALSE, oem_catch_bias_level = NULL,
+                     overcatch = FALSE,
                      use_age_idcs = NULL, biomass_index = NULL,
                      idx_timing = NULL, catch_timing = NULL,
+                     ### implementation error
+                     use_iem = FALSE, iem_bias = NULL,
+                     ### SAM forecast options
                      fwd_yrs_rec_start = NULL,
                      fwd_splitLD = NULL,
                      fwd_yrs_average = NULL,
                      fwd_yrs_sel = NULL,
                      fwd_trgt = NULL, fwd_yrs = NULL
                      ) {
+  
+  ### overcatch - higher catch in OM but MP doesn't know
+  if (!isFALSE(overcatch)) {
+    use_iem <- TRUE
+    iem_bias <- 1 + overcatch
+    oem_catch_bias <- TRUE
+    oem_catch_bias_level <- 1/iem_bias
+  }
   
   ### path to input objects
   path_input <- paste0("input/", stock_id, "/", OM, "/", 1000, "_100/")
@@ -755,12 +774,8 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     stk_fwd <- window(stk_fwd, end = yr_end)
     ### OEM stock
     stk_oem <- window(stk_oem, end = yr_end)
-    ### stock-recruitment model - need to go through elements individually
-    rec(sr) <- window(rec(sr), end = yr_end)
-    ssb(sr) <- window(ssb(sr), end = yr_end)
-    residuals(sr) <- window(residuals(sr), end = yr_end)
-    fitted(sr) <- window(fitted(sr), end = yr_end)
-    range(sr)[["maxyear"]] <- yr_end
+    ### stock-recruitment model
+    sr <- window(sr, end = yr_end)
     ### index
     idx <- window(idx, end = yr_end)
     ### residuals
@@ -790,9 +805,10 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   ### alternative recruitment? ####
   ### ---------------------------------------------------------------------- ###
   ### recruitment failure?
-  if (!isFALSE(rec_failure)) {
+  if (isTRUE(rec_failure)) {
     
-    residuals(sr)[, ac(rec_failure)] <- residuals(sr)[, ac(rec_failure)] * 0.1
+    residuals(sr)[, ac(rec_failure_yrs)] <- 
+      residuals(sr)[, ac(rec_failure_yrs)] * (1 - rec_failure_reduction)
     
   }
   
@@ -860,6 +876,11 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     if (is.null(catch_timing)) catch_timing <- -1
   }
   
+  ### bias in catch observations?
+  if (isTRUE(oem_catch_bias)) {
+    catch_res$catch_res[] <- catch_res$catch_res * oem_catch_bias_level
+  }
+  
   ### default oem for rfb rule
   oem <- FLoem(method = obs_generic,
                observations = list(
@@ -868,7 +889,8 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                deviances = list(
                  stk = catch_res, 
                  idx = idx_dev),
-               args = list(use_catch_residuals = TRUE, 
+               args = list(use_catch_residuals = use_catch_residuals, 
+                           use_catch_residuals_disc = use_catch_residuals_disc,
                            use_idx_residuals = TRUE,
                            use_stk_oem = TRUE,
                            use_wt = TRUE,
@@ -949,25 +971,32 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                         idx_dev[[biomass_index]] * 
                         catch.wt(idx[[biomass_index]]))
     idxB_yrs <- dimnames(idxB)$year[which(!is.na(iterMeans(idxB)))]
-    idxC <- quantSums(catch.n(stk_fwd) * catch.wt(stk_fwd) *
-                        oem@deviances$stk$catch.dev)
+    ### get observed catch - mimic OEM function (obs_generic)
+    if (isTRUE(use_catch_residuals_disc)) {
+      stk_tmp <- stock(om)
+      landings.n(stk_tmp) <- landings.n(stock(om)) * oem@deviances$stk$catch_res
+      discards.n(stk_tmp) <- discards.n(stock(om)) * 
+        oem@deviances$stk$catch_res * oem@deviances$stk$disc_res
+      catch(stk_tmp) <- computeCatch(stk_tmp, slot = "all")
+      idxC <- catch(stk_tmp)
+    } else {
+      idxC <- quantSums(catch.n(stk_fwd) * catch.wt(stk_fwd) *
+                          oem@deviances$stk$catch_res)
+    }
     ### I_trigger = 1.4 * I_loss
     I_trigger = apply(idxB, 6, min, na.rm = TRUE) * 1.4
     ### define target harvest rate through reference years
     hr_values <- idxC[, ac(idxB_yrs)]/idxB[, ac(idxB_yrs)]
     if (is.null(hr_years)) {
       if (identical(stock_id, "ple.27.7e")) {
-        hr_years <- 2014
-      } else if (identical(stock_id, "cod.27.47d20")) {
-        hr_years <- c(2008:2013, 2015:2019)
-      } else if (identical(stock_id, "her.27.3a47d")) {
-        hr_years <- c(1989:2020)
+        hr_years <- 2003:2023 ### use all historical years (excl. intermediate)
       } else {
         hr_years <- NULL
       }
     }
-    ### target is mean harvest of target years * 0.5 (WKLIFE X)
-    hr_target <- yearMeans(hr_values[, ac(hr_years)]) * 0.5
+    ### WKLIFE X: target is mean harvest of target years * 0.5
+    ### here: remove 0.5 to get multiplier relative to target
+    hr_target <- yearMeans(hr_values[, ac(hr_years)]) #* 0.5
     
     ctrl <- mpCtrl(list(
       est = mseCtrl(method = est_comps,
@@ -1082,6 +1111,20 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   }
   
   ### ---------------------------------------------------------------------- ###
+  ### IEM - implementation error model ####
+  
+  if (isTRUE(use_iem)) {
+    iem_dev <- catch(stk_fwd) %=% 1
+    iem_dev[] <- iem_bias
+    iem <- FLiem(method = iem_comps,
+                 args = list(use_dev = TRUE,
+                             iem_dev = iem_dev))
+  } else {
+    iem <- NULL
+  }
+  
+  
+  ### ---------------------------------------------------------------------- ###
   ### additional tracking metrics ####
   tracking <- c("comp_c", "comp_i", "comp_r", "comp_f", "comp_b", "comp_hr",
                 "multiplier", "exp_r", "exp_f", "exp_b")
@@ -1092,7 +1135,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   ### ---------------------------------------------------------------------- ###
   ### create input object ####
   
-  input <- list(om = om, oem = oem, ctrl = ctrl,
+  input <- list(om = om, oem = oem, ctrl = ctrl, iem = iem,
                 args = args, tracking = tracking, parallel = parallel)
   #, refpts = refpts_mse, cut_hist = cut_hist
   
