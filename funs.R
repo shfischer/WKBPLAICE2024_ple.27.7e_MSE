@@ -881,23 +881,21 @@ is_comps <- function(ctrl, args, tracking, interval = 2,
 ### ------------------------------------------------------------------------ ###
 
 iem_comps <- function(ctrl, args, tracking, 
-                      iem_dev = FALSE, use_dev, ...) {
+                      iem_dev = NULL, use_dev = FALSE, ...) {
   
   ay <- args$ay
   
   ### only do something if requested
   if (isTRUE(use_dev)) {
     
-    ### get advice
-    advice <- ctrl@iters[which(ctrl@target$year == (ay + 1)),
-                         "value", ]
-    ### get deviation
-    dev <- c(iem_dev[, ac(ay)])
+    if (isTRUE(dim(ctrl@iters)[3] < dim(iem_dev)[6]))
+      iem_dev <- iem_dev[,,,,, dimnames(ctrl@iters)$iter]
+    
     ### implement deviation
-    advice <- advice * dev
-    ### insert into ctrl object
-    ctrl@iters[which(ctrl@target$year == (ay + 1)),
-               "value", ] <- advice
+    iem_yrs <- ctrl@target$year
+    ctrl@iters[, "min", ] <- ctrl@iters[, "min", ] * iem_dev[, ac(iem_yrs)]
+    ctrl@iters[, "value", ] <- ctrl@iters[, "value", ] * iem_dev[, ac(iem_yrs)]
+    ctrl@iters[, "max", ] <- ctrl@iters[, "max", ] * iem_dev[, ac(iem_yrs)]
     
   }
   
