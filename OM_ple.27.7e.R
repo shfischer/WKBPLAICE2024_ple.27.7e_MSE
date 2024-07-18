@@ -286,9 +286,9 @@ RR0
 ### Blim corresponds to SSB at ~ 79.5% of R0
 
 refpts <- FLPar(refpts, iter = 1000, unit = "")
-update_refpts <- function(stock_id = "ple.27.7e", OM, refpts, RR0) {
+update_refpts <- function(OM, refpts, RR0) {
   ### get MSY levels 
-  refpts_MSY <- readRDS(paste0("input/", stock_id, "/", OM,
+  refpts_MSY <- readRDS(paste0("input/ple.27.7e/", OM,
                                "/1000_100/MSY_trace.rds"))
   refpts_MSY <- refpts_MSY[[which.max(sapply(refpts_MSY, function(x) x$catch))]]
   ### update
@@ -296,31 +296,30 @@ update_refpts <- function(stock_id = "ple.27.7e", OM, refpts, RR0) {
   refpts["Bmsy"] <- refpts_MSY$ssb
   refpts["Cmsy"] <- refpts_MSY$catch
   ### load recruitment model and estimate Blim
-  sr_mse <- readRDS(paste0("input/", stock_id, "/", OM, "/1000_100/sr.rds"))
+  sr_mse <- readRDS(paste0("input/ple.27.7e/", OM, "/1000_100/sr.rds"))
   pars <- iterMedians(params(sr_mse))
   refpts["Blim"] <- c(pars["b"])*(RR0/(1 - RR0))
   print(refpts)
   ### save updated values
-  saveRDS(refpts, file = paste0("input/", stock_id, "/", OM,
+  saveRDS(refpts, file = paste0("input/ple.27.7e/", OM,
                                 "/1000_100/refpts_mse.rds"))
 }
 
 ### baseline
 update_refpts(OM = "baseline", refpts = refpts, RR0 = RR0)
-### M low
+### alternative OMs
+update_refpts(OM = "Catch_no_disc", refpts = refpts, RR0 = RR0)
+update_refpts(OM = "Catch_no_surv", refpts = refpts, RR0 = RR0)
+update_refpts(OM = "migr_none", refpts = refpts, RR0 = RR0)
 update_refpts(OM = "M_low", refpts = refpts, RR0 = RR0)
-### M high
 update_refpts(OM = "M_high", refpts = refpts, RR0 = RR0)
-### M Gislason
 update_refpts(OM = "M_Gislason", refpts = refpts, RR0 = RR0)
-### no recruitment AC
-update_refpts(OM = "rec_no_ac", refpts = refpts, RR0 = RR0)
-### 100% discards survival
-### - use no_discards_not_hidden OM where discards are not included in OM stk
-update_refpts(OM = "no_discards_not_hidden", refpts = refpts, RR0 = RR0)
-file.copy(from = "input/ple.27.7e/no_discards_not_hidden/1000_100/refpts_mse.rds",
-          to = "input/ple.27.7e/no_discards/1000_100/refpts_mse.rds", 
-          overwrite = TRUE)
+update_refpts(OM = "R_no_AC", refpts = refpts, RR0 = RR0)
+update_refpts(OM = "R_higher", refpts = refpts, RR0 = RR0)
+update_refpts(OM = "R_lower", refpts = refpts, RR0 = RR0)
+
+
+
 
 ### ------------------------------------------------------------------------ ###
 ### alternative Blim values ####
