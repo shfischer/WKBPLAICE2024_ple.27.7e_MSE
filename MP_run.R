@@ -26,7 +26,7 @@ if (length(args) > 0) {
   if (!exists("n_yrs")) n_yrs <- 20
   if (!exists("yr_start")) yr_start <- 2025
   if (!exists("scenario")) scenario <- "multiplier"
-  if (!exists("MP")) MP <- "rfb"
+  if (!exists("MP")) MP <- "hr"
   if (!exists("Ftrgt")) Ftrgt <- "MSY" # only for constF MP
   if (!exists("rec_failure")) rec_failure <- FALSE
   ### OM
