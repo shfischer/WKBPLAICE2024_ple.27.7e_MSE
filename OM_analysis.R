@@ -310,524 +310,180 @@ ggsave(filename = "output/plots/OM/OM_biol_sel.pdf", plot = p,
 
 
 ### ------------------------------------------------------------------------ ###
-### __TODO plot OM trajectories vs. ICES assessment - alternative OMs ####
+### __UPDATE plot OM trajectories vs. ICES assessment - alternative OMs ####
 ### ------------------------------------------------------------------------ ###
-### find alternative OMs
-res_alt <- readRDS("output/MPs_alternative_OMs.rds")
-res_alt_OMs <- res_alt %>%
-  select(stock, OM_group, OM) %>%
-  unique() %>%
-  mutate(
-    OM_label = factor(OM, 
-      levels = c("baseline", "M_low", "M_high", "M_Gislason",
-                 "M_dd", "M_no_migration", "no_discards",
-                 "rec_higher", "rec_no_AC", "rec_failure"),
-      labels = c("baseline", "low", "high", "Gislason",
-                 "dens. dep.", "no migration", "no discards",
-                 "higher", "no AC", "failure")), .after = "OM") %>%
-  mutate(
-    OM_label2 = factor(OM_label, 
-       levels = c("baseline", "low", "high", "Gislason",
-                  "dens. dep.", "no migration", "no discards",
-                  "higher", "no AC", "failure"),
-       labels = c("baseline", 
-                  "M: low", "M: high", "M: Gislason",
-                  "M: dens. dep.", 
-                  "M: no migration", "Catch: no discards",
-                  "Rec: higher", "Rec: no AC", "Rec: failure")),
-    .after = "OM_label") %>%
-  mutate(OM_group = factor(OM_group, c("baseline", "M", "Catch", "Rec"))) %>%
-  mutate(stock_label = factor(stock, 
-                              levels = c("ple.27.7e", "cod.27.47d20",
-                                         "her.27.3a47d"),
-                              labels = c("Plaice", "Cod", "Herring")))
 
-### load reference points for all stocks and OMs
-df_refpts <- foreach(i = seq(nrow(res_alt_OMs)), .combine = bind_rows) %do% {
-  OM_i <- res_alt_OMs$OM[i]
-  if (identical(OM_i, "rec_failure")) OM_i <- "baseline"
-  stock_i <- res_alt_OMs$stock[i]
-  refpts_i <- readRDS(paste0("input/", stock_i, "/",
-                             OM_i, "/1000_100/refpts_mse.rds"))
-  refpts_i <- iterMedians(refpts_i)
-  res_alt_OMs[i, ] %>%
-    mutate(Fmsy = c(refpts_i["Fmsy"]),
-           Bmsy = c(refpts_i["Bmsy"]),
-           Cmsy = c(refpts_i["Cmsy"]),
-           Blim = c(refpts_i["Blim"])) %>%
-    rename(stock_id = stock, stock = stock_label)
-}
+OM_list <- c("baseline",
+             "Catch_no_disc", "Catch_no_surv", "migr_none",
+             "M_low", "M_high", "M_Gislason",
+             "R_no_AC", "R_higher", "R_lower")
+OM_labels <- c("Baseline",
+               "Catch: no discards", "Catch: 100% discards", "Catch: no migration",
+               "M: -50%", "M: +50%", "M: Gislason",
+               "R: no AC", "R: +20%", "R: -20%")
 
 ### get values from operating models
-df_OM <- foreach(stock_id = res_alt_OMs$stock,
-                 OM = res_alt_OMs$OM,
-                 OM_label2 = res_alt_OMs$OM_label2,
-                 stock = res_alt_OMs$stock_label,
+df_OM <- foreach(OM = OM_list,
+                 OM_label = OM_labels,
                  .combine = bind_rows) %do% {
   #browser()
-  stk_i <- readRDS(paste0("input/", stock_id, "/", 
-                          ifelse(identical(OM, "rec_failure"),
-                                 "baseline", OM), 
-                          "/1000_100/stk.rds"))
+  stk_i <- readRDS(paste0("input/ple.27.7e/", OM, "/1000_100/stk.rds"))
   ### get metrics
   qnts <- FLQuants(ssb = ssb(stk_i)/1000, fbar = fbar(stk_i),
                    catch = catch(stk_i)/1000, rec = rec(stk_i)/1000)
-  if (isTRUE(OM_label2 == "Catch: no discards"))
-    qnts$catch <- landings(stk_i)/1000
   ### percentiles
-  qnts_perc <- lapply(qnts, quantile, probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
+  qnts_perc <- lapply(qnts, quantile, probs = c(0.025, 0.25, 0.5, 0.75, 0.975),
                        na.rm = TRUE)
   qnts_perc <- FLQuants(qnts_perc)
   qnts_perc <- as.data.frame(qnts_perc)
   qnts_perc <- qnts_perc %>% select(year, iter, data, qname) %>%
     pivot_wider(names_from = iter, values_from = data) %>%
-    mutate(stock = stock, stock_id = stock_id,
-           OM = OM, OM_label2 = OM_label2,
-           source = "OM")
+    mutate(OM = OM, OM_label = OM_label,
+           source = "Operating model")
   return(qnts_perc)
 }
-df_OM <- df_OM %>% filter(year <= 2020)
-### get ICES assessment summary
-df_ICES <- foreach(stock = c("Plaice", "Cod", "Herring"),
-                   stock_id = c("ple.27.7e", "cod.27.47d20", "her.27.3a47d"),
-                   .combine = bind_rows) %do% {
-  #browser()
-  smry <- read.csv(paste0("input/", stock_id, "/preparation/",
-                          "ices_assessment_summary.csv"))
-  names(smry)[1] <- "year"
-  smry <- smry %>% 
-    select(year, SSB, F, Catches, Landings, Recruitment) %>%
-    mutate(SSB = SSB/1000, Catches = Catches/1000, Landings = Landings/1000,
-           Recruitment = Recruitment/1000) %>%
-    rename(fbar = F, ssb = SSB, catch = Catches, landings = Landings,
-           rec = Recruitment) %>%
-    pivot_longer(c(ssb, fbar, catch, landings, rec), names_to = "qname") %>%
-    mutate(stock = stock, stock_id = stock_id, source = "ICES")
-  return(smry)
+df_OM <- df_OM %>% filter(year <= 2023)
+
+df_OM_baseline <- df_OM %>% 
+  filter(OM == "baseline") %>%
+  select(-OM, -OM_label) %>%
+  mutate(source = "Baseline")
+
+### load reference points
+df_refpts <- foreach(OM = OM_list,
+                     OM_label = OM_labels, .combine = bind_rows) %do% {#browser()
+  file <- paste0("input/ple.27.7e/", OM, "/1000_100/refpts_mse.rds")
+  if (isFALSE(file.exists(file))) return(NULL)
+  refpts_i <- readRDS(file)
+  refpts_i <- iterMedians(refpts_i)
+  data.frame(OM = OM, OM_label = OM_label,
+             Fmsy = c(refpts_i["Fmsy"]),
+             Bmsy = c(refpts_i["Bmsy"]),
+             Cmsy = c(refpts_i["Cmsy"]),
+             Blim = c(refpts_i["Blim"]))
 }
-df_ICES <- df_ICES %>% filter(year <= 2020)
-### add OM levels
-df_ICES <- df_ICES %>%
-  full_join(df_OM %>% 
-              select(stock, stock_id, OM, OM_label2) %>% 
-              unique())
-# ### use landings for plaice scenario
-# df_ICES$value[df_ICES$stock == "Plaice" & 
-#                 df_ICES$OM_label2 == "Catch: no discards" &
-#                 df_ICES$qname == "catch"] <- 
-#   df_ICES$value[df_ICES$stock == "Plaice" & 
-#                   df_ICES$OM_label2 == "Catch: no discards" &
-#                   df_ICES$qname == "landings"]
 
-df_combined <- 
-  bind_rows(df_ICES %>%
-              select(year, qname, value, source, stock, stock_id,
-                     OM, OM_label2),
-            df_OM %>% 
-              select(year, qname, value = `50%`, stock, stock_id, source, 
-                     OM, OM_label2)) %>%
-  mutate(source = factor(source, levels = c("OM", "ICES"),
-                         labels = c("Operating model",
-                                    "ICES assessment")))
+df_OM <- df_OM %>%
+  filter(OM %in% OM_list[1:7])
+df_refpts <- df_refpts  %>%
+  filter(OM %in% OM_list[1:7])
 
-
-p_ple_catch <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Plaice" & qname == "catch"),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
+p_catch <- df_OM %>%
+  filter(qname == "catch") %>%
+  ggplot(aes(x = year)) +
+  geom_hline(data = df_refpts, 
+             aes(yintercept = Cmsy/1000), 
+             colour = "black", linewidth = 0.3, linetype = "2222",
+             show.legend = FALSE) + 
+  geom_ribbon(aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
               show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Plaice" & qname == "catch"),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
               show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Plaice" & qname == "catch"),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  geom_hline(data = df_refpts %>%
-               filter(stock == "Plaice"),
-             aes(yintercept = Cmsy/1000),
-             size = 0.3, linetype = "dashed") +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
+  geom_line(aes(y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) + 
+  geom_line(data = df_OM_baseline %>% filter(qname == "catch"),
+            aes(x = year, y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) +
+  facet_wrap(~ OM_label, ncol = 1, strip.position = "right") + 
+  scale_y_continuous(limits = c(0, NA), breaks = scales::pretty_breaks()) +
+  scale_colour_manual("", values = c("Operating model" = "black",
+                                     "Baseline" = "red")) + 
   scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  coord_cartesian(xlim = c(1979, 2021), ylim = c(0, 3.2), expand = FALSE) +
-  facet_wrap(~ OM_label2, ncol = 1, strip.position = "right") + 
-  labs(y = "Catch [1000t]", x = "Year") +
+                                       "Baseline" = "2121")) +
+  labs(y = "Catch (1000t)", x = "Year") +
   theme_bw(base_size = 8) +
   theme(legend.position = "none",
+        strip.text.y = element_blank())
+p_R <- df_OM %>%
+  filter(qname == "rec") %>%
+  ggplot(aes(x = year)) +
+  geom_ribbon(aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_line(aes(y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) + 
+  geom_line(data = df_OM_baseline %>% filter(qname == "rec"),
+            aes(x = year, y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) +
+  facet_wrap(~ OM_label, ncol = 1, strip.position = "right") + 
+  scale_y_continuous(limits = c(0, NA), breaks = scales::pretty_breaks()) +
+  scale_colour_manual("", values = c("Operating model" = "black",
+                                     "Baseline" = "red")) + 
+  scale_linetype_manual("", values = c("Operating model" = "solid",
+                                       "Baseline" = "2121")) +
+  labs(y = "Recruitment (1000)", x = "Year") +
+  theme_bw(base_size = 8) +
+  theme(legend.position.inside = c(0.5, 0.985),
+        legend.position = "inside",
         legend.key = element_blank(),
         legend.key.height = unit(0.5, "lines"),
         legend.key.width = unit(0.8, "lines"),
         legend.background = element_blank(),
         strip.text.y = element_blank())
-p_ple_rec <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Plaice" & qname == "rec"),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
+p_ssb <- df_OM %>%
+  filter(qname == "ssb") %>%
+  ggplot(aes(x = year)) +
+  geom_hline(data = df_refpts, 
+             aes(yintercept = Bmsy/1000), 
+             colour = "black", linewidth = 0.3, linetype = "2222",
+             show.legend = FALSE) + 
+  geom_hline(data = df_refpts, 
+             aes(yintercept = Blim/1000), 
+             colour = "black", linewidth = 0.3, linetype = "1212",
+             show.legend = FALSE) + 
+  geom_ribbon(aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
               show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Plaice" & qname == "rec"),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
               show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Plaice" & qname == "rec"),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
+  geom_line(aes(y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) + 
+  geom_line(data = df_OM_baseline %>% filter(qname == "ssb"),
+            aes(x = year, y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) +
+  facet_wrap(~ OM_label, ncol = 1, strip.position = "right") + 
+  scale_y_continuous(limits = c(0, NA), breaks = scales::pretty_breaks()) +
+  scale_colour_manual("", values = c("Operating model" = "black",
+                                     "Baseline" = "red")) + 
   scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  coord_cartesian(xlim = c(1979, 2021), ylim = c(0, 39), expand = FALSE) +
-  facet_wrap(~ OM_label2, ncol = 1, strip.position = "right") + 
-  labs(y = "Recruitment [1000s]", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = c(0.5, 0.98),
-        legend.key = element_blank(),
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(0.8, "lines"),
-        legend.background = element_blank(),
-        strip.text.y = element_blank())
-p_ple_ssb <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Plaice" & qname == "ssb"),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Plaice" & qname == "ssb"),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Plaice" & qname == "ssb"),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  geom_hline(data = df_refpts %>%
-               filter(stock == "Plaice"),
-             aes(yintercept = Bmsy/1000),
-             size = 0.3, linetype = "dashed") +
-  geom_hline(data = df_refpts %>%
-               filter(stock == "Plaice"),
-             aes(yintercept = Blim/1000),
-             size = 0.3, linetype = "dotted") +
-  coord_cartesian(xlim = c(1979, 2021), ylim = c(0, 23), expand = FALSE) +
-  facet_wrap(~ OM_label2, ncol = 1, strip.position = "right") + 
-  labs(y = "SSB [1000t]", x = "Year") +
+                                       "Baseline" = "2121")) +
+  labs(y = "SSB (1000t)", x = "Year") +
   theme_bw(base_size = 8) +
   theme(legend.position = "none",
-        legend.key = element_blank(),
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(0.8, "lines"),
-        legend.background = element_blank(),
         strip.text.y = element_blank())
-p_ple_fbar <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Plaice" & qname == "fbar"),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
+p_fbar <- df_OM %>%
+  filter(qname == "fbar") %>%
+  ggplot(aes(x = year)) +
+  geom_hline(data = df_refpts, 
+             aes(yintercept = Fmsy), 
+             colour = "black", linewidth = 0.3, linetype = "2222",
+             show.legend = FALSE) + 
+  geom_ribbon(aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
               show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Plaice" & qname == "fbar"),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
               show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Plaice" & qname == "fbar"),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
+  geom_line(aes(y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) + 
+  geom_line(data = df_OM_baseline %>% filter(qname == "fbar"),
+            aes(x = year, y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) +
+  facet_wrap(~ OM_label, ncol = 1, strip.position = "right") + 
+  scale_y_continuous(limits = c(0, NA), breaks = scales::pretty_breaks()) +
+  scale_colour_manual("", values = c("Operating model" = "black",
+                                     "Baseline" = "red")) + 
   scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  geom_hline(data = df_refpts %>%
-               filter(stock == "Plaice"),
-             aes(yintercept = Fmsy),
-             size = 0.3, linetype = "dashed") +
-  coord_cartesian(xlim = c(1979, 2021), ylim = c(0, 0.9), expand = FALSE) +
-  facet_wrap(~ OM_label2, ncol = 1, strip.position = "right") + 
-  labs(y = "mean F (ages 3-6)", x = "Year") +
+                                       "Baseline" = "2121")) +
+  labs(y = "Mean F (ages 3-6)", x = "Year") +
   theme_bw(base_size = 8) +
-  theme(legend.position = "none",
-        legend.key = element_blank(),
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(0.8, "lines"),
-        legend.background = element_blank())
+  theme(legend.position = "none")
 
-p_cod_catch <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Cod" & qname == "catch"),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Cod" & qname == "catch"),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Cod" & qname == "catch"),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  geom_hline(data = df_refpts %>%
-               filter(stock == "Cod"),
-             aes(yintercept = Cmsy/1000),
-             size = 0.3, linetype = "dashed") +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  coord_cartesian(xlim = c(1962, 2021.5), ylim = c(0, 610), expand = FALSE) +
-  facet_wrap(~ OM_label2, ncol = 1, strip.position = "right") + 
-  labs(y = "Catch [1000t]", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none",
-        legend.key = element_blank(),
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(0.8, "lines"),
-        legend.background = element_blank(),
-        strip.text.y = element_blank())
-p_cod_rec <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Cod" & qname == "rec"),
-              aes(x = year, ymin = `5%`/1000, ymax = `95%`/1000), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Cod" & qname == "rec"),
-              aes(x = year, ymin = `25%`/1000, ymax = `75%`/1000), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Cod" & qname == "rec"),
-            aes(x = year, y = value/1000, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  coord_cartesian(xlim = c(1962, 2021.5), ylim = c(0, 3.4), expand = FALSE) +
-  facet_wrap(~ OM_label2, ncol = 1, strip.position = "right") + 
-  labs(y = "Recruitment [millions]", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none",
-        legend.key = element_blank(),
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(0.8, "lines"),
-        legend.background = element_blank(),
-        strip.text.y = element_blank())
-p_cod_ssb <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Cod" & qname == "ssb"),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Cod" & qname == "ssb"),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Cod" & qname == "ssb"),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  geom_hline(data = df_refpts %>%
-               filter(stock == "Cod"),
-             aes(yintercept = Bmsy/1000),
-             size = 0.3, linetype = "dashed") +
-  geom_hline(data = df_refpts %>%
-               filter(stock == "Cod"),
-             aes(yintercept = Blim/1000),
-             size = 0.3, linetype = "dotted") +
-  coord_cartesian(xlim = c(1962, 2021.5), ylim = c(0, 290), expand = FALSE) +
-  facet_wrap(~ OM_label2, ncol = 1, strip.position = "right") + 
-  labs(y = "SSB [1000t]", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none",
-        legend.key = element_blank(),
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(0.8, "lines"),
-        legend.background = element_blank(),
-        strip.text.y = element_blank())
-p_cod_fbar <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Cod" & qname == "fbar"),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Cod" & qname == "fbar"),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Cod" & qname == "fbar"),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  geom_hline(data = df_refpts %>%
-               filter(stock == "Cod"),
-             aes(yintercept = Fmsy),
-             size = 0.3, linetype = "dashed") +
-  coord_cartesian(xlim = c(1962, 2021.5), ylim = c(0, 1.3), expand = FALSE) +
-  facet_wrap(~ OM_label2, ncol = 1, strip.position = "right") + 
-  labs(y = "mean F (ages 2-4)", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none",
-        legend.key = element_blank(),
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(0.8, "lines"),
-        legend.background = element_blank())
+p <- p_catch + p_R + p_ssb + p_fbar + plot_layout(nrow = 1)
+p
 
-p_her_catch <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Herring" & qname == "catch"),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Herring" & qname == "catch"),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Herring" & qname == "catch"),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  geom_hline(data = df_refpts %>%
-               filter(stock == "Herring"),
-             aes(yintercept = Cmsy/1000),
-             size = 0.3, linetype = "dashed") +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  coord_cartesian(xlim = c(1946, 2022), ylim = c(0, 1450), expand = FALSE) +
-  facet_wrap(~ OM_label2, ncol = 1, strip.position = "right") + 
-  labs(y = "Catch [1000t]", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none",
-        legend.key = element_blank(),
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(0.8, "lines"),
-        legend.background = element_blank(),
-        strip.text.y = element_blank())
-p_her_rec <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Herring" & qname == "rec"),
-              aes(x = year, ymin = `5%`/1000, ymax = `95%`/1000), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Herring" & qname == "rec"),
-              aes(x = year, ymin = `25%`/1000, ymax = `75%`/1000), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Herring" & qname == "rec"),
-            aes(x = year, y = value/1000, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  coord_cartesian(xlim = c(1946, 2022), ylim = c(0, 245), expand = FALSE) +
-  facet_wrap(~ OM_label2, ncol = 1, strip.position = "right") + 
-  labs(y = "Recruitment [millions]", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none",
-        legend.key = element_blank(),
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(0.8, "lines"),
-        legend.background = element_blank(),
-        strip.text.y = element_blank())
-p_her_ssb <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Herring" & qname == "ssb"),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Herring" & qname == "ssb"),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Herring" & qname == "ssb"),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  geom_hline(data = df_refpts %>%
-               filter(stock == "Herring"),
-             aes(yintercept = Bmsy/1000),
-             size = 0.3, linetype = "dashed") +
-  geom_hline(data = df_refpts %>%
-               filter(stock == "Herring"),
-             aes(yintercept = Blim/1000),
-             size = 0.3, linetype = "dotted") +
-  coord_cartesian(xlim = c(1946, 2022), ylim = c(0, 11000), expand = FALSE) +
-  facet_wrap(~ OM_label2, ncol = 1, strip.position = "right") + 
-  labs(y = "SSB [1000t]", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none",
-        legend.key = element_blank(),
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(0.8, "lines"),
-        legend.background = element_blank(),
-        strip.text.y = element_blank())
-p_her_fbar <- ggplot() +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Herring" & qname == "fbar"),
-              aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_ribbon(data = df_OM %>%
-                filter(stock == "Herring" & qname == "fbar"),
-              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
-              show.legend = FALSE) +
-  geom_line(data = df_combined %>% 
-              filter(stock == "Herring" & qname == "fbar"),
-            aes(x = year, y = value, linetype = source, colour = source),
-            size = 0.3) +
-  scale_color_manual("", values = c("Operating model" = "black",
-                                    "ICES assessment" = "red")) +
-  scale_linetype_manual("", values = c("Operating model" = "solid",
-                                       "ICES assessment" = "2121")) +
-  geom_hline(data = df_refpts %>%
-               filter(stock == "Herring"),
-             aes(yintercept = Fmsy),
-             size = 0.3, linetype = "dashed") +
-  coord_cartesian(xlim = c(1946, 2022), ylim = c(0, 1.59), expand = FALSE) +
-  facet_wrap(~ OM_label2, ncol = 1, strip.position = "right") + 
-  labs(y = "mean F (ages 2-6)", x = "Year") +
-  theme_bw(base_size = 8) +
-  theme(legend.position = "none",
-        legend.key = element_blank(),
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(0.8, "lines"),
-        legend.background = element_blank())
-
-
-p_ple <- p_ple_catch + 
-  ggtitle(label = "(a) Plaice") + 
-  theme(plot.title = element_text(face = "bold")) +
-  p_ple_rec + p_ple_ssb + p_ple_fbar + 
-  plot_layout(nrow = 1)
-ggsave(filename = "output/plots/risk_OM_vs_ICES_ple.png", plot = p_ple, 
-       width = 16, height = 16, units = "cm", dpi = 600, type = "cairo")
-ggsave(filename = "output/plots/risk_OM_vs_ICES_ple.pdf", plot = p_ple, 
-       width = 16, height = 16, units = "cm")
-
-p_cod_her <- p_cod_catch + 
-  ggtitle(label = "(b) Cod") + 
-  theme(plot.title = element_text(face = "bold")) +
-  p_cod_rec + p_cod_ssb + p_cod_fbar + 
-  p_her_catch + 
-  ggtitle(label = "(c) Herring") + 
-  theme(plot.title = element_text(face = "bold")) +
-  p_her_rec + p_her_ssb + p_her_fbar + 
-  plot_layout(nrow = 2, heights = c(5, 5))
-ggsave(filename = "output/plots/risk_OM_vs_ICES_cod_her.png", plot = p_cod_her, 
-       width = 16, height = 22, units = "cm", dpi = 600, type = "cairo")
-ggsave(filename = "output/plots/risk_OM_vs_ICES_cod_her.pdf", plot = p_cod_her, 
-       width = 16, height = 22, units = "cm")
-
+ggsave(filename = "output/plots/OM/OM_vs_SAM_all.png", plot = p, 
+       width = 16, height = 18, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_vs_SAM_all.pdf", plot = p, 
+       width = 16, height = 18, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
 ### baseline OM - historical SSB and Blim ####
@@ -1068,7 +724,7 @@ ggsave(filename = "output/plots/OM/OM_baseline_F0_worm.pdf", plot = p,
        width = 16, height = 13, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
-### visualisation of OM MSY values ####
+### __UPDATE all OMs - visualisation of OM MSY values ####
 ### ------------------------------------------------------------------------ ###
 OM_list <- c("baseline",
              "Catch_no_disc", "Catch_no_surv", "migr_none",
@@ -1187,7 +843,7 @@ sr_om <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
 stk <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
 stk <- window(iterMedians(stk), end = 2023)
 
-fit_stk <- SAM2FLStock(object = fit, stk = stk_data)
+fit_stk <- SAM2FLStock(object = fit, stk = stk)
 sr <- as.FLSR(fit_stk, model = "bevholtSV")
 rec(sr) <- rec(sr)/1000
 ssb(sr) <- ssb(sr)/1000
@@ -1219,7 +875,7 @@ p_res <- df_sr %>%
   ggplot(aes(x = ssb, y = rec)) +
   geom_blank(data = data.frame(ssb = 9, rec = 18)) +
   geom_linerange(aes(x = ssb, ymin = rec, ymax = fitted), 
-                 colour = "blue", size = 0.2, 
+                 colour = "blue", linewidth = 0.2, 
                  linetype = "2121") +
   geom_point(size = 0.5) +
   geom_function(fun = sr_model, args = sr_params, size = 0.4) +
@@ -1460,77 +1116,42 @@ ggsave(filename = "output/plots/OM/OM_rec_data_vs_model.pdf", plot = p,
        width = 16, height = 8, units = "cm", dpi = 600)
   
 ### ------------------------------------------------------------------------ ###
-### Recruitment models of alternative OMs (all stocks) ####
+### Recruitment models of alternative OMs ####
 ### ------------------------------------------------------------------------ ###
 
-### find alternative OMs
-res_alt <- readRDS("output/MPs_alternative_OMs.rds")
-res_alt_OMs <- res_alt %>%
-  select(stock, OM_group, OM) %>%
-  unique() %>%
-  mutate(
-    OM_label = factor(OM, 
-                      levels = c("baseline", "M_low", "M_high", "M_Gislason",
-                                 "M_dd", "M_no_migration", "no_discards",
-                                 "rec_higher", "rec_no_AC", "rec_failure"),
-                      labels = c("baseline", "low", "high", "Gislason",
-                                 "dens. dep.", "no migration", "no discards",
-                                 "higher", "no AC", "failure")), .after = "OM") %>%
-  mutate(
-    OM_label2 = factor(OM_label, 
-                       levels = c("baseline", "low", "high", "Gislason",
-                                  "dens. dep.", "no migration", "no discards",
-                                  "higher", "no AC", "failure"),
-                       labels = c("baseline", 
-                                  "M: low", "M: high", "M: Gislason",
-                                  "M: dens. dep.", 
-                                  "M: no migration", "Catch: no discards",
-                                  "Rec: higher", "Rec: no AC", "Rec: failure")),
-    .after = "OM_label") %>%
-  mutate(OM_group = factor(OM_group, c("baseline", "M", "Catch", "Rec"))) %>%
-  mutate(stock_label = factor(stock, 
-                              levels = c("ple.27.7e", "cod.27.47d20",
-                                         "her.27.3a47d"),
-                              labels = c("Plaice", "Cod", "Herring")))
-
+OM_list <- c("baseline",
+             "Catch_no_disc", "Catch_no_surv", "migr_none",
+             "M_low", "M_high", "M_Gislason",
+             "R_no_AC", "R_failure", "R_higher", "R_lower")
+OM_labels <- c("Baseline",
+               "Catch: no discards", "Catch: 100% discards", "Catch: no migration",
+               "M: -50%", "M: +50%", "M: Gislason",
+               "R: no AC", "R: failure", "R: +20%", "R: -20%")
 
 ### load recruitment values and stock-recruit pairs - use medians
-df_OM <- foreach(stock_id = res_alt_OMs$stock,
-                 OM = res_alt_OMs$OM,
-                 OM_label2 = res_alt_OMs$OM_label2,
-                 stock = res_alt_OMs$stock_label) %do% {
+df_OM <- foreach(OM = OM_list,
+                 OM_label = OM_labels) %do% {
   #browser()
-  sr_i <- readRDS(paste0("input/", stock_id, "/", 
-                         ifelse(identical(OM, "rec_failure"),
-                                "baseline", OM), 
+  sr_i <- readRDS(paste0("input/ple.27.7e/", OM,
                          "/1000_100/sr.rds"))
   ### SSB-recruitment pairs used for model fitting
   df_pairs <- data.frame(year = as.numeric(dimnames(ssb(sr_i))$year),
                          ssb = c(iterMedians(ssb(sr_i))), 
                          rec = c(iterMedians(rec(sr_i)))) %>%
     filter(!is.na(ssb)) %>%
-    mutate(stock = stock, stock_id = stock_id,
-           OM = OM, OM_label2 = OM_label2)
+    mutate(OM = OM, OM_label = OM_label)
   ### table with modelled recruitment
   sr_i_med <- iter(sr_i, 1)
   params(sr_i_med) <- iterMedians(params(sr_i))
   ssb_max <- max(c(iterMedians(ssb(sr_i))), na.rm = TRUE)
   
-  if (isTRUE(model(FLSR(model = bevholt)) == model(sr_i))) {
-    ssb_vals <- seq(from = 0, to = ssb_max * 3, length.out = 1500)
-    rec_vals <- c(predict(sr_i_med, ssb = FLQuant(ssb_vals)))
-  } else if (isTRUE(model(FLSR(model = segreg)) == model(sr_i))) {
-    ssb_vals <- c(0, c(params(sr_i_med)$b), ssb_max * 3)
-    rec_vals <- c(0, c(params(sr_i_med)$a * params(sr_i_med)$b),
-                  c(params(sr_i_med)$a * params(sr_i_med)$b))
-  } else {
-    stop("unknown model")
-  }
+  ssb_vals <- seq(from = 0, to = ssb_max * 3, length.out = 1500)
+  rec_vals <- c(predict(sr_i_med, ssb = FLQuant(ssb_vals)))
+
   df_pairs_model <- data.frame(ssb = ssb_vals,
                                rec = rec_vals) %>%
-    mutate(stock = stock, stock_id = stock_id,
-           OM = OM, OM_label2 = OM_label2, rec_failure = FALSE)
-  if (isTRUE(OM == "rec_failure")) {
+    mutate(OM = OM, OM_label = OM_label, rec_failure = FALSE)
+  if (isTRUE(OM == "R_failure")) {
     df_pairs_model <- bind_rows(
       df_pairs_model %>%
         mutate(rec_failure = FALSE),
@@ -1541,8 +1162,7 @@ df_OM <- foreach(stock_id = res_alt_OMs$stock,
   ### recruitment model parameters
   pars_i <- data.frame(a = c(iterMedians(params(sr_i)$a)),
                        b = c(iterMedians(params(sr_i)$b))) %>%
-    mutate(stock = stock, stock_id = stock_id,
-           OM = OM, OM_label2 = OM_label2)
+    mutate(OM = OM, OM_label = OM_label)
   return(list(pairs = df_pairs, pairs_add = df_pairs_model, pars = pars_i))
 }
 df_pairs <- bind_rows(lapply(df_OM, "[[", 1))
@@ -1550,75 +1170,33 @@ df_pairs_add <- bind_rows(lapply(df_OM, "[[", 2))
 df_pars <- bind_rows(lapply(df_OM, "[[", 3))
 
 
-p_ple <- ggplot() +
-  geom_point(data = df_pairs %>%
-               filter(stock == "Plaice"),
-             aes(x = ssb, y = rec),
+p <- ggplot() +
+  geom_point(data = df_pairs,
+             aes(x = ssb/1000, y = rec/1000),
              size = 0.3) +
-  geom_line(data = df_pairs_add %>% 
-              filter(stock == "Plaice"),
-            aes(x = ssb, y = rec, linetype = rec_failure),
-            size = 0.4, show.legend = FALSE) + 
-  facet_wrap(~ OM_label2, ncol = 5) +
-  scale_x_continuous("SSB [1000t]",
-                     breaks = c(0, 2000, 4000, 6000, 8000),
-                     labels = c(0, 2, 4, 6, 8)) +
-  scale_y_continuous("Recruitment [1000s]",
-                     breaks = c(0, 10000, 20000, 30000),
-                     labels = c(0, 10, 20, 30)) +
-  coord_cartesian(xlim = c(0, 9500), ylim = c(0, 35000), expand = FALSE) +
-  labs(title = "(a) Plaice") +
-  theme_bw(base_size = 8) +
-  theme(plot.title = element_text(face = "bold"))
-
-p_cod <- ggplot() +
-  geom_point(data = df_pairs %>%
-               filter(stock == "Cod"),
-             aes(x = ssb, y = rec),
-             size = 0.3) +
-  geom_line(data = df_pairs_add %>% 
-              filter(stock == "Cod"),
-            aes(x = ssb, y = rec, linetype = rec_failure),
-            size = 0.4, show.legend = FALSE) + 
-  facet_wrap(~ OM_label2, ncol = 5) +
-  scale_x_continuous("SSB [1000t]",
-                     breaks = c(0, 25000, 50000, 75000, 100000),
-                     labels = c(0, 25, 50, 75, 100)) +
-  scale_y_continuous("Recruitment [millions]",
-                     breaks = c(0, 500000, 1000000, 1500000),
-                     labels = c(0, "0.5", "1.0", "1.5")) +
-  coord_cartesian(xlim = c(0, 125000), ylim = c(0, 1500000), expand = FALSE) +
-  labs(title = "(b) Cod") +
-  theme_bw(base_size = 8) +
-  theme(plot.title = element_text(face = "bold"))
-
-p_her <- ggplot() +
-  geom_point(data = df_pairs %>%
-               filter(stock == "Herring"),
-             aes(x = ssb, y = rec),
-             size = 0.3) +
-  geom_line(data = df_pairs_add %>% 
-              filter(stock == "Herring"),
-            aes(x = ssb, y = rec, linetype = rec_failure),
-            size = 0.4, show.legend = FALSE) + 
-  facet_wrap(~ OM_label2, ncol = 5) +
-  scale_x_continuous("SSB [million t]",
-                     breaks = c(0, 2000000, 4000000, 6000000),
-                     labels = c(0, 2, 4, 6)) +
-  scale_y_continuous("Recruitment [millions]",
-                     breaks = c(0, 50000000, 100000000, 150000000),
-                     labels = c(0, 50, 100, 150)) +
-  coord_cartesian(xlim = c(0, 6200000), ylim = c(0, 180000000), expand = FALSE) +
-  labs(title = "(c) Herring") +
-  theme_bw(base_size = 8) +
-  theme(plot.title = element_text(face = "bold"))
-
-p <- (p_ple + p_cod + p_her + plot_layout(heights = c(2.4, 1, 1)))
+  geom_line(data = df_pairs_add,
+            aes(x = ssb/1000, y = rec/1000, linetype = rec_failure),
+            linewidth = 0.4, show.legend = FALSE) + 
+  geom_line(data = df_pairs_add %>%
+              filter(OM == "baseline") %>%
+              select(-OM, -OM_label),
+            aes(x = ssb/1000, y = rec/1000),
+            colour = "red", linetype = "2121", linewidth = 0.4) +
+  facet_wrap(~ OM_label, nrow = 2) +
+  # scale_x_continuous("SSB (1000t)",
+  #                    breaks = c(0, 2000, 4000, 6000, 8000),
+  #                    labels = c(0, 2, 4, 6, 8)) +
+  # scale_y_continuous("Recruitment (1000s)",
+  #                    breaks = c(0, 10000, 20000, 30000),
+  #                    labels = c(0, 10, 20, 30)) +
+  coord_cartesian(xlim = c(0, 19), ylim = c(0, 29), expand = FALSE) +
+  labs(x = "SSB (1000t)", y = "Recruitment (1000s)") +
+  theme_bw(base_size = 8)
 p
 ggsave(filename = "output/plots/OM/OM_rec_OMs.png", plot = p,
-       width = 16, height = 16, units = "cm", dpi = 600, type = "cairo")
+       width = 16, height = 6, units = "cm", dpi = 600, type = "cairo")
 ggsave(filename = "output/plots/OM/OM_rec_OMs.pdf", plot = p,
-       width = 16, height = 16, units = "cm", dpi = 600)
+       width = 16, height = 6, units = "cm", dpi = 600)
 
 ### ------------------------------------------------------------------------ ###
 ### surveys (catchability and weights at age) - baseline OM ####
