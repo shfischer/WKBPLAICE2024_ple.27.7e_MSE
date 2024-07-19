@@ -263,8 +263,8 @@ if (FALSE) {
   res$result[which.max(res$result$catch), ]
   #        Ftrgt     catch       ssb       tsb      rec
   # 15 0.1638845   1702.92  9536.053  11136.77 6542.729 paper
-  # 24 0.2334596 1200.3999  5278.768  6147.824 6497.135 WKBPLAICE - MSY
-  #  1 0.0000000    0.0000 20982.801 22037.208 7195.251 WKBPLAICE - unfished
+  # 18 0.2234772  1200.693  5476.225   6349.34 6532.873 WKBPLAICE - MSY
+  #  1         0         0  21019.86  22030.98 7192.005 WKBPLAICE - unfished
   
   plan(sequential)
 }
@@ -283,7 +283,7 @@ RR0 <- c(((iterMedians(params(sr_baseline)["a"])*Blim) /
             (iterMedians(params(sr_baseline))["b"] + Blim)) /
            iterMedians(params(sr_baseline))["a"])
 RR0
-### Blim corresponds to SSB at ~ 79.5% of R0
+### Blim corresponds to SSB at ~ 79.4% of R0
 
 refpts <- FLPar(refpts, iter = 1000, unit = "")
 update_refpts <- function(OM, refpts, RR0) {
