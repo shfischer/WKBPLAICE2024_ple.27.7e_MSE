@@ -12,7 +12,7 @@ print(args)
 ### extract arguments
 for (i in seq_along(args)) eval(parse(text = args[[i]]))
 ### set default arguments
-if (!exists("n_workers")) n_workers <- 10
+if (!exists("n_workers")) n_workers <- 5
 if (!exists("stock_id")) stock_id <- "ple.27.7e"
 if (!exists("OM")) OM <- "baseline"
 #OM <- c("Catch_no_surv", "Catch_no_disc", "M_low", "M_high", "M_Gislason", "R_no_AC", "migr_none", "R_lower", "R_higher", "R_failure")

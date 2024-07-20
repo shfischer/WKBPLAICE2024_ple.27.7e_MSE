@@ -310,7 +310,7 @@ ggsave(filename = "output/plots/OM/OM_biol_sel.pdf", plot = p,
 
 
 ### ------------------------------------------------------------------------ ###
-### __UPDATE plot OM trajectories vs. ICES assessment - alternative OMs ####
+### plot OM trajectories vs. ICES assessment - alternative OMs ####
 ### ------------------------------------------------------------------------ ###
 
 OM_list <- c("baseline",
@@ -724,7 +724,7 @@ ggsave(filename = "output/plots/OM/OM_baseline_F0_worm.pdf", plot = p,
        width = 16, height = 13, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
-### __UPDATE all OMs - visualisation of OM MSY values ####
+### all OMs - visualisation of OM MSY values ####
 ### ------------------------------------------------------------------------ ###
 OM_list <- c("baseline",
              "Catch_no_disc", "Catch_no_surv", "migr_none",
