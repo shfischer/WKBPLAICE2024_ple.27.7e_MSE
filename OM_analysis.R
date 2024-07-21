@@ -1578,6 +1578,39 @@ ggsave(filename = "output/plots/OM/OM_MCMC_vs_OM.png", plot = p,
 ggsave(filename = "output/plots/OM/OM_MCMC_vs_OM.pdf", plot = p, 
        width = 16, height = 5, units = "cm")
 
+### ------------------------------------------------------------------------ ###
+### M scenarios ####
+### ------------------------------------------------------------------------ ###
+stk_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
+M_baseline <- iterMeans(yearMeans(m(stk_baseline)))
+M_Gislason <- readRDS("input/ple.27.7e/preparation/M_Gislason.rds")
+M_Gislason <- M_baseline %=% c(yearMeans(M_Gislason)) ### formatting...
+
+qnts <- FLQuants("Baseline" = M_baseline,
+                 "M: +50%" = M_baseline * 1.5,
+                 "M: -50%" = M_baseline * 0.5,
+                 "M: Gislason" = M_Gislason)
+df <- as.data.frame(qnts)
+
+p <- df %>%
+  ggplot() +
+  geom_line(aes(x = age, y = data, colour = qname, linetype = qname),
+            linewidth = 0.4) +
+  geom_point(aes(x = age, y = data, colour = qname, shape = qname),
+             size = 0.4) +
+  labs(x = "Age (years)", y = "Natural mortality (M)") +
+  scale_colour_discrete("") + 
+  scale_linetype_discrete("") +
+  scale_shape_discrete("") +
+  ylim(c(0, NA)) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"))
+p
+ggsave(filename = "output/plots/OM/OM_M.png", plot = p, 
+       width = 8, height = 5, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_M.pdf", plot = p, 
+       width = 8, height = 5, units = "cm")
+
 
 ### ------------------------------------------------------------------------ ###
 ### TODO ####
