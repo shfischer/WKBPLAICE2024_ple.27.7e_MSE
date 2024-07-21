@@ -922,6 +922,19 @@ p_hist_iter <- ggplot() +
   labs(y = "Density", x = "Log residuals") +
   theme_bw(base_size = 8) +
   theme(axis.title.y.right = element_text(angle = 90))
+### same plot but rasterised to reduce PDF file size
+p_hist_iter_raster <- ggplot() +
+  ggrastr::rasterise(geom_line(data = df_dens_iter, 
+                               aes(x = x, y = y, group = iter), 
+                               linewidth = 0.1, alpha = 0.05), dpi = 1200) + 
+  scale_y_continuous(position = "right",
+                     breaks = scales::pretty_breaks(),
+                     limits = c(0, df_dens_iter_max*1.05), expand = c(0, 0)) +
+  scale_x_continuous(breaks = scales::pretty_breaks(),
+                     limits = c(-2.5, 2.5)) +
+  labs(y = "Density", x = "Log residuals") +
+  theme_bw(base_size = 8) +
+  theme(axis.title.y.right = element_text(angle = 90))
 
 p <- p_res + p_hist + p_hist_iter + plot_annotation(tag_levels = "a", 
                                  tag_prefix = "(", tag_suffix = ")")  &
@@ -929,6 +942,12 @@ p <- p_res + p_hist + p_hist_iter + plot_annotation(tag_levels = "a",
 p
 ggsave(filename = "output/plots/OM/OM_rec_res.png", plot = p,
        width = 16, height = 5, units = "cm", dpi = 600, type = "cairo")
+### rasterised version for PDF
+p <- p_res + p_hist + p_hist_iter_raster + 
+  plot_annotation(tag_levels = "a", 
+                  tag_prefix = "(", tag_suffix = ")")  &
+  theme(plot.tag = element_text(face = "bold"))
+p
 ggsave(filename = "output/plots/OM/OM_rec_res.pdf", plot = p,
        width = 16, height = 5, units = "cm", dpi = 600)
 
@@ -982,14 +1001,15 @@ sr_df <- bind_rows(data.frame(ssb = ssbs_ple,
 
 p <- ggplot() +
   ### print points/lines separately so that median is on top
-  geom_point(data = df_sr %>% filter(type == "replicates (stock-\nrecruit pairs)"),
+  geom_point(data = df_sr %>% 
+               filter(type == "replicates (stock-\nrecruit pairs)"),
              aes(x = ssb/1000, y = rec/1000, 
                  colour = type), 
              alpha = 0.01, size = 0.3) +
-  geom_line(data = sr_df %>% filter(type == "replicates (model)"),
-            aes(x = ssb/1000, y = rec/1000, group = iter,
-                colour = type),
-            size = 0.1, alpha = 0.05) +
+geom_line(data = sr_df %>% filter(type == "replicates (model)"),
+          aes(x = ssb/1000, y = rec/1000, group = iter,
+              colour = type),
+          size = 0.1, alpha = 0.05) +
   geom_point(data = df_sr %>% filter(type == "median (stock-\nrecruit pairs)"),
              aes(x = ssb/1000, y = rec/1000, 
                  colour = type),
@@ -1013,6 +1033,41 @@ p <- ggplot() +
 p
 ggsave(filename = "output/plots/OM/OM_rec_baseline.png", plot = p,
        width = 10, height = 5, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_rec_baseline.pdf", plot = p,
+       width = 10, height = 5, units = "cm", dpi = 600)
+
+### same plot but rasterised to reduce PDF file size
+p <- ggplot() +
+  ### print points/lines separately so that median is on top
+  ggrastr::rasterise(geom_point(data = df_sr %>% 
+                                  filter(type == "replicates (stock-\nrecruit pairs)"),
+                                aes(x = ssb/1000, y = rec/1000, 
+                                    colour = type), 
+                                alpha = 0.01, size = 0.3), dpi = 600) +
+  ggrastr::rasterise(geom_line(data = sr_df %>% filter(type == "replicates (model)"),
+                               aes(x = ssb/1000, y = rec/1000, group = iter,
+                                   colour = type),
+                               size = 0.1, alpha = 0.05), dpi = 600) +
+  geom_point(data = df_sr %>% filter(type == "median (stock-\nrecruit pairs)"),
+             aes(x = ssb/1000, y = rec/1000, 
+                 colour = type),
+             size = 0.4) +
+  geom_line(data = sr_df %>% filter(type == "median (model)"),
+            aes(x = ssb/1000, y = rec/1000, group = iter,
+                colour = type),
+            size = 0.4, alpha = 1) +
+  scale_colour_manual("", 
+                      values = c("median (stock-\nrecruit pairs)" = "red", 
+                                 "replicates (stock-\nrecruit pairs)" = "black",
+                                 "median (model)" = "red", 
+                                 "replicates (model)" = "black")) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  scale_x_continuous("SSB (1000 t)", breaks = scales::pretty_breaks()) +
+  scale_y_continuous("Recruitment (1000s)") +
+  coord_cartesian(xlim = c(0, 10), ylim = c(0, 17.5), expand = FALSE) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.7, "lines"))
+p
 ggsave(filename = "output/plots/OM/OM_rec_baseline.pdf", plot = p,
        width = 10, height = 5, units = "cm", dpi = 600)
 
@@ -1094,6 +1149,20 @@ p_pairs <- df %>%
   theme_bw(base_size = 8) +
   theme(legend.key.height = unit(0.5, "lines"))
 p_pairs
+### rasterised version for PDF
+p_pairs_raster <- df %>%
+  ggplot(aes(x = SSB/1000, y = R/1000, colour = source, alpha = iter_group)) +
+  ggrastr::rasterise(geom_point(shape = 19, size = 0.4), dpi = 600) + 
+  scale_alpha_manual(values = c("iter" = 0.5, "all" = 0.05), 
+                     guide = "none") +
+  scale_colour_manual("", values = rev(scales::hue_pal()(3))) + 
+  facet_wrap(~ iter, nrow = 1) +
+  xlim(c(0, NA)) +
+  ylim(c(0, NA)) + 
+  labs(x = "SSB (1000t)", y = "Recruitment (millions)") +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"))
+p_pairs_raster
 
 ### plot empirical cumulative distribution
 p_ecdf <- df %>%
@@ -1112,6 +1181,7 @@ p <- p_pairs / p_ecdf
 p
 ggsave(filename = "output/plots/OM/OM_rec_data_vs_model.png", plot = p,
        width = 16, height = 8, units = "cm", dpi = 600, type = "cairo")
+p <- p_pairs_raster / p_ecdf
 ggsave(filename = "output/plots/OM/OM_rec_data_vs_model.pdf", plot = p,
        width = 16, height = 8, units = "cm", dpi = 600)
   
