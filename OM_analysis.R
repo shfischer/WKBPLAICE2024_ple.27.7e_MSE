@@ -771,7 +771,7 @@ p1 <- MSY_runs_plot %>%
               se = FALSE, linewidth = 0.2, colour = "blue") +
   geom_vline(data = . %>%
                filter(MSY == TRUE),
-             aes(xintercept = Ftrgt), size = 0.4, colour = "red") +
+             aes(xintercept = Ftrgt), linewidth = 0.4, colour = "red") +
   facet_grid(label ~ OM_label, scales = "free_y", switch = "y") +
   labs(x = "mean F (ages 3-6)") +
   scale_x_continuous(breaks = seq(0, 1, 0.2)) +
@@ -789,7 +789,7 @@ p2 <- MSY_runs_plot %>%
               se = FALSE, linewidth = 0.2, colour = "blue") +
   geom_vline(data = . %>%
                filter(MSY == TRUE),
-             aes(xintercept = Ftrgt), size = 0.4, colour = "red") +
+             aes(xintercept = Ftrgt), linewidth = 0.4, colour = "red") +
   facet_grid(label ~ OM_label, scales = "free_y", switch = "y") +
   labs(x = "mean F (ages 3-6)") +
   scale_x_continuous(breaks = seq(0, 1, 0.2)) +
@@ -831,7 +831,73 @@ refpts_table <- MSY_runs %>%
 
 write.csv(refpts_table, file = "input/OM_refpts.csv", row.names = FALSE)
 
+### ------------------------------------------------------------------------ ###
+### all OMs - Blim alternatives ####
+### ------------------------------------------------------------------------ ###
+### create table with Blim alternatives
 
+### get B0
+df_B0 <- MSY_runs %>%
+  filter(Ftrgt == 0) %>%
+  select(OM, B0 = ssb)
+
+### get Bmsy
+df_Bmsy <- MSY_runs %>%
+  filter(MSY == TRUE) %>%
+  select(OM, Bmsy = ssb)
+
+
+### get Bloss
+df_Bloss <- foreach(OM = OM_list, .combine = bind_rows) %do% {#browser()
+  file_i <- paste0("input/ple.27.7e/", OM, "/1000_100/stk.rds")
+  i <- readRDS(file_i)
+  ssb_i <- iterMedians(window(ssb(i), end = 2023))
+  which.min(ssb_i)
+  return(data.frame(OM = OM, 
+                    Bloss_year = dimnames(i)$year[which.min(ssb_i)],
+                    Bloss = min(ssb_i)))
+}
+
+### Blim based on RR0
+df_BlimRR0 <- foreach(OM = OM_list, .combine = bind_rows) %do% {#browser()
+  file_i <- paste0("input/ple.27.7e/", OM, "/1000_100/refpts_mse.rds")
+  i <- readRDS(file_i)
+  return(data.frame(OM = OM, 
+                    Blim_RR0 = median(c(i["Blim_RR0"]))))
+}
+
+### Blim based on BB0
+df_BlimBB0 <- foreach(OM = OM_list, .combine = bind_rows) %do% {#browser()
+  file_i <- paste0("input/ple.27.7e/", OM, "/1000_100/refpts_mse.rds")
+  i <- readRDS(file_i)
+  return(data.frame(OM = OM, 
+                    Blim_BB0 = median(c(i["Blim_BB0"]))))
+}
+
+
+### add relative values
+df_Bmsy <- df_Bmsy %>% full_join(df_B0) %>%
+  mutate(BmsyB0 = Bmsy/B0) %>%
+  select(-B0)
+df_Bloss <- df_Bloss %>% full_join(df_B0) %>% full_join(df_Bmsy) %>%
+  mutate(BlossB0 = Bloss/B0,
+         BlossBmsy = Bloss/Bmsy) %>%
+  select(-B0, -Bmsy)
+df_BlimRR0 <- df_BlimRR0 %>% full_join(df_B0) %>% full_join(df_Bmsy) %>%
+  mutate(Blim_RR0B0 = Blim_RR0/B0,
+         Blim_RR0Bmsy = Blim_RR0/Bmsy) %>%
+  select(-B0, -Bmsy)
+df_BlimBB0 <- df_BlimBB0 %>% full_join(df_B0) %>% full_join(df_Bmsy) %>%
+  mutate(Blim_BB0B0 = Blim_BB0/B0,
+         Blim_BB0Bmsy = Blim_BB0/Bmsy) %>%
+  select(-B0, -Bmsy)
+
+df_Blim <- df_B0 %>%
+  full_join(df_Bmsy) %>%
+  full_join(df_Bloss) %>%
+  full_join(df_BlimRR0) %>%
+  full_join(df_BlimBB0)
+write.csv(df_Blim, file = "input/OM_refpts_Blim.csv", row.names = FALSE)
 
 ### ------------------------------------------------------------------------ ###
 ### Recruitment model and residual visualisation (baseline OM) ####

@@ -32,7 +32,8 @@ refpts <- list(
   EqSim_Btrigger = 3265.991, EqSim_Fmsy = 0.2110553, EqSim_Fpa = 0.2436579, 
   EqSim_Bpa = 3265.991, EqSim_Blim = 2332.851,
   ### real OM MSY values
-  Fmsy = 0.222, Bmsy = 5500, Cmsy = 1210, Blim = 2352,
+  Fmsy = 0.223, Bmsy = 5476, Cmsy = 1200, Blim = 2352, 
+  Blim_RR0 = 2352, Blim_BB0 = 2352,
   ### length reference points
   Lc = 25, ### from simulated length data
   Lref = 0.75*25 + 0.25*64.53349 ### Linf: quarterly ALK with 2019-2023 data
@@ -273,32 +274,62 @@ if (FALSE) {
 ### update MSY reference points for alternative OMs ####
 ### ------------------------------------------------------------------------ ###
 
-### find ratio of R(SSB=Blim)/R0 -> definition of Blim
+### definition of Blim: ICES type 5 stock, Blim = Bloss
 stk_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
 Blim <- min(iterMedians(ssb(stk_baseline)), na.rm = TRUE)
 dimnames(stk_baseline)$year[which.min(iterMedians(ssb(stk_baseline)))]
 ### Blim is SSB in 2008
+
+### reference points for baseline OM
+refpts_search <- readRDS(paste0("input/ple.27.7e/baseline/1000_100/MSY_trace.rds"))
+refpts_MSY <- refpts_search[[which.max(sapply(refpts_search, function(x) x$catch))]]
+refpts_0 <- refpts_search[[which(sapply(refpts_search, "[[", "Ftrgt") == 0)]]
+
 sr_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
+### recruitment corresponding to Blim relative to R0
 RR0 <- c(((iterMedians(params(sr_baseline)["a"])*Blim) /
             (iterMedians(params(sr_baseline))["b"] + Blim)) /
            iterMedians(params(sr_baseline))["a"])
 RR0
-### Blim corresponds to SSB at ~ 79.4% of R0
+### R(SSB=Blim) relative to R0
+# 0.7942217
+
+### Blim relative to B0
+BB0 <- Blim/refpts_0$ssb
+# 0.1119002
+
+### Blim relative to Bmsy
+BBmsy <- Blim/refpts_MSY$ssb
+### 0.429516
+
+### R corresponding to Blim, get percentile of R distribution
+rec_median <- window(iterMedians(rec(sr_baseline)), end = 2023)
+pos_Blim <- which(dimnames(rec_median)$year == 2008)
+rec_median[, pos_Blim]
+rec_ecdf <- ecdf(c(rec_median))
+### include time-lag between SSB and R
+rec_ecdf(rec_median[, pos_Blim + dims(stk_baseline)$min]) 
+# 0.8571429 -> above median, i.e. "high" according to WKNEWREF
 
 refpts <- FLPar(refpts, iter = 1000, unit = "")
-update_refpts <- function(OM, refpts, RR0) {
-  ### get MSY levels 
-  refpts_MSY <- readRDS(paste0("input/ple.27.7e/", OM,
+update_refpts <- function(OM, refpts, RR0, BB0) {#browser()
+  ### get MSY and unfished reference points
+  refpts_search <- readRDS(paste0("input/ple.27.7e/", OM,
                                "/1000_100/MSY_trace.rds"))
-  refpts_MSY <- refpts_MSY[[which.max(sapply(refpts_MSY, function(x) x$catch))]]
-  ### update
+  refpts_MSY <- refpts_search[[which.max(sapply(refpts_search, function(x) x$catch))]]
+  refpts_0 <- refpts_search[[which(sapply(refpts_search, "[[", "Ftrgt") == 0)]]
+  ### update MSY reference points
   refpts["Fmsy"] <- refpts_MSY$Ftrgt
   refpts["Bmsy"] <- refpts_MSY$ssb
   refpts["Cmsy"] <- refpts_MSY$catch
-  ### load recruitment model and estimate Blim
+  ### load recruitment model and to estimate Blim based on R(SSB=Blim)/R0
   sr_mse <- readRDS(paste0("input/ple.27.7e/", OM, "/1000_100/sr.rds"))
   pars <- iterMedians(params(sr_mse))
-  refpts["Blim"] <- c(pars["b"])*(RR0/(1 - RR0))
+  refpts["Blim_RR0"] <- c(pars["b"])*(RR0/(1 - RR0))
+  ### Blim as SSB relative to B0
+  refpts["Blim_BB0"] <- BB0 * refpts_0$ssb
+  ### use Blim relative to B0 as final value
+  refpts["Blim"] <- refpts["Blim_BB0"]
   print(refpts)
   ### save updated values
   saveRDS(refpts, file = paste0("input/ple.27.7e/", OM,
@@ -306,17 +337,17 @@ update_refpts <- function(OM, refpts, RR0) {
 }
 
 ### baseline
-update_refpts(OM = "baseline", refpts = refpts, RR0 = RR0)
+update_refpts(OM = "baseline", refpts = refpts, RR0 = RR0, BB0 = BB0)
 ### alternative OMs
-update_refpts(OM = "Catch_no_disc", refpts = refpts, RR0 = RR0)
-update_refpts(OM = "Catch_no_surv", refpts = refpts, RR0 = RR0)
-update_refpts(OM = "migr_none", refpts = refpts, RR0 = RR0)
-update_refpts(OM = "M_low", refpts = refpts, RR0 = RR0)
-update_refpts(OM = "M_high", refpts = refpts, RR0 = RR0)
-update_refpts(OM = "M_Gislason", refpts = refpts, RR0 = RR0)
-update_refpts(OM = "R_no_AC", refpts = refpts, RR0 = RR0)
-update_refpts(OM = "R_higher", refpts = refpts, RR0 = RR0)
-update_refpts(OM = "R_lower", refpts = refpts, RR0 = RR0)
+update_refpts(OM = "Catch_no_disc", refpts = refpts, RR0 = RR0, BB0 = BB0)
+update_refpts(OM = "Catch_no_surv", refpts = refpts, RR0 = RR0, BB0 = BB0)
+update_refpts(OM = "migr_none", refpts = refpts, RR0 = RR0, BB0 = BB0)
+update_refpts(OM = "M_low", refpts = refpts, RR0 = RR0, BB0 = BB0)
+update_refpts(OM = "M_high", refpts = refpts, RR0 = RR0, BB0 = BB0)
+update_refpts(OM = "M_Gislason", refpts = refpts, RR0 = RR0, BB0 = BB0)
+update_refpts(OM = "R_no_AC", refpts = refpts, RR0 = RR0, BB0 = BB0)
+update_refpts(OM = "R_higher", refpts = refpts, RR0 = RR0, BB0 = BB0)
+update_refpts(OM = "R_lower", refpts = refpts, RR0 = RR0, BB0 = BB0)
 
 
 
@@ -324,39 +355,39 @@ update_refpts(OM = "R_lower", refpts = refpts, RR0 = RR0)
 ### ------------------------------------------------------------------------ ###
 ### alternative Blim values ####
 ### ------------------------------------------------------------------------ ###
-stk_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
-Blim <- min(iterMedians(ssb(stk_baseline)), na.rm = TRUE)
-sr_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
-### find SSB at R=x
-bh <- function(alpha, beta, B) (alpha * B)/(beta + B)
-bh_min <- function(alpha, beta, B, R0, prop) {
-  (bh(alpha = alpha, beta = beta, B = B) - prop * R0)^2
-}
-### 0.7R0
-B0.7R0 <- optim(par = c(B = Blim), fn = bh_min, 
-                alpha = c(iterMedians(params(sr_baseline)["a"])), 
-                beta = c(iterMedians(params(sr_baseline)["b"])),
-                prop = 0.7, R0 = c(iterMedians(params(sr_baseline))["a"]),
-                method = "Brent", lower = 0, upper = 40000)
-B0.7R0$par
-### 0.3R0
-B0.3R0 <- optim(par = c(B = Blim), fn = bh_min, 
-                alpha = c(iterMedians(params(sr_baseline)["a"])), 
-                beta = c(iterMedians(params(sr_baseline)["b"])),
-                prop = 0.3, R0 = c(iterMedians(params(sr_baseline))["a"]),
-                method = "Brent", lower = 0, upper = 40000)
-B0.3R0$par
-### many values
-Blim_RR0 <- data.frame(RR0 = seq(0, 1, 0.001))
-Blim_RR0$Blim <- sapply(Blim_RR0$RR0, function(x) {
-  tmp <- optim(par = c(B = Blim), fn = bh_min, 
-               alpha = c(iterMedians(params(sr_baseline)["a"])), 
-               beta = c(iterMedians(params(sr_baseline)["b"])),
-               prop = x, R0 = c(iterMedians(params(sr_baseline))["a"]),
-               method = "Brent", lower = 0, upper = 40000)
-  return(tmp$par)
-})
-saveRDS(Blim_RR0, "input/ple.27.7e/baseline/1000_100/Blim_RR0.rds")
+# stk_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
+# Blim <- min(iterMedians(ssb(stk_baseline)), na.rm = TRUE)
+# sr_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
+# ### find SSB at R=x
+# bh <- function(alpha, beta, B) (alpha * B)/(beta + B)
+# bh_min <- function(alpha, beta, B, R0, prop) {
+#   (bh(alpha = alpha, beta = beta, B = B) - prop * R0)^2
+# }
+# ### 0.7R0
+# B0.7R0 <- optim(par = c(B = Blim), fn = bh_min, 
+#                 alpha = c(iterMedians(params(sr_baseline)["a"])), 
+#                 beta = c(iterMedians(params(sr_baseline)["b"])),
+#                 prop = 0.7, R0 = c(iterMedians(params(sr_baseline))["a"]),
+#                 method = "Brent", lower = 0, upper = 40000)
+# B0.7R0$par
+# ### 0.3R0
+# B0.3R0 <- optim(par = c(B = Blim), fn = bh_min, 
+#                 alpha = c(iterMedians(params(sr_baseline)["a"])), 
+#                 beta = c(iterMedians(params(sr_baseline)["b"])),
+#                 prop = 0.3, R0 = c(iterMedians(params(sr_baseline))["a"]),
+#                 method = "Brent", lower = 0, upper = 40000)
+# B0.3R0$par
+# ### many values
+# Blim_RR0 <- data.frame(RR0 = seq(0, 1, 0.001))
+# Blim_RR0$Blim <- sapply(Blim_RR0$RR0, function(x) {
+#   tmp <- optim(par = c(B = Blim), fn = bh_min, 
+#                alpha = c(iterMedians(params(sr_baseline)["a"])), 
+#                beta = c(iterMedians(params(sr_baseline)["b"])),
+#                prop = x, R0 = c(iterMedians(params(sr_baseline))["a"]),
+#                method = "Brent", lower = 0, upper = 40000)
+#   return(tmp$par)
+# })
+# saveRDS(Blim_RR0, "input/ple.27.7e/baseline/1000_100/Blim_RR0.rds")
 
 
 
