@@ -24,8 +24,8 @@ source("funs_WKNSMSE.R")
 source("funs_OM.R")
 
 ### input data, including discard estimates
-stk_data <- readRDS("input/ple.27.7e/preparation/model_input_stk.RDS")
-idx_data <- readRDS("input/ple.27.7e/preparation/model_input_idx.RDS")
+stk_data <- readRDS("input/ple.27.7e/preparation/model_input_stk.rds")
+idx_data <- readRDS("input/ple.27.7e/preparation/model_input_idx.rds")
 ALKs <- readRDS("input/ple.27.7e/preparation/ALK_MSE.rds")
 refpts <- list(
   ### ICES style EqSim reference points (run with SAM fit)
