@@ -36,14 +36,14 @@
       "RemoteHost": "api.github.com",
       "RemoteRepo": "FLAssess",
       "RemoteUsername": "flr",
-      "RemoteRef": "HEAD",
+      "RemoteRef": "03d018dbad8d4a4538e57259da5eee9780ff5948",
       "RemoteSha": "03d018dbad8d4a4538e57259da5eee9780ff5948",
       "Requirements": [
         "FLCore",
         "lattice",
         "methods"
       ],
-      "Hash": "386d17e5ea1e5237b0a33732bac9e713"
+      "Hash": "882b6c4fc9bbb3a20704a9f21939cfbf"
     },
     "FLBRP": {
       "Package": "FLBRP",
@@ -53,7 +53,7 @@
       "RemoteHost": "api.github.com",
       "RemoteRepo": "FLBRP",
       "RemoteUsername": "flr",
-      "RemoteRef": "HEAD",
+      "RemoteRef": "9fad7869462eb71456cd9e50a46e788a3b46f7f4",
       "RemoteSha": "9fad7869462eb71456cd9e50a46e788a3b46f7f4",
       "Requirements": [
         "FLCore",
@@ -62,7 +62,7 @@
         "ggplotFL",
         "methods"
       ],
-      "Hash": "e9cc5a85c35b24c1dd6229b74ea8640b"
+      "Hash": "a1704decccae3e3ba954407a544c59a3"
     },
     "FLCore": {
       "Package": "FLCore",
@@ -72,7 +72,7 @@
       "RemoteHost": "api.github.com",
       "RemoteRepo": "FLCore",
       "RemoteUsername": "flr",
-      "RemoteRef": "HEAD",
+      "RemoteRef": "f98aef0d99a616e3a7e4375fb88650fa1389b9d7",
       "RemoteSha": "f98aef0d99a616e3a7e4375fb88650fa1389b9d7",
       "Requirements": [
         "MASS",
@@ -88,7 +88,7 @@
         "stats4",
         "utils"
       ],
-      "Hash": "a9cddbc327dc1a5779681b47aa126e46"
+      "Hash": "f1ef1285c9aa28abe36e49baef01b36d"
     },
     "FLFishery": {
       "Package": "FLFishery",
@@ -98,7 +98,7 @@
       "RemoteHost": "api.github.com",
       "RemoteRepo": "FLFishery",
       "RemoteUsername": "flr",
-      "RemoteRef": "HEAD",
+      "RemoteRef": "04a563447a0c630e43bfc709158d9b37484c1199",
       "RemoteSha": "04a563447a0c630e43bfc709158d9b37484c1199",
       "Requirements": [
         "FLCore",
@@ -107,7 +107,7 @@
         "ggplotFL",
         "methods"
       ],
-      "Hash": "194432b9a00786b5fc8ee7b4ae0faade"
+      "Hash": "211971c4754f2954079d06c6965dfb18"
     },
     "FLXSA": {
       "Package": "FLXSA",
@@ -117,7 +117,7 @@
       "RemoteHost": "api.github.com",
       "RemoteRepo": "FLXSA",
       "RemoteUsername": "flr",
-      "RemoteRef": "HEAD",
+      "RemoteRef": "d5cfce1cfdb0b1471a9035460be31091949b3148",
       "RemoteSha": "d5cfce1cfdb0b1471a9035460be31091949b3148",
       "Requirements": [
         "FLAssess",
@@ -125,7 +125,7 @@
         "R",
         "methods"
       ],
-      "Hash": "9fab87505d542767f761742df326001f"
+      "Hash": "590f807f6139ea22349737df249cd0c5"
     },
     "FLasher": {
       "Package": "FLasher",
@@ -135,7 +135,7 @@
       "RemoteHost": "api.github.com",
       "RemoteRepo": "FLasher",
       "RemoteUsername": "flr",
-      "RemoteRef": "HEAD",
+      "RemoteRef": "84268b3bc21941bfde20dc9cbb0cfc3367f570a7",
       "RemoteSha": "84268b3bc21941bfde20dc9cbb0cfc3367f570a7",
       "Requirements": [
         "FLCore",
@@ -147,7 +147,7 @@
         "methods",
         "rlang"
       ],
-      "Hash": "2b1ab68971fb29a053f0074ae804bf87"
+      "Hash": "81ff9d42ebf67f9551362ec3275106d8"
     },
     "FLfse": {
       "Package": "FLfse",
@@ -157,7 +157,7 @@
       "RemoteHost": "api.github.com",
       "RemoteRepo": "FLfse",
       "RemoteUsername": "flr",
-      "RemoteRef": "HEAD",
+      "RemoteRef": "7ddf642e0fa9998ed54efcc2325304cd006701ce",
       "RemoteSha": "7ddf642e0fa9998ed54efcc2325304cd006701ce",
       "RemoteSubdir": "FLfse",
       "Requirements": [
@@ -167,7 +167,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "56a87d5249c29588182fcbc281ec7b02"
+      "Hash": "387e963bd635371492dee5c2602981c5"
     },
     "GA": {
       "Package": "GA",
@@ -178,7 +178,7 @@
       "RemoteHost": "api.github.com",
       "RemoteRepo": "GA",
       "RemoteUsername": "shfischer",
-      "RemoteRef": "HEAD",
+      "RemoteRef": "04152796a00e04032200970c4969353a622e11ac",
       "RemoteSha": "04152796a00e04032200970c4969353a622e11ac",
       "Requirements": [
         "R",
@@ -194,7 +194,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "ec0f1f87c87d8863ad5e5f5722ae2481"
+      "Hash": "e074dc7dc8ad6a619c9bba89f90b8d41"
     },
     "MASS": {
       "Package": "MASS",
@@ -800,7 +800,7 @@
       "RemoteHost": "api.github.com",
       "RemoteRepo": "ggplotFL",
       "RemoteUsername": "flr",
-      "RemoteRef": "HEAD",
+      "RemoteRef": "a7b6aec3cd97f25323a72dc87a59950a65e49b80",
       "RemoteSha": "a7b6aec3cd97f25323a72dc87a59950a65e49b80",
       "Requirements": [
         "FLCore",
@@ -815,7 +815,7 @@
         "scales",
         "stats"
       ],
-      "Hash": "e09cebb8a4ee62d8bbb4fe844e1a0cff"
+      "Hash": "38abdf3437e5139c535361c349d4e7a1"
     },
     "ggrastr": {
       "Package": "ggrastr",
@@ -1125,7 +1125,7 @@
       "RemoteHost": "api.github.com",
       "RemoteRepo": "mse",
       "RemoteUsername": "flr",
-      "RemoteRef": "HEAD",
+      "RemoteRef": "83a181bbb71b95bfd2f76f0e877130234b94edca",
       "RemoteSha": "83a181bbb71b95bfd2f76f0e877130234b94edca",
       "Requirements": [
         "FLBRP",
@@ -1142,7 +1142,7 @@
         "patchwork",
         "progressr"
       ],
-      "Hash": "38ae412e9d26d680657f77bf7a8f0674"
+      "Hash": "bbc5dac375581465ade204bbf2b7bde4"
     },
     "munsell": {
       "Package": "munsell",
@@ -1493,7 +1493,7 @@
       "RemoteHost": "api.github.com",
       "RemoteRepo": "SAM",
       "RemoteUsername": "fishfollower",
-      "RemoteRef": "HEAD",
+      "RemoteRef": "c9c81ac53a0d8cb5ddbaa32c0a79fb9a5f78db7f",
       "RemoteSha": "c9c81ac53a0d8cb5ddbaa32c0a79fb9a5f78db7f",
       "RemoteSubdir": "stockassessment",
       "Requirements": [
@@ -1507,7 +1507,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "88684dfb316d7a9d734255684f69bedc"
+      "Hash": "e424919bb165278cbd31a0a9c4e3c4f5"
     },
     "stringi": {
       "Package": "stringi",
