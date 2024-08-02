@@ -41,7 +41,7 @@ if (length(args) > 0) {
     if (!exists("collate")) collate <- TRUE
     ### objective function elements
     if (!exists("obj_fun")) obj_fun <- "ICES"
-    if (!exists("obj_yrs")) obj_yrs <- "all"
+    if (!exists("obj_yrs")) obj_yrs <- "11:20"
     ### penalty function
     if (!exists("pen_neg")) pen_neg <- FALSE
     if (!exists("pen_max")) pen_max <- 1
