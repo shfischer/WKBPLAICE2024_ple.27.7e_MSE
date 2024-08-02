@@ -133,7 +133,6 @@ if (isTRUE(use_MPI)) {
         suppressPackageStartupMessages(
           library(package = i, character.only = TRUE, warn.conflicts = FALSE, 
                   verbose = FALSE, quietly = TRUE))
-        
       for (i in req_scripts) source(i)
     }
   } else {
@@ -359,7 +358,7 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
               pen_neg = pen_neg, pen_max = pen_max,
               pen_infl = pen_infl, pen_steep = pen_steep,
               path = path_out, check_file = check_file, save_MP = save_MP,
-              scenario = scenario, MP = MP,
+              scenario = scenario, MP = MP, refpts = refpts,
               suggestions = ga_suggestions, lower = ga_lower, upper = ga_upper,
               names = ga_names,
               maxiter = maxiter, popSize = popSize, run = run,

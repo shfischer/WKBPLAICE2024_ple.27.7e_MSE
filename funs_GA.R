@@ -118,7 +118,7 @@ mp_fitness <- function(params, inp_file, path, check_file = FALSE,
     
     ### calculate stats
     stats <- mp_stats(input = input, res_mp = res_mp, stat_yrs = stat_yrs,
-                      refpts = repfts,
+                      refpts = refpts,
                       collapse_correction = collapse_correction)
     
     ### save result in file
