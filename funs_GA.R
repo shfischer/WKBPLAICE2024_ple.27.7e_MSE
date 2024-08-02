@@ -36,10 +36,10 @@ mp_fitness <- function(params, inp_file, path, check_file = FALSE,
   } else if (identical(MP, "hr")) {
     ### idxB_lag, idxB_range_3, interval [years]
     params[c(1, 2, 5)] <- round(params[c(1, 2, 5)])
-    ### exp_b, comp_b_multiplier
-    params[c(3, 4)] <- round(params[c(3, 4)], 1)
-    ### multiplier, upper_constraint, lower_constraint
-    params[c(6, 7, 8)] <- round(params[c(6, 7, 8)], 2)
+    ### exp_b
+    params[c(3)] <- round(params[c(3)], 1)
+    ### comp_b_multiplier, multiplier, upper_constraint, lower_constraint
+    params[c(4, 6, 7, 8)] <- round(params[c(4, 6, 7, 8)], 2)
     ### fix NaN for upper_constraint
     if (is.nan(params[7])) params[7] <- Inf
   }
@@ -90,10 +90,7 @@ mp_fitness <- function(params, inp_file, path, check_file = FALSE,
       ### biomass safeguard
       input$ctrl$phcr@args$exp_b <- params[3]
       ### change Itrigger? (default: Itrigger=1.4*Iloss)
-      if (isFALSE(params[4] == 1.4)) {
-        input$ctrl$est@args$I_trigger <- 
-          input$ctrl$est@args$I_trigger/1.4*params[4]
-      }
+      input$ctrl$est@args$comp_b_multiplier <- params[4]
       ### multiplier
       input$ctrl$est@args$comp_m <- params[6]
       ### catch interval (default: 1)

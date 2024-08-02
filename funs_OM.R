@@ -941,11 +941,12 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   ### Management procedure MP ####
   
   if (isTRUE(MP == "rfb")) {
-    ### I_trigger = 1.4 * I_loss
-    I_trigger = apply(quantSums(index(idx[[biomass_index]]) *
-                                  idx_dev[[biomass_index]] * 
-                                  catch.wt(idx[[biomass_index]])),
-                      6, min, na.rm = TRUE) * 1.4
+    idxB <- quantSums(index(idx[[biomass_index]]) *
+                        idx_dev[[biomass_index]] * 
+                        catch.wt(idx[[biomass_index]]))
+    ### I_loss
+    ### (I_trigger defined inside estimator)
+    I_loss = apply(idxB, 6, min, na.rm = TRUE)
     ctrl <- mpCtrl(list(
       est = mseCtrl(method = est_comps,
                     args = list(comp_r = TRUE, comp_f = TRUE, comp_b = TRUE,
@@ -955,7 +956,8 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                                 catch_lag = 0, ### 0 to mimic advice
                                 catch_range = 1,
                                 Lref = unique(c(refpts_mse["Lref"])), 
-                                I_trigger = c(I_trigger),
+                                I_loss = c(I_loss),
+                                comp_b_multiplier = 1.4,
                                 idxL_lag = 1, idxL_range = 1)),
       phcr = mseCtrl(method = phcr_comps,
                      args = list(exp_r = 1, exp_f = 1, exp_b = 1)),
@@ -983,8 +985,9 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
       idxC <- quantSums(catch.n(stk_fwd) * catch.wt(stk_fwd) *
                           oem@deviances$stk$catch_res)
     }
-    ### I_trigger = 1.4 * I_loss
-    I_trigger = apply(idxB, 6, min, na.rm = TRUE) * 1.4
+    ### I_loss
+    ### (I_trigger defined inside estimator)
+    I_loss = apply(idxB, 6, min, na.rm = TRUE)
     ### define target harvest rate through reference years
     hr_values <- idxC[, ac(idxB_yrs)]/idxB[, ac(idxB_yrs)]
     if (is.null(hr_years)) {
@@ -1004,7 +1007,8 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                                 comp_c = FALSE, comp_m = 1, 
                                 comp_i = TRUE, comp_hr = c(hr_target),
                                 idxB_lag = 1, idxB_range_3 = 1,
-                                I_trigger = c(I_trigger))),
+                                I_loss = c(I_loss),
+                                comp_b_multiplier = 1.4)),
       phcr = mseCtrl(method = phcr_comps,
                      args = list(exp_r = 1, exp_f = 1, exp_b = 1)),
       hcr = mseCtrl(method = hcr_comps,
