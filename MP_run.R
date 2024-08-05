@@ -40,7 +40,7 @@ if (length(args) > 0) {
     if (!exists("popSize")) stop("popSize missing")
     if (!exists("maxiter")) stop("maxiter missing")
     if (!exists("run")) run <- maxiter
-    if (!exists("collate")) collate <- TRUE
+    if (!exists("collate")) collate <- FALSE
     ### objective function elements
     if (!exists("obj_fun")) obj_fun <- "ICES"
     if (!exists("obj_yrs")) obj_yrs <- "11:20"
