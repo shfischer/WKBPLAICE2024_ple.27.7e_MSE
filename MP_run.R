@@ -19,6 +19,8 @@ if (length(args) > 0) {
   ### set default arguments
   ### parallelisation
   if (!exists("use_MPI")) use_MPI <- FALSE
+  if (!exists("mp_parallel")) mp_parallel <- FALSE
+  if (!exists("ga_parallel")) ga_parallel <- FALSE
   if (!exists("n_blocks")) n_blocks <- 1
   if (!exists("n_workers")) n_workers <- 0
   ### scenario definition
@@ -73,72 +75,92 @@ for (i in req_pckgs)
 
 ### load additional functions
 req_scripts <- c("funs.R", "funs_GA.R", "funs_WKNSMSE.R", "funs_OM.R")
-for (i in req_scripts) source(i)
+for (i in req_scripts) source(i, local = TRUE)
 
 ### ------------------------------------------------------------------------ ###
 ### setup parallel environment ####
 ### ------------------------------------------------------------------------ ###
 
-### hybrid MPI
-if (isTRUE(use_MPI)) {
+### MPI
+if (isTRUE(use_MPI) & isTRUE(ga_parallel)) {
   ### 1st: doMPI cluster with 1 worker per node
   message("starting doMPI")
   library(doMPI)
-  cl1 <- startMPIcluster()
+  cl <- startMPIcluster()
   message("startMPIcluster() succeeded")
-  print(cl1)
-  registerDoMPI(cl1)
-  cl_length_1 <- cl1$workerCount
-  cl_length_1
-  
-  ### 2nd: doParallel workers inside doMPI workers
-  . <- foreach(i = seq(cl_length_1)) %dopar% {
+  print(cl)
+  registerDoMPI(cl)
+  cl_length <- cl$workerCount
+  cl_length
+  ### set up MPI workers
+  . <- foreach(i = seq(cl_length)) %dopar% {
     ### load packages and functions into MPI workers
     for (i in req_pckgs) library(package = i, character.only = TRUE,
                                  warn.conflicts = FALSE, verbose = FALSE,
                                  quietly = TRUE)
   }
   message("MPI package loading succeeded")
-  . <- foreach(i = seq(cl_length_1)) %dopar% {
+  . <- foreach(i = seq(cl_length)) %dopar% {
     source("funs.R")
     source("funs_GA.R")
     source("funs_WKNSMSE.R")
   }
   message("MPI script loading succeeded")
-  ### start doParallel inside MPI processes
-  if (isTRUE(n_workers > 1)) {
-    . <- foreach(i = seq(cl_length_1)) %dopar% {
-      cl2 <- makeCluster(n_workers)
-      registerDoParallel(cl2)
-      cl_length_2 <- length(cl2)
-      ### load packages and functions into parallel workers
-      . <- foreach(i = seq(cl_length_2)) %dopar% {
-        for (i in req_pckgs) library(package = i, character.only = TRUE,
-                                     warn.conflicts = FALSE, verbose = FALSE,
-                                     quietly = TRUE)
-        source("funs.R", echo = FALSE)
-        source("funs_GA.R", echo = FALSE)
-        source("funs_WKNSMSE.R", echo = FALSE)
-      }
-    }
+    
+  ### 2nd: doParallel workers inside doMPI workers
+  if (isTRUE(mp_parallel)){  
+    ### start doFuture inside MPI processes
+    # if (isTRUE(n_workers > 1)) {
+    #   . <- foreach(i = seq(cl_length_1)) %dopar% {
+    #     cl2 <- makeCluster(n_workers)
+    #     registerDoParallel(cl2)
+    #     cl_length_2 <- length(cl2)
+    #     ### load packages and functions into parallel workers
+    #     . <- foreach(i = seq(cl_length_2)) %dopar% {
+    #       for (i in req_pckgs) library(package = i, character.only = TRUE,
+    #                                    warn.conflicts = FALSE, verbose = FALSE,
+    #                                    quietly = TRUE)
+    #       source("funs.R", echo = FALSE)
+    #       source("funs_GA.R", echo = FALSE)
+    #       source("funs_WKNSMSE.R", echo = FALSE)
+    #     }
+    #   }
+    # }
+    #message("setting up doParallel inside MPI succeeded")
   }
-  message("setting up doParallel inside MPI succeeded")
+} else if (isTRUE(n_workers > 1)) {
+  ### parallelisation within compute node
+
+  ### mp() parallelisation - %dofuture%
+  ### ga() parallelisation - %dopar%
+  ### mse::mp() uses %dofuture% -> use fork with %dopar%
+  ### https://github.com/shfischer/mse/tree/dopar
+
+  if (isTRUE(mp_parallel) & isTRUE(ga_parallel))
+    stop("Cannot parallelise mp() and ga() at the same time without MPI!")
+  
+  ### set up doFuture parallelisation - not used
+  #plan(multisession, workers = n_workers)
+
+  ### load packages and functions into parallel workers
+  cl <- makeCluster(n_workers)
+  registerDoParallel(cl)
+  cl_length <- length(cl)
+  . <- foreach(i = seq(n_workers)) %dopar% {
+    for (i in req_pckgs) 
+      suppressPackageStartupMessages(
+        library(package = i, character.only = TRUE, warn.conflicts = FALSE, 
+                verbose = FALSE, quietly = TRUE))
+    for (i in req_scripts) source(i)
+  }
+
 } else {
-  if (isTRUE(n_workers > 1)) {
-    ### use doFuture
-    plan(multisession, workers = n_workers)
-    ### load packages and functions into parallel workers
-    . <- foreach(i = seq(n_workers)) %dofuture% {
-      for (i in req_pckgs) 
-        suppressPackageStartupMessages(
-          library(package = i, character.only = TRUE, warn.conflicts = FALSE, 
-                  verbose = FALSE, quietly = TRUE))
-      for (i in req_scripts) source(i)
-    }
-  } else {
-    cl1 <- FALSE
-  }
+  mp_parallel <- ga_parallel <- FALSE
+  message("Not using any parallelisation")
 }
+
+### pass cluster to ga_parallel for use in ga()
+if (isTRUE(ga_parallel)) ga_parallel <- cl
 
 ### ------------------------------------------------------------------------ ###
 ### load OM and create input for MSE ####
@@ -146,8 +168,7 @@ if (isTRUE(use_MPI)) {
 
 input <- input_mp(stock_id = stock_id, OM = OM, n_iter = n_iter,
                   n_yrs = n_yrs, yr_start = yr_start, n_blocks = n_blocks,
-                  MP = MP, 
-                  rec_failure = rec_failure)
+                  MP = MP, rec_failure = rec_failure)
 refpts <- readRDS(paste0("input/", stock_id, "/", OM, "/", 
                          "1000_100/refpts_mse.rds"))
 
