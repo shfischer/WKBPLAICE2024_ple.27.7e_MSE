@@ -209,12 +209,12 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
                   "upper_constraint", "lower_constraint")
     ga_suggestions <- rbind(
       c(1, 1, 1, 1.4, 1, 0, Inf, 0), ### zero catch
-      expand.grid(0:1, 1, 1, c(0, 1, 1.4), 1:2, 1, 
+      expand.grid(1, 1, 1, c(0, 1, 1.4, 2), 1:2, c(0, 0.5, 1), 
                   c(1.2, Inf), c(0, 0.7))
     )
     ga_default <- c(1, 1, 1, 1.4, 1, 1, 1.2, 0.7)
-    ga_lower <-   c(0, 1, 0, 0,   1, 0, 1,   0)
-    ga_upper <-   c(1, 5, 2, 2,   5, 5, 5,   1)
+    ga_lower <-   c(1, 1, 0, 0,   1, 0, 1,   0)
+    ga_upper <-   c(1, 3, 2, 5,   5, 5, 5,   1)
     ### ga() samples uniform real (double) values from lower ga_lower to 
     ### ga_upper and these are then rounded to the significant digits
     ### -> adjust ga_lower/upper so that minima/maxima have same probability
