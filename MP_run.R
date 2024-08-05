@@ -199,7 +199,8 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
     ### ga() samples uniform real (double) values from lower ga_lower to 
     ### ga_upper and these are then rounded to the significant digits
     ### -> adjust ga_lower/upper so that minima/maxima have same probability
-    ga_step  <-   c(1, 1, 1, 1, 0.1, 0.1, 0.1, 1, 0.01, 0.01, 0.01)
+    ga_step  <-    c(1, 1, 1, 1, 0.1, 0.1, 0.1, 1, 0.01, 0.01, 0.01)
+    ga_rounding <- c(0, 0, 0, 0,   1,   1,   1, 0,    2,    2,    2)
     ga_lower <- ga_lower - (ga_step/2 - .Machine$double.eps)
     ga_upper <- ga_upper + (ga_step/2 - .Machine$double.eps)
   } else if (identical(MP, "hr")) {
@@ -217,7 +218,8 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
     ### ga() samples uniform real (double) values from lower ga_lower to 
     ### ga_upper and these are then rounded to the significant digits
     ### -> adjust ga_lower/upper so that minima/maxima have same probability
-    ga_step  <-   c(1, 1, 0.1, 0.01, 1, 0.01, 0.01, 0.01)
+    ga_step  <-    c(1, 1, 0.1, 0.01, 1, 0.01, 0.01, 0.01)
+    ga_rounding <- c(0, 0,   1,    2, 0,    2,    2,    2)
     ga_lower <- ga_lower - (ga_step/2 - .Machine$double.eps)
     ga_upper <- ga_upper + (ga_step/2 - .Machine$double.eps)
   }
@@ -381,9 +383,10 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
               path = path_out, check_file = check_file, save_MP = save_MP,
               scenario = scenario, MP = MP, refpts = refpts,
               suggestions = ga_suggestions, lower = ga_lower, upper = ga_upper,
-              names = ga_names,
+              names = ga_names, ga_names = ga_names, ga_rounding = ga_rounding,
               maxiter = maxiter, popSize = popSize, run = run,
-              monitor = TRUE, keepBest = TRUE, parallel = cl1, seed = 1)
+              monitor = TRUE, keepBest = TRUE, parallel = ga_parallel, seed = 1,
+              summarise_runs = TRUE, postFitness = mp_postFitness)
   })
   
   ### save result

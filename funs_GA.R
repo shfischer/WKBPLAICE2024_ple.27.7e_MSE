@@ -1,9 +1,12 @@
 ### ------------------------------------------------------------------------ ###
 ### objective function for multi species run ####
 ### ------------------------------------------------------------------------ ###
-mp_fitness <- function(params, inp_file, path, check_file = FALSE,
+mp_fitness <- function(params, inp_file, path, 
+                       check_file = FALSE, summarise_runs = FALSE,
                    refpts,
                    scenario, MP, 
+                   ga_names, ### parameter names
+                   ga_rounding = Inf, ### digits for rounding (default: none)
                    return_res = FALSE,
                    save_MP = FALSE, ### save MP results
                    collapse_correction = TRUE,
@@ -26,33 +29,42 @@ mp_fitness <- function(params, inp_file, path, check_file = FALSE,
     . <- foreach(i = 1:getDoParWorkers()) %dopar% {invisible(gc())}
   
   ### rounding of arguments
-  if (identical(MP, "rfb")) {
-    params[1:4] <- round(params[1:4])
-    params[5:7] <- round(params[5:7], 1)
-    params[8] <- round(params[8])
-    params[9] <- round(params[9], 2)
-    params[10:11] <- round(params[10:11], 2)
-    if (is.nan(params[10])) params[10] <- Inf ### fix NaN for upper_constraint
-  } else if (identical(MP, "hr")) {
-    ### idxB_lag, idxB_range_3, interval [years]
-    params[c(1, 2, 5)] <- round(params[c(1, 2, 5)])
-    ### exp_b
-    params[c(3)] <- round(params[c(3)], 1)
-    ### comp_b_multiplier, multiplier, upper_constraint, lower_constraint
-    params[c(4, 6, 7, 8)] <- round(params[c(4, 6, 7, 8)], 2)
-    ### fix NaN for upper_constraint
-    if (is.nan(params[7])) params[7] <- Inf
+  names(params) <- ga_names
+  params <- round(params, ga_rounding)
+  ### fix NaN for upper_constraint
+  if (isTRUE("upper_constraint" %in% ga_names)) {
+    if (is.nan(params[names(params) == "upper_constraint"]))
+      params[names(params) == "upper_constraint"] <- Inf
   }
   
   ### check for files?
-  run_mp <- TRUE
+  run_mp <- TRUE ### initialise variable
+  
   ### current run
   run_i <- paste0(params, collapse = "_")
+  
+  ### check results for current run already exist
   if (isTRUE(check_file)) {
+    
     ### check if path exists
     if (!dir.exists(path)) dir.create(path, recursive = TRUE)
-    ### check if run already exists
-    if (isTRUE(file.exists(paste0(path, run_i, ".rds")))) {
+    
+    ### check if summary file is used
+    if (isTRUE(summarise_runs) & 
+        isTRUE(file.exists(paste0(path, "runs.rds")))) {
+      ### load all available runs
+      stats_all <- readRDS(paste0(path, "runs.rds"))
+      ### check if current exists and use results
+      if (isTRUE(run_i %in% names(stats_all))) {
+        stats <- stats_all[[run_i]]$stats
+        run_mp <- FALSE
+      } else {
+        run_mp <- TRUE
+      }
+    }
+    ### check if run already exists in individual file (legacy approach)
+    if (isTRUE(file.exists(paste0(path, run_i, ".rds"))) &
+        isTRUE(run_mp)) {
       ### load stats
       stats <- readRDS(paste0(path, run_i, ".rds"))
       ### set flag for running MP
@@ -302,4 +314,73 @@ penalty <- function(x, negative = FALSE, max = 1,
   y <- max / (1 + exp(-(x - inflection)*steepness))
   if (isTRUE(negative)) y <- -y
   return(y)
+}
+
+### ------------------------------------------------------------------------ ###
+### postFitness - collate results and delete files from individual runs  ####
+### ------------------------------------------------------------------------ ###
+mp_postFitness <- function(x, path, check_file, MP, summarise_runs = FALSE,
+                           ga_names, ga_rounding = Inf,
+                           ...) {
+  
+  if (isTRUE(summarise_runs)) {
+    
+    ### population - MP parameters
+    pop <- as.data.frame(x@population)
+    
+    ### round parameters
+    colnames(pop) <- ga_names
+    pop <- as.data.frame(t(apply(pop, 1, round, ga_rounding, simplify = TRUE)))
+    ### fix NaN for upper_constraint
+    if (isTRUE("upper_constraint" %in% ga_names)) {
+      pop[is.nan(pop[, "upper_constraint"]), "upper_constraint"] <- Inf
+    }
+
+    ### file names
+    pop$name <- apply(pop, 1, paste0, collapse = "_")
+    ### remove duplicates
+    pop <- unique(pop)
+    
+    ### load summary statistics for each run
+    stats_new <- lapply(seq(nrow(pop)), function(y) {
+      ### get MP parameters
+      pars_y <- unlist(pop[y, -ncol(pop)])
+      ### check if file exists
+      if (file.exists(paste0(path, pop$name[y], ".rds"))) {
+        ### load summary statistics
+        stats_y <- readRDS(paste0(path, pop$name[y], ".rds"))
+        ### combine and return
+        list(pars = pars_y, stats = stats_y)
+      } else {
+        return(NULL)
+      }
+    })
+    names(stats_new) <- pop$name
+    
+    ### check if summary file exists
+    if (!file.exists(paste0(path, "runs.rds"))) {
+      ### save file, in first generation of GA search
+      saveRDS(stats_new, file = paste0(path, "runs.rds"))
+    } else {
+      ### load file
+      stats <- readRDS(paste0(path, "runs.rds"))
+      ### add new runs
+      stats_add_names <- setdiff(names(stats_new), names(stats))
+      if (isTRUE(length(stats_add_names) > 0)) {
+        stats <- append(stats,
+                        stats_new[names(stats_new) %in% stats_add_names])
+        stats <- stats[unique(names(stats))]
+        ### save updated file
+        saveRDS(stats, file = paste0(path, "runs.rds"))
+      }
+      
+    }
+    
+    ### delete individual files
+    . <- suppressWarnings(file.remove(paste0(path, pop$name, ".rds")))
+    
+  }
+  
+  return(x)
+  
 }
