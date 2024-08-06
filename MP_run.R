@@ -265,7 +265,8 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
       }
       ga_suggestions <- unique(ga_suggestions)
       ### get all combinations
-      ga_suggestions <- unique(expand.grid(ga_suggestions))
+      ga_suggestions <- unique(expand.grid(lapply(as.list(ga_suggestions), 
+                                                  unique)))
     }
   } else {
     par_fixed_single <- par_fixed_multiple <- NULL
