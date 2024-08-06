@@ -169,8 +169,11 @@ if (isTRUE(ga_parallel)) ga_parallel <- cl
 input <- input_mp(stock_id = stock_id, OM = OM, n_iter = n_iter,
                   n_yrs = n_yrs, yr_start = yr_start, n_blocks = n_blocks,
                   MP = MP, rec_failure = rec_failure)
-refpts <- readRDS(paste0("input/", stock_id, "/", OM, "/", 
-                         "1000_100/refpts_mse.rds"))
+refpts <- foreach(OM_i = OM, .combine = function(...) {
+  Reduce(FLCore::combine, list(...))
+}) %do% {
+  readRDS(paste0("input/", stock_id, "/", OM_i, "/", "1000_100/refpts_mse.rds"))
+}
 
 ### ------------------------------------------------------------------------ ###
 ### GA set-up ####
@@ -303,8 +306,8 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
   }
   scn_pars_c <- paste0(scn_pars, collapse = "-")
   
-  path_out <- paste0("output/", stock_id, "/", OM, "/", n_iter, "_", n_yrs, "/",
-                     scenario, "/", MP, "/")
+  path_out <- paste0("output/", stock_id, "/", paste0(OM, collapse = "-"), "/",
+                     n_iter, "_", n_yrs, "/", scenario, "/", MP, "/")
   dir.create(path_out, recursive = TRUE)
   
   ### objective function elements
@@ -444,8 +447,8 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
   }
   
   ### output path
-  path_out <- paste0("output/", stock_id, "/", OM, "/", n_iter, "_", n_yrs, "/",
-                     scenario, "/", MP, "/")
+  path_out <- paste0("output/", stock_id, "/", paste0(OM, collapse = "-"), "/",
+                     n_iter, "_", n_yrs, "/", scenario, "/", MP, "/")
   dir.create(path_out, recursive = TRUE)
   
   ### run MSE

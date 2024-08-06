@@ -727,7 +727,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                      rec_alternative = FALSE, ### FALSE or multiplier
                      ### observations
                      use_catch_residuals = TRUE,
-                     use_catch_residuals_disc = FALSE,
+                     use_catch_residuals_disc = TRUE,
                      oem_catch_bias = FALSE, oem_catch_bias_level = NULL,
                      overcatch = FALSE,
                      use_age_idcs = NULL, biomass_index = NULL,
@@ -750,55 +750,97 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     oem_catch_bias_level <- 1/iem_bias
   }
   
-  ### path to input objects
-  path_input <- paste0("input/", stock_id, "/", OM, "/", 1000, "_100/")
-  
-  ### load objects
-  ### use full dimensions (100 years, 1000 iterations) - reduced later
-  stk_fwd <- readRDS(paste0(path_input, "stk.rds"))
-  sr <- readRDS(paste0(path_input, "sr.rds"))
-  idx <- readRDS(paste0(path_input, "idx.rds"))
-  idx_dev <- readRDS(paste0(path_input, "idx_dev.rds"))
-  catch_res <- readRDS(paste0(path_input, "catch_res.rds"))
-  proc_res <- readRDS(paste0(path_input, "proc_res.rds"))
-  stk_oem <- readRDS(paste0(path_input, "stk_oem.rds"))
-  SAM_pars_ini <- readRDS(paste0(path_input, "SAM_initial.rds"))
-  SAM_conf <- readRDS(paste0(path_input, "SAM_conf.rds"))
-  ALKs <- readRDS(paste0(path_input, "ALKs.rds"))
-  refpts_mse <- readRDS(paste0(path_input, "refpts_mse.rds"))
-  ### find last year
+  ### load data and adapt dimensions - for all OM(s)
   yr_end <- yr_start + n_yrs - 1
-  ### reduce dimensions, if requested
-  if (isTRUE(n_yrs < 100)) {
-    ### OM stock
-    stk_fwd <- window(stk_fwd, end = yr_end)
-    ### OEM stock
-    stk_oem <- window(stk_oem, end = yr_end)
-    ### stock-recruitment model
-    sr <- window(sr, end = yr_end)
-    ### index
-    idx <- window(idx, end = yr_end)
-    ### residuals
-    idx_dev <- window(idx_dev, end = yr_end)
-    catch_res <- window(catch_res, end = yr_end)
-    proc_res <- window(proc_res, end = yr_end)
+  OM_list <- foreach(OM_i = OM) %do% {
+    
+    ### path to input objects
+    path_input <- paste0("input/", stock_id, "/", OM_i, "/", 1000, "_100/")
+    
+    ### load objects
+    ### use full dimensions (100 years, 1000 iterations) - reduced later
+    stk_fwd <- readRDS(paste0(path_input, "stk.rds"))
+    sr <- readRDS(paste0(path_input, "sr.rds"))
+    idx <- readRDS(paste0(path_input, "idx.rds"))
+    idx_dev <- readRDS(paste0(path_input, "idx_dev.rds"))
+    catch_res <- readRDS(paste0(path_input, "catch_res.rds"))
+    proc_res <- readRDS(paste0(path_input, "proc_res.rds"))
+    stk_oem <- readRDS(paste0(path_input, "stk_oem.rds"))
+    SAM_pars_ini <- readRDS(paste0(path_input, "SAM_initial.rds"))
+    SAM_conf <- readRDS(paste0(path_input, "SAM_conf.rds"))
+    ALKs <- readRDS(paste0(path_input, "ALKs.rds"))
+    refpts_mse <- readRDS(paste0(path_input, "refpts_mse.rds"))
+    ### reduce dimensions, if requested
+    if (isTRUE(n_yrs < 100)) {
+      ### OM stock
+      stk_fwd <- window(stk_fwd, end = yr_end)
+      ### OEM stock
+      stk_oem <- window(stk_oem, end = yr_end)
+      ### stock-recruitment model
+      sr <- window(sr, end = yr_end)
+      ### index
+      idx <- window(idx, end = yr_end)
+      ### residuals
+      idx_dev <- window(idx_dev, end = yr_end)
+      catch_res <- window(catch_res, end = yr_end)
+      proc_res <- window(proc_res, end = yr_end)
+    }
+    if (isTRUE(n_iter < 1000)) {
+      ### OM stock
+      stk_fwd <- FLCore::iter(stk_fwd, seq(n_iter))
+      ### OEM stock
+      stk_oem <- FLCore::iter(stk_oem, seq(n_iter))
+      ### stock-recruitment model 
+      sr <- FLCore::iter(sr, seq(n_iter))
+      ### index
+      idx <- FLCore::iter(idx, seq(n_iter))
+      ### residuals
+      idx_dev <- FLCore::iter(idx_dev, seq(n_iter))
+      catch_res <- FLCore::iter(catch_res, seq(n_iter))
+      proc_res <- FLCore::iter(proc_res, seq(n_iter))
+      ### reference points
+      if (isTRUE(n_iter < dims(refpts_mse)$iter))
+        refpts_mse <- iter(refpts_mse, seq(n_iter))
+    }
+    
+    return(list(stk_fwd = stk_fwd, sr = sr, idx = idx, idx_dev = idx_dev,
+                catch_res = catch_res, proc_res = proc_res, stk_oem = stk_oem,
+                SAM_pars_ini = SAM_pars_ini, SAM_conf = SAM_conf, ALKs = ALKs,
+                refpts_mse = refpts_mse))
   }
-  if (isTRUE(n_iter < 1000)) {
-    ### OM stock
-    stk_fwd <- FLCore::iter(stk_fwd, seq(n_iter))
-    ### OEM stock
-    stk_oem <- FLCore::iter(stk_oem, seq(n_iter))
-    ### stock-recruitment model 
-    sr <- FLCore::iter(sr, seq(n_iter))
-    ### index
-    idx <- FLCore::iter(idx, seq(n_iter))
-    ### residuals
-    idx_dev <- FLCore::iter(idx_dev, seq(n_iter))
-    catch_res <- FLCore::iter(catch_res, seq(n_iter))
-    proc_res <- FLCore::iter(proc_res, seq(n_iter))
-    ### reference points
-    if (isTRUE(n_iter < dims(refpts_mse)$iter))
-      refpts_mse <- iter(refpts_mse, seq(n_iter))
+  
+  ### return objects or combine them
+  if (identical(length(OM), 1L)) {
+    
+    stk_fwd <- OM_list[[1]]$stk_fwd
+    sr <- OM_list[[1]]$sr
+    idx <- OM_list[[1]]$idx
+    idx_dev <- OM_list[[1]]$idx_dev
+    catch_res <- OM_list[[1]]$catch_res
+    proc_res <- OM_list[[1]]$proc_res
+    stk_oem <- OM_list[[1]]$stk_oem
+    SAM_pars_ini <- OM_list[[1]]$SAM_pars_ini
+    SAM_conf <- OM_list[[1]]$SAM_conf
+    ALKs <- OM_list[[1]]$ALKs
+    refpts_mse <- OM_list[[1]]$refpts_mse
+    
+  } else {
+    
+    ### FLR objects -> FLCore::combine
+    stk_fwd <- Reduce(FLCore::combine, lapply(OM_list, "[[", "stk_fwd"))
+    sr <- Reduce(FLCore::combine, lapply(OM_list, "[[", "sr"))
+    idx <- Reduce(FLCore::combine, lapply(OM_list, "[[", "idx"))
+    idx_dev <- Reduce(FLCore::combine, lapply(OM_list, "[[", "idx_dev"))
+    catch_res <- Reduce(FLCore::combine, lapply(OM_list, "[[", "catch_res"))
+    proc_res <- Reduce(FLCore::combine, lapply(OM_list, "[[", "proc_res"))
+    stk_oem <- Reduce(FLCore::combine, lapply(OM_list, "[[", "stk_oem"))
+    refpts_mse <- Reduce(FLCore::combine, lapply(OM_list, "[[", "refpts_mse"))
+    ### SAM -> impossible to combine, use first
+    SAM_pars_ini <- OM_list[[1]]$SAM_pars_ini
+    SAM_conf <- OM_list[[1]]$SAM_conf
+    ### ALK -> identical for all OMs, use first
+    ALKs <- OM_list[[1]]$ALKs
+    
   }
   
   ### ---------------------------------------------------------------------- ###
