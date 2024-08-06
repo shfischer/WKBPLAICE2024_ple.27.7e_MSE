@@ -236,6 +236,7 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
   if (isTRUE(length(pos_fixed) > 0)) {
     par_fixed <- names(pos_fixed)
     val_fixed <- mget(ga_names, ifnotfound = FALSE)[pos_fixed]
+    ### parameters fixed to single value
     par_fixed_single <- names(which(sapply(val_fixed, length) == 1))
     val_fixed_single <- val_fixed[par_fixed_single]
     if (isTRUE(length(par_fixed_single) > 0)) {
@@ -248,6 +249,8 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
       }
       ga_suggestions <- unique(ga_suggestions)
     }
+    ### parameters fixed to multiple values
+    ### -> get all combinations and run all
     par_fixed_multiple <- names(which(sapply(val_fixed, length) > 1))
     if (isTRUE(length(par_fixed_multiple) > 0)) {
       val_fixed_multiple <- val_fixed[par_fixed_multiple]
@@ -261,6 +264,8 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
           val_fixed[[par_fixed_multiple[pos]]]
       }
       ga_suggestions <- unique(ga_suggestions)
+      ### get all combinations
+      ga_suggestions <- unique(expand.grid(ga_suggestions))
     }
   } else {
     par_fixed_single <- par_fixed_multiple <- NULL
@@ -271,6 +276,7 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
   names(ga_suggestions) <- ga_names
   
   ### if only one parameter modified & fixed, 
+  ### or parameters fixed to multiple values:
   ### run all supplied values instead of GA search
   if (exists("par_fixed")) {
     if (isTRUE(length(par_fixed_multiple) > 0 ) |
