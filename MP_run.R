@@ -214,7 +214,7 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
     )
     ga_default <- c(1, 1, 1, 1.4, 1, 1, 1.2, 0.7)
     ga_lower <-   c(1, 1, 0, 0,   1, 0, 1,   0)
-    ga_upper <-   c(1, 3, 2, 5,   5, 5, 5,   1)
+    ga_upper <-   c(1, 3, 2, 2,   2, 5, 5,   1)
     ### ga() samples uniform real (double) values from lower ga_lower to 
     ### ga_upper and these are then rounded to the significant digits
     ### -> adjust ga_lower/upper so that minima/maxima have same probability
