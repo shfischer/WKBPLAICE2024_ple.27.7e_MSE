@@ -171,7 +171,7 @@ file.link(from = paste0(path_baseline, files_link),
 ### copy some other files so that they can be changed
 files_copy <- c("refpts_mse.rds")
 file.copy(from = paste0(path_baseline, files_copy), 
-          to = paste0(path_new, files_copy))
+          to = paste0(path_new, files_copy), overwrite = TRUE)
 ### adapt recruitment model
 sr_R_higher <- readRDS(paste0(path_baseline, "sr.rds"))
 params(sr_R_higher)["a"] <- params(sr_R_higher)["a"] * 1.2
@@ -186,7 +186,7 @@ file.link(from = paste0(path_baseline, files_link),
 ### copy some other files so that they can be changed
 files_copy <- c("refpts_mse.rds")
 file.copy(from = paste0(path_baseline, files_copy), 
-          to = paste0(path_new, files_copy))
+          to = paste0(path_new, files_copy), overwrite = TRUE)
 ### adapt recruitment model
 sr_R_lower <- readRDS(paste0(path_baseline, "sr.rds"))
 params(sr_R_lower)["a"] <- params(sr_R_lower)["a"] * 0.8
@@ -201,7 +201,7 @@ file.link(from = paste0(path_baseline, files_link),
 ### copy some other files so that they can be changed
 files_copy <- c("refpts_mse.rds")
 file.copy(from = paste0(path_baseline, files_copy), 
-          to = paste0(path_new, files_copy))
+          to = paste0(path_new, files_copy), overwrite = TRUE)
 ### adapt recruitment residuals
 sr_R_failure <- readRDS(paste0(path_baseline, "sr.rds"))
 residuals(sr_R_failure)[, ac(2025:2029)] <- 
@@ -363,7 +363,21 @@ update_refpts(OM = "R_no_AC", refpts = refpts, RR0 = RR0, BB0 = BB0)
 update_refpts(OM = "R_higher", refpts = refpts, RR0 = RR0, BB0 = BB0)
 update_refpts(OM = "R_lower", refpts = refpts, RR0 = RR0, BB0 = BB0)
 
+### ------------------------------------------------------------------------ ###
+### reference points - remove NAs from iters ####
+### ------------------------------------------------------------------------ ###
+OMs <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_failure")
 
+. <- foreach(OM = OMs) %:% foreach(n_iter = 1000) %do% {
+  file_i <- paste0("input/ple.27.7e/", OM, "/", n_iter, "_100/refpts_mse.rds")
+  if (!file.exists(file_i)) return(NULL)
+  refpts_i <- readRDS(file_i)
+  val_NA <- is.na(iter(refpts_i, 2))
+  if (any(val_NA)) {
+    refpts_i[which(val_NA), -1] <- refpts_i[which(val_NA), 1]
+    saveRDS(refpts_i, file = file_i)
+  }
+}
 
 
 ### ------------------------------------------------------------------------ ###

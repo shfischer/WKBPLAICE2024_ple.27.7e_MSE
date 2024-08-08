@@ -172,7 +172,11 @@ input <- input_mp(stock_id = stock_id, OM = OM, n_iter = n_iter,
 refpts <- foreach(OM_i = OM, .combine = function(...) {
   Reduce(FLCore::combine, list(...))
 }) %do% {
-  readRDS(paste0("input/", stock_id, "/", OM_i, "/", "1000_100/refpts_mse.rds"))
+  refpts_i <- readRDS(paste0("input/", stock_id, "/", OM_i, "/", 
+                             "1000_100/refpts_mse.rds"))
+  if (isTRUE(dim(refpts_i)[2] > n_iter)) 
+    refpts_i <- iter(refpts_i, dimnames(input$om@stock)$iter)
+  return(refpts_i)
 }
 
 ### ------------------------------------------------------------------------ ###
