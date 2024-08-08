@@ -1,11 +1,10 @@
 #!/bin/sh
 ## job name
-#PBS -N ple_hr_all_1120
+#PBS -N ple_hr_mult_refset
 ## maximum runtime
 #PBS -l walltime=24:00:00
 ## select number of nodes, cpus (per node) and memory (per node)
-###PBS -l select=7:ncpus=24:mpiprocs=21:mem=100gb
-#PBS -l select=1:ncpus=128:mpiprocs=128:mem=920gb
+#PBS -l select=1:ncpus=128:mpiprocs=1:mem=920gb
 ## standard output standard error
 #PBS -o reports
 #PBS -e reports
@@ -16,9 +15,7 @@
 ###PBS -W depend=afterany:2521439.pbs
 ########### parameters
 STOCK_ID="'"'ple.27.7e'"'"
-OM="'"'baseline'"'"
 N_WORKERS=100
-SCENARIO="'"'all'"'"
 
 ### print details about job
 echo ""
@@ -33,7 +30,7 @@ cd $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/
 ## load modules
 ## anaconda includes R and OpenMPI
 module purge
-module load mpi/intel-2018.1.163
+#module load mpi/intel-2018.1.163
 module load anaconda3/personal
 ### activate MPI environment
 source activate R2024_R4.4.1
@@ -41,9 +38,7 @@ source activate R2024_R4.4.1
 echo "starting the simulations..."
 ### run job
 ### when running with MPI, worker count is one less than selected cores
-#mpiexec 
-#--max-connections=256 ### increase max if needed
-R CMD BATCH --no-save --no-restore "--args use_MPI=FALSE n_workers=$N_WORKERS n_blocks=1 ga_parallel=TRUE popSize=1000 maxiter=100 run=10 stock_id=$STOCK_ID n_iter=1000 n_yrs=20 scenario=$SCENARIO MP='hr' OM=$OM ga_search=TRUE idxB_lag=FALSE idxB_range_3=TRUE exp_b=FALSE comp_b_multiplier=TRUE interval=TRUE multiplier=TRUE upper_constraint=1.2 lower_constraint=0.7 obj_fun='ICES' obj_yrs='11:20' stat_yrs='multiple' pen_neg=FALSE pen_max=1 pen_infl=0.06 pen_steep=1000 add_suggestions=TRUE" $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/MP_run.R $HOME/reports/$PBS_JOBID.$PBS_ARRAY_INDEX.Rout
+R CMD BATCH --no-save --no-restore "--args use_MPI=FALSE n_workers=$N_WORKERS n_blocks=1 ga_parallel=TRUE popSize=201 maxiter=1 run=1 stock_id=$STOCK_ID n_iter=1000 n_yrs=20 scenario='multiplier' MP='hr' OM=c('baseline','Catch_no_surv','Catch_no_disc','M_high','M_low','M_Gislason','R_no_AC','migr_none') ga_search=TRUE idxB_lag=FALSE idxB_range_3=FALSE exp_b=FALSE comp_b_multiplier=FALSE interval=FALSE multiplier=seq(0,2,0.01) upper_constraint=1.2 lower_constraint=0.7 obj_fun='ICES' obj_yrs='11:20' stat_yrs='multiple' pen_neg=FALSE pen_max=1 pen_infl=0.06 pen_steep=1000 add_suggestions=TRUE" $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/MP_run.R $HOME/reports/$PBS_JOBID.$PBS_ARRAY_INDEX.Rout
 ## $PBS_ARRAY_INDEX
 
 echo ""
@@ -57,7 +52,4 @@ qstat -f
 echo "==============================================================================="
 qstat -t
 echo "==============================================================================="
-
-
-
 
