@@ -713,7 +713,8 @@ create_OM <- function(stk_data, idx_data,
 ### adapts them if necessary (dimensions), sets the MP and 
 ### creates the input object for mp()
 
-input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
+input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000, 
+                     n_iter_file = ifelse(n_iter > 1000, n_iter, 1000),
                      n_yrs = 100, yr_start = 2021, iy = yr_start - 1,
                      n_blocks = FALSE, parallel = n_blocks, seed = 1, 
                      cut_hist = TRUE, MP = "chr",
@@ -755,7 +756,8 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   OM_list <- foreach(OM_i = OM) %do% {
     
     ### path to input objects
-    path_input <- paste0("input/", stock_id, "/", OM_i, "/", 1000, "_100/")
+    path_input <- paste0("input/", stock_id, "/", OM_i, "/", n_iter_file, 
+                         "_100/")
     
     ### load objects
     ### use full dimensions (100 years, 1000 iterations) - reduced later
@@ -785,7 +787,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
       catch_res <- window(catch_res, end = yr_end)
       proc_res <- window(proc_res, end = yr_end)
     }
-    if (isTRUE(n_iter < 1000)) {
+    if (isTRUE(n_iter < n_iter_file)) {
       ### OM stock
       stk_fwd <- FLCore::iter(stk_fwd, seq(n_iter))
       ### OEM stock

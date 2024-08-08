@@ -235,6 +235,20 @@ create_OM(stk_data = stk_migr, idx_data = idx_data, n = 1000, n_years = 100,
           PA_status = TRUE,
           refpts = refpts, stock_id = "ple.27.7e", OM = "migr_none")
 
+### baseline OM with 10,000 iterations
+create_OM(stk_data = stk_data, idx_data = idx_data, n = 10000, n_years = 100,
+          yr_data = 2023, 
+          disc_survival_OM = 0.5, disc_survival_MP = 0.5,
+          int_yr_add = TRUE, 
+          int_yr_catch = int_yr_catch, int_yr_catch_split = TRUE,
+          n_sample_yrs = 5, sr_model = "bevholtSV", sr_parallel = 10,
+          sr_ar_check = TRUE, 
+          idxB = "UK-FSP", 
+          idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
+          length_samples = 2000,
+          PA_status = TRUE,
+          refpts = refpts, stock_id = "ple.27.7e", OM = "baseline")
+
 ### ------------------------------------------------------------------------ ###
 ### MSY reference points ####
 ### ------------------------------------------------------------------------ ###
