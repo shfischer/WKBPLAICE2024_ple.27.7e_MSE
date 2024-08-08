@@ -145,6 +145,7 @@ if (isTRUE(use_MPI) & isTRUE(ga_parallel)) {
   ### load packages and functions into parallel workers
   cl <- makeCluster(n_workers)
   registerDoParallel(cl)
+  print(cl)
   cl_length <- length(cl)
   . <- foreach(i = seq(n_workers)) %dopar% {
     for (i in req_pckgs) 
