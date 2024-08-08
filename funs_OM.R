@@ -740,7 +740,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                      fwd_splitLD = NULL,
                      fwd_yrs_average = NULL,
                      fwd_yrs_sel = NULL,
-                     fwd_trgt = NULL, fwd_yrs = NULL
+                     fwd_trgt = NULL, fwd_trgt_int = NULL, fwd_yrs = NULL
                      ) {
   
   ### overcatch - higher catch in OM but MP doesn't know
@@ -914,7 +914,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   ### ---------------------------------------------------------------------- ###
   ### Observation (error) model OEM ####
   if (identical(stock_id, "ple.27.7e")) {
-    if (is.null(use_age_idcs)) use_age_idcs <- c("Q1SWBeam", "UK-FSP")
+    if (is.null(use_age_idcs)) use_age_idcs <- c("UK-FSP", "Q1SWBeam")
     if (is.null(biomass_index)) biomass_index <- "UK-FSP"
     if (is.null(idx_timing)) idx_timing <- c(-1, -1)
     if (is.null(catch_timing)) catch_timing <- -1
@@ -1101,8 +1101,8 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                     FLXSA_idcs = c("Q1SWBeam", "FSP-7e"),
                     FLXSA_stf = TRUE,
                     ### from WGCSE
-                    FLXSA_Btrigger = unique(c(refpts_mse["ICES_Btrigger"])), 
-                    FLXSA_Ftrigger = unique(c(refpts_mse["ICES_Fmsy"]))
+                    FLXSA_Btrigger = c(refpts_mse["ICES_Btrigger"])[1], 
+                    FLXSA_Ftrigger = c(refpts_mse["ICES_Fmsy"])[1]
                     )),
       phcr = mseCtrl(method = phcr_comps),
       hcr = mseCtrl(method = hcr_comps,
@@ -1119,7 +1119,8 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
         if (is.null(fwd_splitLD)) fwd_splitLD <- TRUE
         if (is.null(fwd_yrs_average)) fwd_yrs_average <- -4:0
         if (is.null(fwd_yrs_sel)) fwd_yrs_sel <- -4:0
-        if (is.null(fwd_trgt)) fwd_trgt <- c("fsq", "fsq", "fsq")
+        if (is.null(fwd_trgt_int)) fwd_trgt_int <- c("fsq", "fsq", "fsq")
+        if (is.null(fwd_trgt)) fwd_trgt <- c("fsq", "fsq", "hcr")
         if (is.null(fwd_yrs)) fwd_yrs <- 2
       }
       SAM_stf_def <- list(fwd_yrs_rec_start = fwd_yrs_rec_start,
@@ -1130,7 +1131,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
         est = mseCtrl(method = SAM_wrapper,
                       args = c(### short term forecast specifications
                         forecast = TRUE, 
-                        fwd_trgt = list(fwd_trgt), fwd_yrs = fwd_yrs, 
+                        fwd_trgt = list(fwd_trgt_int), fwd_yrs = fwd_yrs, 
                         SAM_stf_def, ### without list structure
                         newtonsteps = 0, rel.tol = 0.001,
                         par_ini = list(SAM_pars_ini),
@@ -1139,16 +1140,16 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                       )),
         phcr = mseCtrl(method = phcr_WKNSMSE,
                        args = list(
-                         Btrigger = unique(c(refpts_mse["EqSim_Btrigger"])), 
-                         Ftrgt = unique(c(refpts_mse["EqSim_Fmsy"])), 
-                         Blim = unique(c(refpts_mse["EqSim_Blim"])))),
+                         Btrigger = c(refpts_mse["EqSim_Btrigger"])[1], 
+                         Ftrgt = c(refpts_mse["EqSim_Fmsy"])[1], 
+                         Blim = c(refpts_mse["EqSim_Blim"])[1])),
         hcr = mseCtrl(method = hcr_WKNSME, args = list(option = "A")),
         isys = mseCtrl(method = is_WKNSMSE, 
-                       args = c(hcrpars = list(
-                         Btrigger = unique(c(refpts_mse["EqSim_Btrigger"])), 
-                         Ftrgt = unique(c(refpts_mse["EqSim_Fmsy"])), 
-                         Blim = unique(c(refpts_mse["EqSim_Blim"]))),
-                         fwd_trgt = list(c(fwd_trgt, "hcr")), 
+                       args = c(
+                         Btrigger = c(refpts_mse["EqSim_Btrigger"])[1], 
+                         Ftrgt = c(refpts_mse["EqSim_Fmsy"])[1], 
+                         Blim = c(refpts_mse["EqSim_Blim"])[1],
+                         fwd_trgt = list(fwd_trgt), 
                          fwd_yrs = fwd_yrs + 1, SAM_stf_def
                        ))))
     } 

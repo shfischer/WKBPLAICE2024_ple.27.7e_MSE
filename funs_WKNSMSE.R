@@ -408,7 +408,9 @@ is_WKNSMSE <- function(stk, tracking, ctrl,
                        BB_check_fc = FALSE, ### check status after forecast
                        BB_rho, ### definition of BB
                        ### reference points
-                       hcrpars = list(),
+                       Btrigger = NA, Ftrgt = NA, Blim = NA,
+                       hcrpars = list(Btrigger = Btrigger, Ftrgt = Ftrgt,
+                                      Blim = Blim),
                        ...) {
   
   ### get current (assessment) year
