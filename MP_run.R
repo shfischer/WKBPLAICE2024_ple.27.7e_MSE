@@ -23,17 +23,21 @@ if (length(args) > 0) {
   if (!exists("ga_parallel")) ga_parallel <- FALSE
   if (!exists("n_blocks")) n_blocks <- 1
   if (!exists("n_workers")) n_workers <- 0
-  ### scenario definition
+  ### simulation dimensions
   if (!exists("n_iter")) n_iter <- 1000
   if (!exists("n_yrs")) n_yrs <- 20
   if (!exists("yr_start")) yr_start <- 2025
-  if (!exists("scenario")) scenario <- "multiplier"
-  if (!exists("MP")) MP <- "hr"
-  if (!exists("Ftrgt")) Ftrgt <- "MSY" # only for constF MP
-  if (!exists("rec_failure")) rec_failure <- FALSE
   ### OM
   if (!exists("stock_id")) stock_id <- "ple.27.7e"
   if (!exists("OM")) OM <- "baseline"
+  ### MP
+  if (!exists("MP")) MP <- "hr"
+  ### scenario definition
+  if (!exists("scenario")) scenario <- "multiplier"
+  if (!exists("Ftrgt")) Ftrgt <- "MSY" # only for constF MP
+  # if (!exists("rec_failure")) rec_failure <- FALSE
+  # if (!exists("overcatch")) overcatch <- FALSE
+  # if (!exists("oem_catch_bias")) oem_catch_bias <- FALSE
   ### GA search
   if (!exists("ga_search")) ga_search <- TRUE
   if (isTRUE(ga_search)) {

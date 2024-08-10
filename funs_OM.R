@@ -715,7 +715,7 @@ create_OM <- function(stk_data, idx_data,
 
 input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000, 
                      n_iter_file = ifelse(n_iter > 1000, n_iter, 1000),
-                     n_yrs = 100, yr_start = 2021, iy = yr_start - 1,
+                     n_yrs = 100, yr_start = 2025, iy = yr_start - 1,
                      n_blocks = FALSE, parallel = n_blocks, seed = 1, 
                      cut_hist = TRUE, MP = "chr",
                      hr_years = NULL,
@@ -729,7 +729,9 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                      ### observations
                      use_catch_residuals = TRUE,
                      use_catch_residuals_disc = TRUE,
-                     oem_catch_bias = FALSE, oem_catch_bias_level = NULL,
+                     oem_catch_bias = ifelse(!FALSE(overcatch), TRUE, FALSE), 
+                     oem_catch_bias_level = NULL,
+                     oem_catch_bias_historical = FALSE,
                      overcatch = FALSE,
                      use_age_idcs = NULL, biomass_index = NULL,
                      idx_timing = NULL, catch_timing = NULL,
@@ -743,12 +745,34 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                      fwd_trgt = NULL, fwd_trgt_int = NULL, fwd_yrs = NULL
                      ) {
   
-  ### overcatch - higher catch in OM but MP doesn't know
+  ### default overcatch OMs
+  if (isTRUE(OM %in% c("overcatch", "undercatch", "overcatch_known",
+                       "undercatch_known"))) {
+    if (identical(OM, "overcatch")) {
+      overcatch <- 0.1
+      oem_catch_bias <- TRUE
+    } else if (identical(OM, "undercatch")) {
+      overcatch <- -0.1
+      oem_catch_bias <- TRUE
+    } else if (identical(OM, "overcatch_known")) {
+      overcatch <- 0.1
+      oem_catch_bias <- FALSE
+    } else if (identical(OM, "undercatch_known")) {
+      overcatch <- -0.1
+      oem_catch_bias <- FALSE
+    }
+    ### use baseline OM as template
+    OM <- "baseline"
+  }
+
+  ### overcatch - higher catch in OM
   if (!isFALSE(overcatch)) {
     use_iem <- TRUE
     iem_bias <- 1 + overcatch
-    oem_catch_bias <- TRUE
-    oem_catch_bias_level <- 1/iem_bias
+    ### overcatch - known to MP or not?
+    if (isTRUE(oem_catch_bias)) {
+      oem_catch_bias_level <- 1/iem_bias
+    }
   }
   
   ### load data and adapt dimensions - for all OM(s)
@@ -922,7 +946,13 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   
   ### bias in catch observations?
   if (isTRUE(oem_catch_bias)) {
-    catch_res$catch_res[] <- catch_res$catch_res * oem_catch_bias_level
+    ### limit bias to projected years?
+    if (!isTRUE(oem_catch_bias_historical)) {
+      yrs_bias <- yr_start:yr_end
+    } else {
+      yrs_bias <- args$fy:yr_end
+    }
+    catch_res$catch_res[, ac(yrs_bias)] <- catch_res$catch_res[, ac(yrs_bias)] * oem_catch_bias_level
   }
   
   ### default oem for rfb rule
