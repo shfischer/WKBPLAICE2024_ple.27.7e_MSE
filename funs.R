@@ -349,7 +349,8 @@ obs_generic <- function(stk, observations, deviances, args, tracking,
       by = c("year", "iter")) %>%
       ### merge with ALKs
       left_join(alks %>% rename("alk_year" = "year"),
-                by = c("age", "alk_year")) %>%
+                by = c("age", "alk_year"),
+                relationship = "many-to-many") %>%
       ### calculate numbers at length
       mutate(cal = caa * freq) %>%
       ### keep only numbers where length >= Lc

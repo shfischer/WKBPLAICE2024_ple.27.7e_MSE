@@ -994,7 +994,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     ctrl <- mpCtrl(list(
       est = mseCtrl(method = est_comps,
                     args = list(comp_r = TRUE, comp_f = TRUE, comp_b = TRUE,
-                                comp_c = TRUE, comp_m = 1,
+                                comp_c = TRUE, comp_m = 0.95,
                                 idxB_lag = 1, idxB_range_1 = 2, idxB_range_2 = 3,
                                 idxB_range_3 = 1,
                                 catch_lag = 0, ### 0 to mimic advice
