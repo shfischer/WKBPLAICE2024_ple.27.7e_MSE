@@ -1192,6 +1192,40 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   
 }
 
+### prepare reference points ####
+input_refpts <- function(stock_id = "ple.27.7e", 
+                         OM = "baseline", 
+                         n_iter = 1000) {
+  
+  ### use baseline values for overcatch OMs
+  if (isTRUE(OM %in% c("overcatch", "undercatch", "overcatch_known",
+                       "undercatch_known"))) {
+    OM_i <- "baseline"
+  } else {
+    OM_i <- OM
+  }
+  
+  n_iter_i <- ifelse(isTRUE(n_iter < 1000), 1000, n_iter)
+  
+  ### load reference points
+  ### combine OMs, if needed
+  refpts <- foreach(OM_i = OM_i, .combine = function(...) {
+    Reduce(FLCore::combine, list(...))
+  }) %do% {
+    refpts_i <- readRDS(paste0("input/", stock_id, "/", OM_i, "/", 
+                               n_iter_i, "_100/refpts_mse.rds"))
+    if (isTRUE(dim(refpts_i)[2] > n_iter)) 
+      refpts_i <- iter(refpts_i, dimnames(input$om@stock)$iter)
+    return(refpts_i)
+  }
+  
+  return(refpts)
+  
+}
+
+
+
+
 ### ------------------------------------------------------------------------ ###
 ### function for estimating MSY reference values ####
 ### ------------------------------------------------------------------------ ###

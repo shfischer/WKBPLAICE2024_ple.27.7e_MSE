@@ -169,16 +169,9 @@ if (isTRUE(ga_parallel)) ga_parallel <- cl
 
 input <- input_mp(stock_id = stock_id, OM = OM, n_iter = n_iter,
                   n_yrs = n_yrs, yr_start = yr_start, n_blocks = n_blocks,
-                  MP = MP, rec_failure = rec_failure)
-refpts <- foreach(OM_i = OM, .combine = function(...) {
-  Reduce(FLCore::combine, list(...))
-}) %do% {
-  refpts_i <- readRDS(paste0("input/", stock_id, "/", OM_i, "/", 
-                             "1000_100/refpts_mse.rds"))
-  if (isTRUE(dim(refpts_i)[2] > n_iter)) 
-    refpts_i <- iter(refpts_i, dimnames(input$om@stock)$iter)
-  return(refpts_i)
-}
+                  MP = MP)
+refpts <- input_refpts(stock_id = stock_id, OM = OM, n_iter = n_iter)
+
 
 ### ------------------------------------------------------------------------ ###
 ### GA set-up ####
