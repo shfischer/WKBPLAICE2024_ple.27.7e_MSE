@@ -236,6 +236,7 @@ mp_stats <- function(input, res_mp, stat_yrs = "multiple", refpts,
   Fmsy <- c(refpts["Fmsy"])
   Cmsy <- c(refpts["Cmsy"])
   Blim <- c(refpts["Blim"])
+
   ### TAC interval
   if (!is.null(input$ctrl$hcr@args$interval)) {
     TAC_intvl <- input$ctrl$hcr@args$interval
@@ -246,18 +247,24 @@ mp_stats <- function(input, res_mp, stat_yrs = "multiple", refpts,
   ### some stats
   stats_list <- function(SSBs, Cs, Fs, Cs_long, Blim, Bmsy, Fmsy, Cmsy,
                          TAC_intvl) {
+    ### format reference points so that they match time series 
+    ### (only relevant if reference points differ by iteration)
+    Bmsy_ts <- SSBs %=% rep(c(Bmsy), each = dim(SSBs)[2])
+    Fmsy_ts <- Fs %=% rep(c(Fmsy), each = dim(Fs)[2])
+    Cmsy_ts <- Cs %=% rep(c(Cmsy), each = dim(Cs)[2])
+    Blim_ts <- SSBs %=% rep(c(Blim), each = dim(SSBs)[2])
     list(
-      risk_Blim = mean(c((SSBs/Blim) < 1), na.rm = TRUE),
-      risk_Blim_max = max(apply((SSBs/Blim) < 1, 2, mean, na.rm = TRUE), 
+      risk_Blim = mean(c((SSBs/Blim_ts) < 1), na.rm = TRUE),
+      risk_Blim_max = max(apply((SSBs/Blim_ts) < 1, 2, mean, na.rm = TRUE), 
                           na.rm = TRUE),
-      risk_Bmsy = mean(c((SSBs/Bmsy) < 1), na.rm = TRUE),
-      risk_halfBmsy = mean(c((SSBs/(Bmsy/2)) < 1), na.rm = TRUE),
+      risk_Bmsy = mean(c((SSBs/Bmsy_ts) < 1), na.rm = TRUE),
+      risk_halfBmsy = mean(c((SSBs/(Bmsy_ts/2)) < 1), na.rm = TRUE),
       risk_collapse = mean(c(SSBs < 1), na.rm = TRUE),
       SSB = median(c(SSBs), na.rm = TRUE), Fbar = median(c(Fs), na.rm = TRUE),
       Catch = median(c(Cs), na.rm = TRUE),
-      SSB_rel = median(c(SSBs/Bmsy), na.rm = TRUE),
-      Fbar_rel = median(c(Fs/Fmsy), na.rm = TRUE),
-      Catch_rel = median(c(Cs/Cmsy), na.rm = TRUE),
+      SSB_rel = median(c(SSBs/Bmsy_ts), na.rm = TRUE),
+      Fbar_rel = median(c(Fs/Fmsy_ts), na.rm = TRUE),
+      Catch_rel = median(c(Cs/Cmsy_ts), na.rm = TRUE),
       ICV = iav(Cs_long, from = start_yr, period = TAC_intvl,
                 summary_all = median)
     )
