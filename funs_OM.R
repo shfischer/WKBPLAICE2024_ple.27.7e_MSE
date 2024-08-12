@@ -729,7 +729,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                      ### observations
                      use_catch_residuals = TRUE,
                      use_catch_residuals_disc = TRUE,
-                     oem_catch_bias = ifelse(!FALSE(overcatch), TRUE, FALSE), 
+                     oem_catch_bias = ifelse(!isFALSE(overcatch), TRUE, FALSE), 
                      oem_catch_bias_level = NULL,
                      oem_catch_bias_historical = FALSE,
                      overcatch = FALSE,
