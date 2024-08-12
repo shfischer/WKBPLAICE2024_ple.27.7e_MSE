@@ -241,6 +241,8 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
   if (isTRUE(length(pos_fixed) > 0)) {
     par_fixed <- names(pos_fixed)
     val_fixed <- mget(ga_names, ifnotfound = FALSE)[pos_fixed]
+    ga_suggestions[, pos_fixed] <- NA
+    ga_suggestions <- unique(ga_suggestions)
     ### parameters fixed to single value
     par_fixed_single <- names(which(sapply(val_fixed, length) == 1))
     val_fixed_single <- val_fixed[par_fixed_single]
@@ -262,16 +264,13 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
       pos_par_fixed_multiple <- match(par_fixed_multiple, ga_names)
       ga_suggestions[, pos_par_fixed_multiple] <- NA
       ga_suggestions <- unique(ga_suggestions)
-      ga_suggestions <- ga_suggestions[rep(1, max(sapply(val_fixed_multiple, 
-                                                         length))), ]
+      ga_suggestions <- lapply(as.list(ga_suggestions), unique)
       for (pos in seq_along(par_fixed_multiple)) {
-        ga_suggestions[, pos_par_fixed_multiple[pos]] <-
+        ga_suggestions[[pos_par_fixed_multiple[pos]]] <-
           val_fixed[[par_fixed_multiple[pos]]]
       }
-      ga_suggestions <- unique(ga_suggestions)
       ### get all combinations
-      ga_suggestions <- unique(expand.grid(lapply(as.list(ga_suggestions), 
-                                                  unique)))
+      ga_suggestions <- unique(expand.grid(ga_suggestions))
     }
   } else {
     par_fixed_single <- par_fixed_multiple <- NULL
