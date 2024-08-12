@@ -745,6 +745,11 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                      fwd_trgt = NULL, fwd_trgt_int = NULL, fwd_yrs = NULL
                      ) {
   
+  ### reference set OM
+  if (identical(OM, "refset"))
+    OM <- c("baseline", "Catch_no_surv", "Catch_no_disc", "M_high", "M_low", 
+            "M_Gislason", "R_no_AC", "migr_none")
+  
   ### default overcatch OMs
   if (isTRUE(OM %in% c("overcatch", "undercatch", "overcatch_known",
                        "undercatch_known"))) {
@@ -1227,6 +1232,11 @@ input_refpts <- function(stock_id = "ple.27.7e",
                          OM = "baseline", 
                          n_iter = 1000) {
   
+  ### reference set OM
+  if (identical(OM, "refset"))
+    OM <- c("baseline", "Catch_no_surv", "Catch_no_disc", "M_high", "M_low", 
+            "M_Gislason", "R_no_AC", "migr_none")
+  
   ### use baseline values for overcatch OMs
   if (isTRUE(OM %in% c("overcatch", "undercatch", "overcatch_known",
                        "undercatch_known"))) {
@@ -1245,7 +1255,7 @@ input_refpts <- function(stock_id = "ple.27.7e",
     refpts_i <- readRDS(paste0("input/", stock_id, "/", OM_i, "/", 
                                n_iter_i, "_100/refpts_mse.rds"))
     if (isTRUE(dim(refpts_i)[2] > n_iter)) 
-      refpts_i <- iter(refpts_i, dimnames(input$om@stock)$iter)
+      refpts_i <- iter(refpts_i, seq(n_iter))
     return(refpts_i)
   }
   
