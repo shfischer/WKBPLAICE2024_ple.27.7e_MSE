@@ -28,6 +28,106 @@ source("funs_OM.R")
 cl1 <- FALSE
 
 ### ------------------------------------------------------------------------ ###
+### baseline - hr - optimised multiplier ####
+### ------------------------------------------------------------------------ ###
+args_local <- c("n_blocks=1", "n_workers=0", 
+                "scenario='multiplier'", "MP='hr'",
+                "n_yrs=20", "check_file=FALSE",
+                "ga_search=TRUE", "OM='baseline'", "MP='hr'", "save_MP=TRUE", 
+                "popSize=1", "maxiter=1",
+                "add_suggestions=FALSE", "collate=FALSE",
+                "idxB_lag=1", "idxB_range_3=1", "exp_b=1", 
+                "comp_b_multiplier=1.4", "interval=1", 
+                "multiplier=0.63",
+                "upper_constraint=1.2", "lower_constraint=0.7")
+source("MP_run.R")
+
+### project for 100 years
+args_local <- c("n_blocks=1", "n_workers=0", 
+                "scenario='multiplier'", "MP='hr'",
+                "n_yrs=100", "check_file=FALSE",
+                "ga_search=TRUE", "OM='baseline'", "save_MP=TRUE", 
+                "popSize=1", "maxiter=1",
+                "add_suggestions=FALSE", "collate=FALSE",
+                "idxB_lag=1", "idxB_range_3=1", "exp_b=1", 
+                "comp_b_multiplier=1.4", "interval=1", 
+                "multiplier=0.63",
+                "upper_constraint=1.2", "lower_constraint=0.7")
+source("MP_run.R")
+
+args_local <- c("n_blocks=1", "n_workers=10", "n_blocks=10", "mp_parallel=TRUE",
+                "n_iter=10000", 
+                "scenario='multiplier'", "MP='hr'",
+                "n_yrs=20", "check_file=FALSE",
+                "ga_search=TRUE", "OM='baseline'", "save_MP=TRUE", 
+                "popSize=1", "maxiter=1",
+                "add_suggestions=FALSE", "collate=FALSE",
+                "idxB_lag=1", "idxB_range_3=1", "exp_b=1", 
+                "comp_b_multiplier=1.4", "interval=1", 
+                "multiplier=0.63",
+                "upper_constraint=1.2", "lower_constraint=0.7")
+source("MP_run.R")
+
+### ------------------------------------------------------------------------ ###
+### reference set - hr optimised multiplier ####
+### ------------------------------------------------------------------------ ###
+res <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/multiplier-upper_constraint1.2-lower_constraint0.7--obj_ICES_res_11-20.rds")
+res@solution[, "multiplier"]
+### 0.61
+args_local <- c("n_blocks=10", "n_workers=10", "mp_parallel=TRUE",
+                "scenario='multiplier'", "MP='hr'",
+                "n_yrs=20", "check_file=FALSE",
+                "ga_search=TRUE", "OM='refset'", "MP='hr'", "save_MP=TRUE", 
+                "popSize=1", "maxiter=1",
+                "add_suggestions=FALSE", "collate=FALSE",
+                "idxB_lag=1", "idxB_range_3=1", "exp_b=1", 
+                "comp_b_multiplier=1.4", "interval=1", 
+                "multiplier=0.61",
+                "upper_constraint=1.2", "lower_constraint=0.7")
+source("MP_run.R")
+
+
+### ------------------------------------------------------------------------ ###
+### SAM - all OMs ####
+### ------------------------------------------------------------------------ ###
+args_local <- c("n_blocks=10", "n_workers=10", "mp_parallel=TRUE",
+                "scenario=''", "MP='ICES_SAM'",
+                "n_yrs=20", "check_file=FALSE",
+                "ga_search=FALSE", "OM='baseline'", "save_MP=TRUE", 
+                "collate=FALSE", "stat_yrs='multiple'"
+                )
+source("MP_run.R")
+stopCluster(cl); rm(cl); gc()
+rm(args_local)
+### other OMs
+alt_OMs <- c("Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_failure", "overcatch", "undercatch")
+for (OM in alt_OMs) {
+  print(paste0("OM=", OM))
+  args_local <- c(paste0("OM='", OM, "'"))
+  source("MP_run.R")
+  stopCluster(cl); rm(cl); gc()
+}
+
+### ------------------------------------------------------------------------ ###
+### rfb (default: multiplier=0.95) - all OMs ####
+### ------------------------------------------------------------------------ ###
+args_local <- c("scenario=''", "MP='rfb'",
+                "n_yrs=20", "check_file=FALSE",
+                "ga_search=FALSE", "OM='baseline'", "save_MP=TRUE", 
+                "collate=FALSE", "stat_yrs='multiple'"
+)
+source("MP_run.R")
+rm(args_local)
+### other OMs
+alt_OMs <- c("Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_failure", "overcatch",
+             "undercatch")
+for (OM in alt_OMs) {
+  print(paste0("OM=", OM))
+  args_local <- c(paste0("OM='", OM, "'"))
+  source("MP_run.R")
+}
+
+### ------------------------------------------------------------------------ ###
 ### harvest rate & rfb rule: all stocks & OMs - default & optimised ####
 ### ------------------------------------------------------------------------ ###
 stocks <- c("ple.27.7e", "cod.27.47d20", "her.27.3a47d")
