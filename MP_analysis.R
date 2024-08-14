@@ -1,5 +1,5 @@
 ### ------------------------------------------------------------------------ ###
-### ple.27.7e - analyse MSE results ####
+### analyse MSE results ####
 ### ------------------------------------------------------------------------ ###
 library(mse)
 library(GA)
@@ -9,9 +9,437 @@ library(cowplot)
 library(patchwork)
 library(ggplot2)
 library(foreach)
+library(doParallel)
+library(doFuture)
 source("funs.R")
 source("funs_GA.R")
 source("funs_analysis.R")
+source("funs_OM.R")
+
+### ------------------------------------------------------------------------ ###
+### check Blim risk and projection length - baseline ####
+### ------------------------------------------------------------------------ ###
+### baseline OM
+### use optimised multiplier
+res_mult <- readRDS("output/ple.27.7e/baseline/1000_20/multiplier/hr/mp_1_1_1_1.4_1_0.63_1.2_0.7.rds")
+refpts_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/refpts_mse.rds")
+Blim <- c(refpts_baseline["Blim"])[1] ### identical for all iterations
+
+### start parallel workers
+plan(multisession, workers = 15)
+
+### number of iterations
+
+### risk3: max risk (of last 10 years) -> year 2035
+### cumulative risk over iterations
+risk3_cum <- foreach(its = 1:1000, .combine = bind_rows) %dofuture% {
+  data.frame(iter = its,
+             risk3 = c(iterMeans(iter(ssb(res_mult)[, ac(2035)], seq(its)) < 
+                                   Blim)))
+}
+risk3_cum %>%
+  ggplot(aes(x = iter, y = risk3)) +
+  geom_line() +
+  theme_bw(base_size = 8)
+
+### risk1: average risk
+### cumulative risk over iterations
+risk1_cum <- foreach(its = 1:1000, .combine = bind_rows) %dofuture% {
+  data.frame(iter = its,
+             risk1 = mean(iter(ssb(res_mult)[, ac(2035:2044)], seq(its)) < 
+                            Blim))
+}
+risk1_cum %>%
+  ggplot(aes(x = iter, y = risk1)) +
+  geom_line() +
+  theme_bw(base_size = 8)
+
+df_risk_cum <- full_join(risk1_cum, risk3_cum)
+df_risk_cum %>%
+  pivot_longer(-1, names_to = "type", values_to = "risk") %>%
+  mutate(type = factor(type, levels = c("risk1", "risk3"),
+                       labels = c("Risk 1 (mean)", "Risk 3 (max)"))) %>%
+  ggplot(aes(x = iter, y = risk, linetype = type)) +
+  geom_line() +
+  geom_hline(yintercept = 0.05, colour = "red", linetype = "1111",
+             linewidth = 0.3) +
+  scale_linetype("") +
+  scale_y_continuous(breaks = c(0, 0.01, 0.02, 0.03, 0.04, 0.05), 
+                     limits = c(0, 0.052)) +
+  labs(x = "# simulation replicates", y = expression(B[lim]~risk)) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.6, "lines"))
+
+### same for 10k iterations
+res_mult_10k <- readRDS("output/ple.27.7e/baseline/10000_20/multiplier/hr/mp_1_1_1_1.4_1_0.63_1.2_0.7.rds")
+### use first 1000 iterations from baseline run above
+stk10k <- stock(om(res_mult_10k))
+iter(stk10k, 1:1000) <- stock(om(res_mult))
+
+### risk3: max risk (of last 10 years) -> year 2035
+### cumulative risk over iterations
+risk3_cum_10k <- foreach(its = 1:10000, .combine = bind_rows) %dofuture% {
+  data.frame(iter = its,
+             risk3 = c(iterMeans(iter(ssb(stk10k)[, ac(2035)], seq(its)) < 
+                                   Blim)))
+}
+risk3_cum_10k %>%
+  ggplot(aes(x = iter, y = risk3)) +
+  geom_line() +
+  theme_bw(base_size = 8)
+
+### risk1: average risk
+### cumulative risk over iterations
+risk1_cum_10k <- foreach(its = 1:10000, .combine = bind_rows) %dofuture% {
+  data.frame(iter = its,
+             risk1 = mean(iter(ssb(stk10k)[, ac(2035:2044)], seq(its)) < 
+                            Blim))
+}
+
+### plot
+df_risk_cum_10k <- full_join(risk1_cum_10k, risk3_cum_10k)
+p <- df_risk_cum_10k %>%
+  pivot_longer(-1, names_to = "type", values_to = "risk") %>%
+  mutate(type = factor(type, levels = c("risk1", "risk3"),
+                       labels = c("Risk 1 (mean)", "Risk 3 (max)"))) %>%
+  ggplot(aes(x = iter, y = risk, linetype = type)) +
+  geom_line(linewidth = 0.4) +
+  geom_hline(yintercept = 0.05, colour = "red", linetype = "1111",
+             linewidth = 0.3) +
+  scale_linetype_manual("", values = c("solid", "1111")) +
+  scale_y_continuous(breaks = c(0, 0.01, 0.02, 0.03, 0.04, 0.05), 
+                     limits = c(0, 0.052)) +
+  labs(x = "# simulation replicates", y = expression(B[lim]~risk)) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.6, "lines"),
+        legend.position = "inside",
+        legend.position.inside = c(0.7, 0.8),
+        legend.background = element_blank(),
+        legend.key = element_blank(),
+        plot.margin = unit(c(4, 8, 4, 4), "pt")) +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  coord_cartesian(xlim = c(0, 10200), expand = FALSE) 
+p
+ggsave(filename = "output/plots/MP/baseline_hr0.63_Blim_iter_10k.png", plot = p,
+       width = 10, height = 6, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/baseline_hr0.63_Blim_iter_10k.pdf", plot = p,
+       width = 10, height = 6, units = "cm")
+p <- p + coord_cartesian(xlim = c(0, 1000), expand = FALSE)
+p
+ggsave(filename = "output/plots/MP/baseline_hr0.63_Blim_iter_1k.png", plot = p,
+       width = 10, height = 6, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/baseline_hr0.63_Blim_iter_1k.pdf", plot = p,
+       width = 10, height = 6, units = "cm")
+
+### projection period
+### risk over time
+iterMeans(ssb(res_mult) < c(refpts_baseline["Blim"]))
+
+### get 100-year projection
+res_mult_100 <- readRDS("output/ple.27.7e/baseline/1000_100/multiplier/hr/mp_1_1_1_1.4_1_0.63_1.2_0.7.rds")
+### add fishing history
+stk_hist <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
+stk <- stk_hist
+stk[, ac(2024:2124)] <- stock(om(res_mult_100))
+
+### SSB trajectory
+### get metrics
+df_ssb_qnt <- quantile(ssb(stk)/1000, 
+                       c(0.025, 0.25, 0.5, 0.75, 0.975), na.rm = TRUE)
+df_ssb_qnt <- as.data.frame(df_ssb_qnt) %>%
+  select(year, iter, data) %>%
+  pivot_wider(names_from = iter, values_from = data)
+df_ssb_iter <- as.data.frame(iter(ssb(stk)/1000, 1:5))
+Bmsy <- c(median(refpts_baseline["Bmsy"], na.rm = TRUE))
+Blim <- c(median(refpts_baseline["Blim"], na.rm = TRUE))
+p_ssb <- ggplot() +
+  geom_vline(xintercept = 2024.5, colour = "grey", size = 0.5) +
+  geom_ribbon(data = df_ssb_qnt ,
+              aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.1,
+              show.legend = FALSE) +
+  geom_ribbon(data = df_ssb_qnt,
+              aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.1,
+              show.legend = FALSE) +
+  geom_line(data = df_ssb_iter,
+            aes(x = year, y = data, colour = iter),
+            linewidth = 0.1, show.legend = FALSE) +
+  geom_line(data = df_ssb_qnt,
+            aes(x = year, y = `50%`), linewidth = 0.4) +
+  # geom_hline(yintercept = Bmsy/1000,
+  #            colour = "black", linewidth = 0.5, linetype = "dashed") +
+  geom_hline(yintercept = Blim/1000,
+             colour = "black", linewidth = 0.5, linetype = "1111") +
+  labs(x = "Year", y = "SSB (1000t)") +
+  coord_cartesian(xlim = c(2020, 2124), ylim = c(0, 15), expand = FALSE) + 
+  theme_bw(base_size = 8)
+p_ssb
+p_ssb_20 <- p_ssb +
+  coord_cartesian(xlim = c(2020, 2044), ylim = c(0, 15), expand = FALSE)
+p_ssb_20
+
+### risk trajectory
+risk <- iterMeans(ssb(stk) < Blim)
+df_risk <- as.data.frame(risk)
+risk_max <- max(risk[, ac(2035:2044)])
+risk_year <- 2035
+p_risk <- df_risk %>%
+  filter(year >= 2024) %>%
+  ggplot(aes(x = year, y = data)) +
+  geom_vline(xintercept = 2024.5, colour = "grey", size = 0.5) +
+  geom_line(linewidth = 0.4) +
+  geom_hline(yintercept = 0.05, colour = "red", linetype = "dashed") + 
+  labs(x = "Year", y = expression(B[lim]~risk)) +
+  theme_bw(base_size = 8) +
+  annotate("rect", xmin = 2034.5, xmax = 2044.5, ymin = -Inf, ymax = Inf,
+           alpha = 0.05, fill = "red") + 
+  geom_hline(yintercept = risk_max, colour = "red", linewidth = 0.3) +
+  geom_vline(xintercept = risk_year, colour = "red", linewidth = 0.3) +
+  coord_cartesian(xlim = c(2020, 2124), ylim = c(0, 0.055), expand = FALSE) 
+p_risk
+
+p_risk_20 <- p_risk +
+  coord_cartesian(xlim = c(2020, 2044), ylim = c(0, 0.055), expand = FALSE) 
+p_risk_20
+
+p1 <- p_ssb_20 + 
+  annotate(geom = "text", x = 2021, y = Blim/1000*0.95, label = "B[lim]",
+           parse = TRUE,
+           colour = "black", size = 2.5, vjust = 1, hjust = 0) + 
+  facet_wrap(~ "20-year projection") +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+p2 <- p_ssb + facet_wrap(~ "100-year projection") +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank())
+p3 <- p_risk_20 + 
+  annotate(geom = "text", x = 2021, y = 0.05*0.98, label = "5% risk threshold",
+           colour = "red", size = 2.5, vjust = 1, hjust = 0)
+p4 <- p_risk + 
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+
+p <- p1 + p2 + p3 + p4 + plot_layout(ncol = 2)
+p
+ggsave(filename = "output/plots/MP/baseline_hr0.63_Blim_yrs.png", plot = p,
+       width = 16, height = 8, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/baseline_hr0.63_Blim_yrs.pdf", plot = p,
+       width = 16, height = 8, units = "cm")
+
+### ------------------------------------------------------------------------ ###
+### check Blim risk - reference set ####
+### ------------------------------------------------------------------------ ###
+### same for reference set OM
+res <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/multiplier-upper_constraint1.2-lower_constraint0.7--obj_ICES_res_11-20.rds")
+res@solution[, "multiplier"]
+mp_mult_refset <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/mp_1_1_1_1.4_1_0.61_1.2_0.7.rds")
+stk_refset <- stock(om(mp_mult_refset))
+refpts_refset <- input_refpts(OM = "refset")
+Blim <- c(refpts_refset["Blim"]) ### differ by iterations/OM
+n_iter <- 1000
+n_OMs <- dim(stk_refset)[6]/n_iter
+risk_refset <- iterMeans(ssb(stk_refset) < 
+                           rep(Blim, each = dim(ssb(stk_refset))[2]))
+which.max(risk_refset[, ac(2035:2044)])
+risk_max_year <- 2035
+
+### risk3: max risk (of last 10 years)
+### cumulative risk over iterations
+risk3_cum <- foreach(its = seq(n_iter), .combine = bind_rows) %dofuture% {#browser()
+  ### group OMs, e.g. iteration 1 for all OMs
+  its_i <- sort(unlist(lapply(seq(its), function(x) {x + (seq(n_OMs) - 1) * n_iter})))
+  data.frame(iter = its,
+             risk3 = c(iterMeans(iter(ssb(stk_refset)[, ac(2035)], seq(its_i)) < 
+                                   Blim[its_i])))
+}
+risk3_cum %>%
+  ggplot(aes(x = iter, y = risk3)) +
+  geom_line() +
+  theme_bw(base_size = 8)
+
+### risk1: average risk
+### cumulative risk over iterations
+risk1_cum <- foreach(its = seq(n_iter), .combine = bind_rows) %dofuture% {
+  its_i <- sort(unlist(lapply(seq(its), function(x) {x + (seq(n_OMs) - 1) * n_iter})))
+  data.frame(iter = its,
+             risk1 = mean(iter(ssb(stk_refset)[, ac(2035:2044)], seq(its_i)) < 
+                            rep(Blim[its_i], each = 10)))
+}
+
+### plot
+df_risk_cum <- full_join(risk1_cum, risk3_cum)
+p <- df_risk_cum %>%
+  pivot_longer(-1, names_to = "type", values_to = "risk") %>%
+  mutate(type = factor(type, levels = c("risk1", "risk3"),
+                       labels = c("Risk 1 (mean)", "Risk 3 (max)"))) %>%
+  ggplot(aes(x = iter, y = risk, linetype = type)) +
+  geom_line(linewidth = 0.4) +
+  geom_hline(yintercept = 0.05, colour = "red", linetype = "1111",
+             linewidth = 0.3) +
+  scale_linetype("") +
+  # scale_y_continuous(breaks = c(0, 0.01, 0.02, 0.03, 0.04, 0.05), 
+  #                    limits = c(0, 0.052)) +
+  labs(x = "# simulation replicates", y = expression(B[lim]~risk)) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.6, "lines"),
+        legend.position = "inside",
+        legend.position.inside = c(0.7, 0.2),
+        legend.background = element_blank(),
+        legend.key = element_blank(),
+        plot.margin = unit(c(4, 8, 4, 4), "pt")) +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  coord_cartesian(xlim = c(0, 1000), expand = FALSE) 
+p
+ggsave(filename = "output/plots/MP/refset_hr0.63_Blim_iter.png", plot = p,
+       width = 10, height = 6, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/refset_hr0.63_Blim_iter.pdf", plot = p,
+       width = 10, height = 6, units = "cm")
+
+### ------------------------------------------------------------------------ ###
+### baseline - multiplier ####
+### ------------------------------------------------------------------------ ###
+
+### load GA results
+res_mult <- readRDS("output/ple.27.7e/baseline/1000_20/multiplier/hr/multiplier-upper_constraint1.2-lower_constraint0.7--obj_ICES_res_11-20.rds")
+runs_mult <- readRDS("output/ple.27.7e/baseline/1000_20/multiplier/hr/runs.rds")
+### optimum multiplier
+as.data.frame(as.list(res_mult@solution[1, ]))
+
+### combine performance statistics of all runs
+df_mult <- lapply(runs_mult, function(x) {
+  bind_cols(data.frame(t(x$pars)), data.frame(x$stats))
+})
+df_mult <- do.call(bind_rows, df_mult)
+### add fitness value
+df_mult$fitness <- df_mult$X11.20_Catch_rel -
+  penalty(x = df_mult$X11.20_risk_Blim_max, 
+          negative = FALSE, max = 1, 
+          inflection = 0.06, 
+          steepness = 1000)
+
+df_mult %>%
+  select(multiplier, X11.20_risk_Blim_max, X11.20_Catch_rel, fitness) %>%
+  View()
+
+### plot
+df_plot <- df_mult %>%
+  select(multiplier, Blim_risk = X11.20_risk_Blim_max, 
+         Catch_rel = X11.20_Catch_rel, SSB_rel = X11.20_SSB_rel) %>%
+  pivot_longer(-1) %>%
+  mutate(name = factor(name, 
+                       levels = c("SSB_rel", "Catch_rel", "Blim_risk"),
+                       labels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
+df_Blim <- data.frame(name = "B[lim]~risk",
+                      value = 0.05) %>%
+  mutate(name = factor(name, 
+                       levels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
+df_label <- data.frame(name = c("B[lim]~risk", "Catch/MSY"),
+                       x = c(1.2, 0.65), y = c(0.1, 0.5),
+                       label = c("5% risk threshold", "maximum catch")) %>%
+  mutate(name = factor(name, 
+                       levels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
+p <- df_plot %>%
+  ggplot(aes(x = multiplier, y = value)) +
+  geom_hline(data = df_Blim,
+             aes(yintercept = value), colour = "red", linewidth = 0.3) +
+  geom_point(size = 0.1, shape = 16) +
+  geom_smooth(linewidth = 0.4, n = 100, span = 0.2, se = FALSE, 
+              colour = "black") +
+  geom_vline(xintercept = 0.63, colour = "red", linewidth = 0.3,
+             linetype = "1111") +
+  facet_wrap(~ name, scales = "free_y", strip.position = "left", 
+             ncol = 1, labeller = label_parsed) +
+  geom_text(data = df_label,
+            aes(x = x, y = y, label = label),
+            colour = "red", size = 2.5, hjust = 0) +
+  labs(x = "Multiplier") +
+  theme_bw(base_size = 8) +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(size = 8),
+        strip.placement = "outside",
+        axis.title.y = element_blank())
+p
+ggsave(filename = "output/plots/MP/baseline_hr_multiplier.png", plot = p,
+       width = 8, height = 6, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/baseline_hr_multiplier.pdf", plot = p,
+       width = 8, height = 6, units = "cm")
+
+### ------------------------------------------------------------------------ ###
+### refset - multiplier ####
+### ------------------------------------------------------------------------ ###
+
+### load GA results
+res_mult_refset <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/multiplier-upper_constraint1.2-lower_constraint0.7--obj_ICES_res_11-20.rds")
+runs_mult_refset <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/runs.rds")
+### optimum multiplier
+as.data.frame(as.list(res_mult_refset@solution[1, ]))
+
+### combine performance statistics of all runs
+df_mult_refset <- lapply(runs_mult_refset, function(x) {
+  bind_cols(data.frame(t(x$pars)), data.frame(x$stats))
+})
+df_mult_refset <- do.call(bind_rows, df_mult_refset)
+### add fitness value
+df_mult_refset$fitness <- df_mult_refset$X11.20_Catch_rel -
+  penalty(x = df_mult_refset$X11.20_risk_Blim_max, 
+          negative = FALSE, max = 1, 
+          inflection = 0.06, 
+          steepness = 1000)
+
+df_mult_refset %>%
+  select(multiplier, X11.20_risk_Blim_max, X11.20_Catch_rel, fitness) %>%
+  View()
+
+### plot
+df_plot_refset <- df_mult_refset %>%
+  select(multiplier, Blim_risk = X11.20_risk_Blim_max, 
+         Catch_rel = X11.20_Catch_rel, SSB_rel = X11.20_SSB_rel) %>%
+  pivot_longer(-1) %>%
+  mutate(name = factor(name, 
+                       levels = c("SSB_rel", "Catch_rel", "Blim_risk"),
+                       labels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
+df_Blim_refset <- data.frame(name = "B[lim]~risk",
+                      value = 0.05) %>%
+  mutate(name = factor(name, 
+                       levels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
+df_label_refset <- data.frame(name = c("B[lim]~risk", "Catch/MSY"),
+                       x = c(1.2, 0.65), y = c(0.1, 0.5),
+                       label = c("5% risk threshold", "maximum catch")) %>%
+  mutate(name = factor(name, 
+                       levels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
+p_refset <- df_plot_refset %>%
+  ggplot(aes(x = multiplier, y = value)) +
+  geom_hline(data = df_Blim,
+             aes(yintercept = value), colour = "red", linewidth = 0.3) +
+  geom_point(size = 0.1, shape = 16) +
+  geom_smooth(linewidth = 0.4, n = 100, span = 0.2, se = FALSE, 
+              colour = "black") +
+  geom_vline(xintercept = 0.63, colour = "red", linewidth = 0.3,
+             linetype = "1111") +
+  facet_wrap(~ name, scales = "free_y", strip.position = "left", 
+             ncol = 1, labeller = label_parsed) +
+  geom_text(data = df_label,
+            aes(x = x, y = y, label = label),
+            colour = "red", size = 2.5, hjust = 0) +
+  labs(x = "Multiplier") +
+  theme_bw(base_size = 8) +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(size = 8),
+        strip.placement = "outside",
+        axis.title.y = element_blank())
+p_refset
+ggsave(filename = "output/plots/MP/refset_hr_multiplier.png", plot = p_refset,
+       width = 8, height = 6, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/refset_hr_multiplier.pdf", plot = p_refset,
+       width = 8, height = 6, units = "cm")
+
+
+### ------------------------------------------------------------------------ ###
+### OLD CODE from here - not updated ####
+### ------------------------------------------------------------------------ ###
+
 
 ### ------------------------------------------------------------------------ ###
 ### collate results - baseline MPs ####
