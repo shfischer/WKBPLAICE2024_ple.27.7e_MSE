@@ -35,6 +35,7 @@ if (length(args) > 0) {
   ### scenario definition
   if (!exists("scenario")) scenario <- "multiplier"
   if (!exists("Ftrgt")) Ftrgt <- "MSY" # only for constF MP
+  if (!exists("biomass_index")) biomass_index <- NULL ### which biomass index?
   # if (!exists("rec_failure")) rec_failure <- FALSE
   # if (!exists("overcatch")) overcatch <- FALSE
   # if (!exists("oem_catch_bias")) oem_catch_bias <- FALSE
@@ -173,7 +174,7 @@ if (isTRUE(ga_parallel)) ga_parallel <- cl
 
 input <- input_mp(stock_id = stock_id, OM = OM, n_iter = n_iter,
                   n_yrs = n_yrs, yr_start = yr_start, n_blocks = n_blocks,
-                  MP = MP)
+                  MP = MP, biomass_index = biomass_index)
 refpts <- input_refpts(stock_id = stock_id, OM = OM, n_iter = n_iter)
 
 

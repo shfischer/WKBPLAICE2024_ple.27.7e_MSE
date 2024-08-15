@@ -1071,7 +1071,8 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     hr_values <- idxC[, ac(idxB_yrs)]/idxB[, ac(idxB_yrs)]
     if (is.null(hr_years)) {
       if (identical(stock_id, "ple.27.7e")) {
-        hr_years <- 2003:2023 ### use all historical years (excl. intermediate)
+        ### use all historical years (excl. intermediate)
+        hr_years <- setdiff(idxB_yrs, 2024) 
       } else {
         hr_years <- NULL
       }
