@@ -748,7 +748,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   ### reference set OM
   if (identical(OM, "refset"))
     OM <- c("baseline", "Catch_no_surv", "Catch_no_disc", "M_high", "M_low", 
-            "M_Gislason", "R_no_AC", "migr_none")
+            "M_Gislason", "migr_none")
   
   ### default overcatch OMs
   if (isTRUE(OM %in% c("overcatch", "undercatch", "overcatch_known",
@@ -1236,7 +1236,7 @@ input_refpts <- function(stock_id = "ple.27.7e",
   ### reference set OM
   if (identical(OM, "refset"))
     OM <- c("baseline", "Catch_no_surv", "Catch_no_disc", "M_high", "M_low", 
-            "M_Gislason", "R_no_AC", "migr_none")
+            "M_Gislason", "migr_none")
   
   ### use baseline values for overcatch OMs
   if (isTRUE(OM %in% c("overcatch", "undercatch", "overcatch_known",
