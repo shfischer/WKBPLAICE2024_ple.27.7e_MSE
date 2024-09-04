@@ -1747,6 +1747,84 @@ ggsave(filename = "output/plots/OM/OM_M.png", plot = p,
 ggsave(filename = "output/plots/OM/OM_M.pdf", plot = p, 
        width = 8, height = 5, units = "cm")
 
+### ------------------------------------------------------------------------ ###
+### reference harvest rate (historical data) ####
+### ------------------------------------------------------------------------ ###
+### use baseline OM to illustrate principle
+stk <- readRDS("input/ple.27.7e/baseline/1000_100/stk_oem.rds")
+stk_OM <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
+idx <- readRDS("input/ple.27.7e/preparation/model_input_idx.rds")
+
+### UK-FSP
+idx_FSP <- FLQuants(catch = iterMedians(catch(stk)),
+                    index = quantSums(idx$`UK-FSP`@catch.wt * idx$`UK-FSP`@index),
+                    rate = quantSums(idx$`UK-FSP`@catch.wt) %=% NA_real_)
+idx_FSP <- window(idx_FSP, start = 2003, end = 2023)
+idx_FSP$rate <- idx_FSP$catch/idx_FSP$index
+### Q1SWBeam
+idx_Q1 <- FLQuants(catch = iterMedians(catch(stk)),
+                    index = quantSums(idx$Q1SWBeam@catch.wt * idx$Q1SWBeam@index),
+                    rate = quantSums(idx$Q1SWBeam@catch.wt) %=% NA_real_)
+idx_Q1 <- window(idx_Q1, start = 2006, end = 2023)
+idx_Q1$rate <- idx_Q1$catch/idx_Q1$index
+
+p_FSP <- idx_FSP |>
+  as.data.frame() %>%
+  select(year, data, qname) %>%
+  mutate(data = ifelse(qname == "catch", data/1000, data)) %>%
+  mutate(qname = factor(qname,
+    levels = c("catch", "index", "rate"),
+    labels = c("Catch (1000t)",
+               "Biomass index\n(kg/hr m beam)",
+               "Relative harvest rate\n(catch/biomass index)"))) %>%
+  ggplot(aes(x = year, y = data)) +
+  geom_line(linewidth = 0.4) +
+  geom_hline(data = . %>%
+               filter(qname == "Relative harvest rate\n(catch/biomass index)") %>%
+               mutate(data = mean(data)),
+             aes(yintercept = data), 
+             colour = "red", linewidth = 0.3, linetype = "1111") +
+  facet_grid(qname ~ "UK-FSP", scales = "free_y", switch = "y", ) +
+  ylim(c(0, NA)) +
+  labs(x = "Year") +
+  theme_bw(base_size = 8) +
+  theme(strip.placement = "outside",
+        strip.background.y = element_blank(),
+        strip.text.y = element_text(size = 8),
+        axis.title.y = element_blank())
+
+p_Q1 <- idx_Q1 |>
+  as.data.frame() %>%
+  select(year, data, qname) %>%
+  mutate(data = ifelse(qname == "catch", data/1000, data)) %>%
+  mutate(qname = factor(qname,
+                        levels = c("catch", "index", "rate"),
+                        labels = c("Catch (1000t)",
+                                   "Biomass index\n(kg/km2)",
+                                   "Relative harvest rate\n(catch/biomass index)"))) %>%
+  ggplot(aes(x = year, y = data)) +
+  geom_line(linewidth = 0.4) +
+  geom_hline(data = . %>%
+               filter(qname == "Relative harvest rate\n(catch/biomass index)") %>%
+               mutate(data = mean(data)),
+             aes(yintercept = data), 
+             colour = "red", linewidth = 0.3, linetype = "1111") +
+  facet_grid(qname ~ "Q1SWBeam", scales = "free_y", switch = "y", ) +
+  ylim(c(0, NA)) +
+  xlim(c(2003, NA)) +
+  labs(x = "Year") +
+  theme_bw(base_size = 8) +
+  theme(strip.placement = "outside",
+        strip.background.y = element_blank(),
+        strip.text.y = element_text(size = 8),
+        axis.title.y = element_blank())
+
+p <- p_FSP + p_Q1
+p
+ggsave(filename = "output/plots/OM/OM_idx_hr.png", plot = p, 
+       width = 16, height = 12, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_idx_hr.pdf", plot = p, 
+       width = 16, height = 12, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
 ### TODO ####
