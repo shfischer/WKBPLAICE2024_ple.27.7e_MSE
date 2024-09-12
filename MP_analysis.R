@@ -435,6 +435,415 @@ ggsave(filename = "output/plots/MP/refset_hr_multiplier.png", plot = p_refset,
 ggsave(filename = "output/plots/MP/refset_hr_multiplier.pdf", plot = p_refset,
        width = 8, height = 6, units = "cm")
 
+### ------------------------------------------------------------------------ ###
+### baseline explorations - x, w, n1, v ####
+### ------------------------------------------------------------------------ ###
+### x - multiplier 
+### w - Itrigger
+### n1 - number of years in index
+### v - advice interval
+
+### load all runs
+if (FALSE) {
+  runs2 <- readRDS("output/ple.27.7e/baseline/1000_20/mult_comp_b_mult_int2/hr/runs.rds")
+  runs1 <- readRDS("output/ple.27.7e/baseline/1000_20/mult_comp_b_mult/hr/runs.rds")
+  runs <- c(runs1, runs2)
+  length(runs)
+  length(unique(runs))
+  saveRDS(runs, "output/ple.27.7e/baseline/1000_20/mult_comp_b_mult/hr/runs.rds")
+  runs <- readRDS("output/ple.27.7e/baseline/1000_20/mult_comp_b_mult/hr/runs.rds")
+  
+  ### combine performance statistics of all runs
+  df_runs <- lapply(runs, function(x) {
+    bind_cols(data.frame(t(x$pars)), data.frame(x$stats))
+  })
+  df_runs <- do.call(bind_rows, df_runs)
+  
+  ### add fitness value
+  df_runs$fitness <- df_runs$X11.20_Catch_rel -
+    penalty(x = df_runs$X11.20_risk_Blim_max, 
+            negative = FALSE, max = 1, 
+            inflection = 0.06, 
+            steepness = 1000)
+  max(df_runs$fitness)
+  df_runs[which.max(df_runs$fitness), ]
+  ### strict 5% risk limit - identical results
+  df_runs$fitness2 <- df_runs$X11.20_Catch_rel -
+    ifelse(df_runs$X11.20_risk_Blim_max <= 0.05, 0, 1)
+  max(df_runs$fitness2)
+  df_runs[which.max(df_runs$fitness2), ]
+  
+  saveRDS(df_runs, file = "output/baseline_results_x_w_v_n1.rds") 
+}
+df_runs <- readRDS("output/baseline_results_x_w_v_n1.rds")
+
+# df_runs %>%
+#   select(multiplier, X11.20_risk_Blim_max, X11.20_Catch_rel, fitness) %>%
+#   View()
+
+### multiplier
+df_mult <- df_runs %>%
+  filter(idxB_range_3 == 1 & 
+           interval == 1 &
+           comp_b_multiplier == 1.4)
+df_mult[which.max(df_mult$fitness), ]
+
+### multiplier & Itrigger
+df_mult_w <- df_runs %>%
+  filter(idxB_range_3 == 1 & 
+           interval == 1)
+df_mult_w_best <- df_mult_w[which.max(df_mult_w$fitness), ]
+
+### multiplier & Itrigger & interval
+df_mult_w_v <- df_runs %>%
+  filter(idxB_range_3 == 1)
+df_mult_w_v[which.max(df_mult_w_v$fitness), ]
+
+### plot multiplier
+df_plot <- df_mult %>%
+  select(multiplier, Blim_risk = X11.20_risk_Blim_max, 
+         Catch_rel = X11.20_Catch_rel, SSB_rel = X11.20_SSB_rel) %>%
+  pivot_longer(-1) %>%
+  mutate(name = factor(name, 
+                       levels = c("SSB_rel", "Catch_rel", "Blim_risk"),
+                       labels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
+df_Blim <- data.frame(name = "B[lim]~risk",
+                      value = 0.05) %>%
+  mutate(name = factor(name, 
+                       levels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
+df_label <- data.frame(name = c("B[lim]~risk", "Catch/MSY"),
+                       x = c(1.2, 0.65), y = c(0.1, 0.5),
+                       label = c("5% risk threshold", "maximum catch")) %>%
+  mutate(name = factor(name, 
+                       levels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
+p <- df_plot %>%
+  ggplot(aes(x = multiplier, y = value)) +
+  geom_hline(data = df_Blim,
+             aes(yintercept = value), colour = "red", linewidth = 0.3) +
+  geom_point(size = 0.1, shape = 16) +
+  geom_smooth(linewidth = 0.4, n = 100, span = 0.2, se = FALSE, 
+              colour = "black") +
+  geom_vline(xintercept = 0.63, colour = "red", linewidth = 0.3,
+             linetype = "1111") +
+  facet_wrap(~ name, scales = "free_y", strip.position = "left", 
+             ncol = 1, labeller = label_parsed) +
+  geom_text(data = df_label,
+            aes(x = x, y = y, label = label),
+            colour = "red", size = 2.5, hjust = 0) +
+  labs(x = "Multiplier") +
+  theme_bw(base_size = 8) +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(size = 8),
+        strip.placement = "outside",
+        axis.title.y = element_blank())
+p
+ggsave(filename = "output/plots/MP/baseline_hr_multiplier.png", plot = p,
+       width = 8, height = 6, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/baseline_hr_multiplier.pdf", plot = p,
+       width = 8, height = 6, units = "cm")
+
+### plot - multiplier & Itrigger
+### first: full area
+p <- df_mult_w %>%
+  mutate(catch = X11.20_Catch_rel,
+         catch_col = ifelse(X11.20_risk_Blim_max <= 0.05, 
+                            X11.20_Catch_rel, NA)) %>%
+  ggplot(aes(x = multiplier, y = comp_b_multiplier, label = X11.20_Catch_rel,
+             fill = catch)) +
+  geom_raster(alpha = 0.8) +
+  scale_fill_gradientn(paste0("Catch/MSY"),
+                       #colours = rainbow(10),
+                       #colours = topo.colors(10),
+                       colours = hcl.colors(10),
+                       values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
+                                  1), 
+                       breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  labs(x = "Multiplier (x)", y = expression(I[trigger]~multiplier~"(w)")) +
+  coord_cartesian(expand = FALSE) +
+  theme_bw(base_size = 8)
+p
+ggsave(filename = "output/plots/MP/baseline_hr_mult_trigger.png", plot = p,
+       width = 16, height = 10, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/baseline_hr_mult_trigger.pdf", plot = p,
+       width = 16, height = 10, units = "cm")
+
+### add optimum
+p <- p +
+  geom_hline(data = df_mult_w_best,
+             aes(yintercept = comp_b_multiplier),
+             linewidth = 0.3, linetype = "1111") +
+  geom_vline(data = df_mult_w_best,
+             aes(xintercept = multiplier),
+             linewidth = 0.3, linetype = "1111")
+p
+ggsave(filename = "output/plots/MP/baseline_hr_mult_trigger_opt.png", plot = p,
+       width = 16, height = 10, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/baseline_hr_mult_trigger_opt.pdf", plot = p,
+       width = 16, height = 10, units = "cm")
+### remove cells with risk > 5%
+p <- df_mult_w %>%
+  mutate(catch = X11.20_Catch_rel,
+         catch_col = ifelse(X11.20_risk_Blim_max <= 0.05, 
+                            X11.20_Catch_rel, NA)) %>%
+  ggplot(aes(x = multiplier, y = comp_b_multiplier, label = X11.20_Catch_rel,
+             fill = catch_col)) +
+  geom_raster(alpha = 0.8) +
+  scale_fill_gradientn(paste0("Catch/MSY"),
+                       colours = hcl.colors(10),
+                       values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
+                                  1), 
+                       breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  geom_hline(data = df_mult_w_best,
+             aes(yintercept = comp_b_multiplier),
+             linewidth = 0.3, linetype = "1111") +
+  geom_vline(data = df_mult_w_best,
+             aes(xintercept = multiplier),
+             linewidth = 0.3, linetype = "1111") +
+  labs(x = "Multiplier (x)", y = expression(I[trigger]~multiplier~"(w)")) +
+  coord_cartesian(expand = FALSE) +
+  theme_bw(base_size = 8)
+p
+ggsave(filename = "output/plots/MP/baseline_hr_mult_trigger_risk.png", plot = p,
+       width = 16, height = 10, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/baseline_hr_mult_trigger_risk.pdf", plot = p,
+       width = 16, height = 10, units = "cm")
+
+### plot - multiplier & Itrigger & interval & index years
+df_runs %>%
+  group_by(idxB_range_3, interval) %>%
+  filter(X11.20_Catch_rel == max(X11.20_Catch_rel)) %>%
+  select(idxB_range_3, interval, comp_b_multiplier, multiplier, 
+         X11.20_Catch_rel, X11.20_SSB_rel, X11.20_ICV, X11.20_risk_Blim_max) %>%
+  View()
+### -> several identical solutions
+### filter down by SSB (max), risk (min)
+df_runs_opt <- df_runs %>%
+  group_by(idxB_range_3, interval) %>%
+  filter(X11.20_Catch_rel == max(X11.20_Catch_rel)) %>%
+  filter(X11.20_SSB_rel == max(X11.20_SSB_rel)) %>%
+  filter(X11.20_risk_Blim_max == min(X11.20_risk_Blim_max)) %>%
+  select(idxB_range_3, interval, comp_b_multiplier, multiplier, 
+         X11.20_Catch_rel, X11.20_SSB_rel, X11.20_ICV, X11.20_risk_Blim_max)
+View(df_runs_opt)
+p <- df_runs %>%
+  mutate(catch = X11.20_Catch_rel,
+         catch_col = ifelse(X11.20_risk_Blim_max <= 0.05, 
+                            X11.20_Catch_rel, NA)) %>%
+  ggplot(aes(x = multiplier, y = comp_b_multiplier, label = X11.20_Catch_rel,
+             fill = catch_col)) +
+  geom_raster(alpha = 0.8) +
+  scale_fill_gradientn(paste0("Catch/MSY"),
+                       colours = hcl.colors(10),
+                       values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
+                                  1), 
+                       breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  geom_hline(data = df_runs_opt,
+             aes(yintercept = comp_b_multiplier),
+             linewidth = 0.3, linetype = "1111") +
+  geom_vline(data = df_runs_opt,
+             aes(xintercept = multiplier),
+             linewidth = 0.3, linetype = "1111") +
+  facet_grid(paste0("Index years (n0): ", idxB_range_3) ~ 
+               paste0("Advice interval (v): ", interval)) + 
+  labs(x = "Multiplier (x)", y = expression(I[trigger]~multiplier~"(w)")) +
+  coord_cartesian(expand = FALSE) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing = unit(0.7, "lines"))
+p
+ggsave(filename = "output/plots/MP/baseline_hr_mult_trigger_v_n0.png", plot = p,
+       width = 16, height = 10, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/baseline_hr_mult_trigger_v_n0.pdf", plot = p,
+       width = 16, height = 10, units = "cm")
+
+### summarise results
+df_runs %>%
+  group_by(idxB_range_3, interval) %>%
+  filter(X11.20_Catch_rel == max(X11.20_Catch_rel)) %>%
+  filter(X11.20_SSB_rel == max(X11.20_SSB_rel)) %>%
+  filter(X11.20_risk_Blim_max == min(X11.20_risk_Blim_max)) %>%
+  filter(comp_b_multiplier == max(comp_b_multiplier)) %>%
+  select(idxB_range_3, interval, comp_b_multiplier, multiplier, 
+         X11.20_Catch_rel, X11.20_SSB_rel, X11.20_ICV, X11.20_risk_Blim_max,
+         fitness) %>%
+  View()
+
+df_baseline <- df_runs %>%
+  filter(comp_b_multiplier == 1.4, interval == 1, idxB_range_3 == 1) %>%
+  filter(fitness == max(fitness)) %>%
+  bind_rows(
+    df_runs %>%
+      group_by(idxB_range_3, interval) %>%
+      filter(X11.20_Catch_rel == max(X11.20_Catch_rel)) %>%
+      filter(X11.20_SSB_rel == max(X11.20_SSB_rel)) %>%
+      filter(X11.20_risk_Blim_max == min(X11.20_risk_Blim_max)) %>%
+      filter(comp_b_multiplier == max(comp_b_multiplier)) %>%
+      ungroup()
+  ) %>%
+  mutate(optimisation = c("v=1_n1=1_w=1.4_x", "v=1_n1=1_x_w", "v=2_n1=1_x_w", 
+                          "v=2_n1=2_x_w", "v=1_n1=2_x_w")) %>%
+  mutate(path = "output/ple.27.7e/baseline/1000_20/x_w_n1_v/hr/") %>%
+  unite("file", 1:8, remove = FALSE) %>%
+  mutate(file = paste0("mp_", file, ".rds"))
+saveRDS(df_baseline, "output/baseline_smry_v_n1_w_x.rds")
+write.csv(df_baseline, "output/baseline_smry_v_n1_w_x.csv", row.names = FALSE)
+
+### wormplots
+### go through all runs
+for (i in split(df_baseline, f = seq(nrow(df_baseline)))) {#browser()
+  ### find OM stock - slot depends on version of mse package
+  res_mp <- readRDS(paste0(i$path, i$file))
+  . <- try(stk_res <- res_mp@om@stock, silent = TRUE)
+  if (is(., "try-error")) stk_res <- res_mp@stock
+  path_OM <- paste0("input/ple.27.7e/baseline/1000_100/")
+  stk_hist <- readRDS(paste0(path_OM, "stk.rds"))
+  refpts <- readRDS(paste0(path_OM, "refpts_mse.rds"))
+  p <- plot_worm(stk = stk_res, stk_hist = stk_hist, refpts = refpts)
+  ggsave(filename = paste0("output/plots/wormplots/baseline_", i$optimisation, 
+                           ".png"), plot = p, 
+         width = 16, height = 7, units = "cm", dpi = 600, type = "cairo")
+  ggsave(filename = paste0("output/plots/wormplots/baseline_", i$optimisation, 
+                           ".pdf"), plot = p, 
+         width = 16, height = 7, units = "cm")
+}
+
+
+### summary statistics
+### get stats
+baseline_stats <- foreach(i = split(df_baseline, f = seq(nrow(df_baseline))), 
+                          .combine = bind_rows) %do% {#browser()
+  ### get projections and reference points
+  mp_i <- readRDS(paste0(i$path, i$file))
+  path_OM <- paste0("input/ple.27.7e/baseline/1000_100/")
+  refpts <- readRDS(paste0(path_OM, "refpts_mse.rds"))
+  stk <- mp_i@om@stock
+  ### extract metrics
+  stk_icv <- window(stk, start = 2034, end = 2044)
+  stk <- window(stk, start = 2035, end = 2044)
+  ssb_i <- c(ssb(stk)/refpts["Bmsy"])
+  ssb20_i <- c(ssb(stk)[, ac(2044)]/refpts["Bmsy"])
+  catch_i <- c(catch(stk)/refpts["Cmsy"])
+  fbar_i <- c(fbar(stk)/refpts["Fmsy"])
+  risk_i <- c(apply(ssb(stk) < c(refpts["Blim"]), 2, mean))
+  icv_i <- c(iav(catch(stk_icv), period = i$interval))
+  ### combine
+  df <- do.call(rbind, list(data.frame(val = ssb_i, metric = "SSB"),
+                           data.frame(val = ssb20_i, metric = "SSB20"),
+                           data.frame(val = catch_i, metric = "catch"),
+                           data.frame(val = fbar_i, metric = "Fbar"),
+                           data.frame(val = icv_i, metric = "ICV"),
+                           data.frame(val = risk_i, metric = "risk")
+  ))
+  return(bind_cols(i, df))
+}
+baseline_stats <- baseline_stats %>%
+  mutate(
+    MP_label = factor(optimisation,
+                      levels = c("v=1_n1=1_w=1.4_x",
+                                 "v=1_n1=1_x_w",
+                                 "v=2_n1=1_x_w",
+                                 "v=2_n1=2_x_w",   
+                                 "v=1_n1=2_x_w"),
+                      labels = c("x\n(v=1, n1=1, w=1.4)", 
+                                 "x & w\n(v=1, n1=1)",
+                                 "x & w\n(v=2, n1=1)",
+                                 "x & w\n(v=2, n1=2)",
+                                 "x & w\n(v=1, n1=2)")))
+saveRDS(baseline_stats, file = "output/baseline_stats.rds")
+# baseline_stats <- readRDS("output/baseline_stats.rds")
+
+### plot
+p_risk <- baseline_stats %>%
+  filter(metric == "risk") %>%
+  ggplot() +
+  geom_hline(yintercept = 0.05, colour = "red") +
+  geom_col(data = baseline_stats %>%
+             filter(metric == "risk") %>%
+             group_by(MP_label) %>%
+             summarise(val = max(val)),
+           aes(x = MP_label, y = val, fill = MP_label), 
+           show.legend = FALSE, width = 0.8, colour = "black", size = 0.2,
+           position = position_dodge(width = 0.8)) +
+  geom_boxplot(aes(x = MP_label, y = val, group = MP_label),
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  stat_summary(aes(x = MP_label, y = val),
+               fun = "mean", geom = "point", shape = 4, size = 1) +
+  scale_fill_brewer(name = "", palette = "Dark2") +
+  labs(y = expression(max.~B[lim]~risk)) +
+  ylim(c(0, NA)) +
+  theme_bw(base_size = 8) +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank())
+p_catch <- baseline_stats %>%
+  filter(metric == "catch") %>%
+  ggplot(aes(x = MP_label, y = val)) +
+  geom_hline(yintercept = 1, colour = "grey") +
+  geom_violin(aes(fill = MP_label), size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = MP_label), 
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  scale_fill_brewer(name = "", palette = "Dark2") +
+  labs(y = expression(Catch/MSY)) +
+  coord_cartesian(ylim = c(0, 2.5)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.title.x = element_blank(), 
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+p_ssb <- baseline_stats %>%
+  filter(metric == "SSB") %>%
+  ggplot(aes(x = MP_label, y = val)) +
+  geom_hline(yintercept = 1, colour = "grey") +
+  geom_violin(aes(fill = MP_label), size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = MP_label), 
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  scale_fill_brewer(name = "", palette = "Dark2") +
+  labs(y = expression(SSB/B[MSY])) +
+  coord_cartesian(ylim = c(0, 2.5)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.title.x = element_blank(), 
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+p_icv <- baseline_stats %>%
+  filter(metric == "ICV") %>%
+  ggplot(aes(x = MP_label, y = val)) +
+  geom_hline(yintercept = 1, colour = "grey") +
+  geom_violin(aes(fill = MP_label), size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = MP_label), 
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  scale_fill_brewer(name = "", palette = "Dark2") +
+  labs(y = "ICV") +
+  coord_cartesian(ylim = c(0, 1)) +
+  theme_bw(base_size = 8) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        axis.title.x = element_blank())
+p <- p_risk / p_catch / p_ssb / p_icv
+p
+ggsave(filename = "output/plots/MP/baseline_stats_x_w_v_n0.png", plot = p,
+       width = 16, height = 15, units = "cm", dpi = 600, type = "cairo",
+       bg = "white")
+ggsave(filename = "output/plots/MP/baseline_stats_x_w_v_n0.pdf", plot = p,
+       width = 16, height = 15, units = "cm", 
+       bg = "white")
+
+
+
+
 
 ### ------------------------------------------------------------------------ ###
 ### OLD CODE from here - not updated ####
