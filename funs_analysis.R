@@ -6,12 +6,12 @@
 plot_worm <- function(stk, stk_hist, refpts,
                       input, res,
                       history = TRUE, its = 1:5,
-                      n_years = 20, yr_end = 2040, yr_start = 2000,
-                      xintercept = 2020, ymax_catch = NA, ymax_rec = NA, 
+                      n_years = 20, yr_end = 2044, yr_start = 2010,
+                      xintercept = 2024, ymax_catch = NA, ymax_rec = NA, 
                       ymax_ssb = NA, ymax_fbar = NA, 
-                      title_rec = "Recruitment [1000s]",
-                      title_catch = "Catch [1000t]",
-                      title_ssb = "SSB [1000t]",
+                      title_rec = "Recruitment (1000s)",
+                      title_catch = "Catch (1000t)",
+                      title_ssb = "SSB (1000t)",
                       title_fbar = paste0("Mean F (ages ", 
                                           range(stk)[["minfbar"]], "-", 
                                           range(stk)[["maxfbar"]], ")")
@@ -96,7 +96,7 @@ plot_worm <- function(stk, stk_hist, refpts,
     geom_hline(yintercept = c(median(refpts["Blim"], na.rm = TRUE))/1000,
                colour = "black", size = 0.5, linetype = "dotted") +
     coord_cartesian(xlim = c(yr_start, yr_end), ylim = c(0, ymax_ssb)) + 
-    labs(y = title_ssb) +
+    labs(y = title_ssb, x = "Year") +
     theme_bw(base_size = 8)
   p_fbar <- ggplot() +
     geom_vline(xintercept = xintercept, colour = "grey", size = 0.5) +
@@ -114,7 +114,7 @@ plot_worm <- function(stk, stk_hist, refpts,
     geom_hline(yintercept = c(median(refpts["Fmsy"], na.rm = TRUE)),
                colour = "black", size = 0.5, linetype = "dashed") +
     coord_cartesian(xlim = c(yr_start, yr_end), ylim = c(0, ymax_fbar)) + 
-    labs(y = title_fbar) +
+    labs(y = title_fbar, x = "Year") +
     theme_bw(base_size = 8)
   p <-  plot_grid(p_catch, p_rec, p_fbar, p_ssb, align = "v", 
                   rel_heights = c(1, 1.1))
