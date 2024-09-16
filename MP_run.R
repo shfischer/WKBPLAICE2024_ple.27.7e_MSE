@@ -56,6 +56,8 @@ if (length(args) > 0) {
     if (!exists("pen_steep")) pen_steep <- 1000
     ### GA
     if (!exists("add_suggestions")) add_suggestions <- TRUE
+    ### local search after GA
+    if (!exists("ga_optim")) ga_optim <- FALSE
   }
   if (!exists("stat_yrs")) stat_yrs <- "multiple"
   if (!exists("save_MP")) save_MP <- FALSE
@@ -398,7 +400,8 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
               names = ga_names, ga_names = ga_names, ga_rounding = ga_rounding,
               maxiter = maxiter, popSize = popSize, run = run,
               monitor = TRUE, keepBest = TRUE, parallel = ga_parallel, seed = 1,
-              summarise_runs = TRUE, postFitness = mp_postFitness)
+              summarise_runs = TRUE, postFitness = mp_postFitness, 
+              optim = ga_optim)
   })
   
   ### save result
