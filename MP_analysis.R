@@ -370,83 +370,108 @@ ggsave(filename = "output/plots/MP/baseline_hr_multiplier.pdf", plot = p,
 ### refset - multiplier ####
 ### ------------------------------------------------------------------------ ###
 
-### load GA results
-res_mult_refset <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/multiplier-upper_constraint1.2-lower_constraint0.7--obj_ICES_res_11-20.rds")
-runs_mult_refset <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/runs.rds")
-### optimum multiplier
-as.data.frame(as.list(res_mult_refset@solution[1, ]))
-
-### combine performance statistics of all runs
-df_mult_refset <- lapply(runs_mult_refset, function(x) {
-  bind_cols(data.frame(t(x$pars)), data.frame(x$stats))
-})
-df_mult_refset <- do.call(bind_rows, df_mult_refset)
+### load results
+df_runs <- foreach(index = c("UK-FSP", "Q1SWBeam"), .combine = bind_rows) %do% {
+  path <- paste0("output/ple.27.7e/refset/1000_20/",
+                 ifelse(identical(index, "Q1SWBeam"),
+                        "multiplier_Q1SWBeam", "multiplier"),
+                 "/hr/")
+  tmp_runs <- readRDS(paste0(path, "runs.rds"))
+  tmp_runs <- lapply(tmp_runs, function(x) {
+    bind_cols(data.frame(t(x$pars)), data.frame(x$stats))
+  })
+  tmp_runs <- do.call(bind_rows, tmp_runs)
+  tmp_runs$index <- index
+  return(tmp_runs)
+}
 ### add fitness value
-df_mult_refset$fitness <- df_mult_refset$X11.20_Catch_rel -
-  penalty(x = df_mult_refset$X11.20_risk_Blim_max, 
+df_runs$fitness <- df_runs$X11.20_Catch_rel -
+  penalty(x = df_runs$X11.20_risk_Blim_max, 
           negative = FALSE, max = 1, 
           inflection = 0.06, 
           steepness = 1000)
+### strict 5% risk limit
+df_runs$fitness2 <- df_runs$X11.20_Catch_rel -
+  ifelse(df_runs$X11.20_risk_Blim_max <= 0.05, 0, 1)
+### groups
+df_runs <- df_runs %>%
+  mutate(group = index) %>%
+  mutate(group = factor(group, 
+                        levels = c("UK-FSP", "Q1SWBeam")))
 
-df_mult_refset %>%
-  select(multiplier, X11.20_risk_Blim_max, X11.20_Catch_rel, fitness) %>%
-  View()
+# df_runs %>%
+#   select(group, multiplier, X11.20_risk_Blim_max, X11.20_Catch_rel) %>%
+#   View()
+
+### find optima
+df_optima <- df_runs %>%
+  group_by(group) %>%
+  filter(X11.20_risk_Blim_max <= 0.05) %>%
+  filter(X11.20_Catch_rel == max(X11.20_Catch_rel))
+
+### save results
+saveRDS(df_runs, file = "output/refset_x_runs.rds")
+saveRDS(df_optima, file = "output/refset_x_runs_opt.rds")
+write.csv(df_optima, "output/refset_x_runs_opt.csv", row.names = FALSE)
 
 ### plot
-df_plot_refset_plot <- df_mult_refset %>%
-  select(multiplier, Blim_risk = X11.20_risk_Blim_max, 
+df_runs_plot <- df_runs %>%
+  select(group, multiplier, Blim_risk = X11.20_risk_Blim_max, 
          Catch_rel = X11.20_Catch_rel, SSB_rel = X11.20_SSB_rel) %>%
-  pivot_longer(-1) %>%
+  pivot_longer(-1:-2) %>%
   mutate(name = factor(name, 
                        levels = c("SSB_rel", "Catch_rel", "Blim_risk"),
                        labels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
-df_Blim_refset <- data.frame(name = "B[lim]~risk",
+df_Blim <- data.frame(name = "B[lim]~risk",
                       value = 0.05) %>%
-  mutate(name = factor(name, 
-                       levels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
-df_label_refset <- data.frame(name = c("B[lim]~risk", "Catch/MSY", "Catch/MSY"),
-                       x = c(1.2, 0.65, -0.05), y = c(0.1, 0.5, 0.4),
-                       label = c("5% risk limit", "maximum catch",
-                                 "maximum catch\n(within risk limit)")) %>%
-  mutate(name = factor(name, 
+  mutate(name = factor(name,
                        levels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
 
-mult_catch <- df_mult_refset %>%
-  filter(X11.20_Catch_rel == max(X11.20_Catch_rel)) %>%
-  select(multiplier) %>% unlist()
-mult_catch_risk <- df_mult_refset %>%
-  filter(X11.20_risk_Blim_max <= 0.05) %>%
-  filter(X11.20_Catch_rel == max(X11.20_Catch_rel)) %>%
-  select(multiplier) %>% unlist()
+df_runs_plot_catch <- bind_rows(
+  df_runs %>%
+    select(group, multiplier, risk = X11.20_risk_Blim_max,
+           catch = X11.20_Catch_rel) %>%
+    group_by(group) %>%
+    filter(catch == max(catch)) %>%
+    mutate(label = "absolute"),
+  df_runs %>%
+    select(group, multiplier, risk = X11.20_risk_Blim_max,
+           catch = X11.20_Catch_rel) %>%
+    group_by(group) %>%
+    filter(risk <= 0.05) %>%
+    filter(catch == max(catch)) %>%
+    mutate(label = "within risk limit")
+)
 
-
-p_refset <- df_plot_refset_plot %>%
+p_x <- df_runs_plot %>%
   ggplot(aes(x = multiplier, y = value)) +
   geom_hline(data = df_Blim,
              aes(yintercept = value), colour = "red", linewidth = 0.3) +
   geom_point(size = 0.1, shape = 16) +
   geom_smooth(linewidth = 0.4, n = 100, span = 0.2, se = FALSE, 
               colour = "black") +
-  geom_vline(xintercept = mult_catch, colour = "red", linewidth = 0.3,
-             linetype = "1111") +
-  geom_vline(xintercept = mult_catch_risk, colour = "red", linewidth = 0.3,
-             linetype = "1111") +
-  facet_wrap(~ name, scales = "free_y", strip.position = "left", 
-             ncol = 1, labeller = label_parsed) +
-  geom_text(data = df_label_refset,
-            aes(x = x, y = y, label = label),
-            colour = "red", size = 2.5, hjust = 0) +
-  labs(x = "Multiplier") +
+  geom_vline(data = df_runs_plot_catch,
+             aes(xintercept = multiplier, colour = label),
+             linewidth = 0.4, linetype = "1111") +
+  scale_colour_discrete("Catch maximum") +
+  facet_grid(name ~ group, scales = "free_y", labeller = label_parsed, 
+             switch = "y") +
+  labs(x = "Multiplier (x)") +
   theme_bw(base_size = 8) +
-  theme(strip.background = element_blank(),
+  theme(strip.background.y = element_blank(),
         strip.text = element_text(size = 8),
         strip.placement = "outside",
-        axis.title.y = element_blank())
-p_refset
-ggsave(filename = "output/plots/MP/refset_hr_multiplier.png", plot = p_refset,
-       width = 8, height = 6, units = "cm", dpi = 600, type = "cairo")
-ggsave(filename = "output/plots/MP/refset_hr_multiplier.pdf", plot = p_refset,
-       width = 8, height = 6, units = "cm")
+        axis.title.y = element_blank(),
+        legend.position = "inside",
+        legend.position.inside = c(0.9, 0.9),
+        legend.background = element_blank(),
+        legend.key.height = unit(0.6, "lines"),
+        legend.key = element_blank())
+p_x
+ggsave(filename = "output/plots/MP/refset_x.png", plot = p_x,
+       width = 16, height = 7, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/refset_x.pdf", plot = p_x,
+       width = 16, height = 7, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
 ### baseline explorations - x, w, n1, v ####
