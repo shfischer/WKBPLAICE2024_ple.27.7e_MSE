@@ -393,7 +393,7 @@ df_mult_refset %>%
   View()
 
 ### plot
-df_plot_refset <- df_mult_refset %>%
+df_plot_refset_plot <- df_mult_refset %>%
   select(multiplier, Blim_risk = X11.20_risk_Blim_max, 
          Catch_rel = X11.20_Catch_rel, SSB_rel = X11.20_SSB_rel) %>%
   pivot_longer(-1) %>%
@@ -404,23 +404,36 @@ df_Blim_refset <- data.frame(name = "B[lim]~risk",
                       value = 0.05) %>%
   mutate(name = factor(name, 
                        levels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
-df_label_refset <- data.frame(name = c("B[lim]~risk", "Catch/MSY"),
-                       x = c(1.2, 0.65), y = c(0.1, 0.5),
-                       label = c("5% risk threshold", "maximum catch")) %>%
+df_label_refset <- data.frame(name = c("B[lim]~risk", "Catch/MSY", "Catch/MSY"),
+                       x = c(1.2, 0.65, -0.05), y = c(0.1, 0.5, 0.4),
+                       label = c("5% risk limit", "maximum catch",
+                                 "maximum catch\n(within risk limit)")) %>%
   mutate(name = factor(name, 
                        levels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
-p_refset <- df_plot_refset %>%
+
+mult_catch <- df_mult_refset %>%
+  filter(X11.20_Catch_rel == max(X11.20_Catch_rel)) %>%
+  select(multiplier) %>% unlist()
+mult_catch_risk <- df_mult_refset %>%
+  filter(X11.20_risk_Blim_max <= 0.05) %>%
+  filter(X11.20_Catch_rel == max(X11.20_Catch_rel)) %>%
+  select(multiplier) %>% unlist()
+
+
+p_refset <- df_plot_refset_plot %>%
   ggplot(aes(x = multiplier, y = value)) +
   geom_hline(data = df_Blim,
              aes(yintercept = value), colour = "red", linewidth = 0.3) +
   geom_point(size = 0.1, shape = 16) +
   geom_smooth(linewidth = 0.4, n = 100, span = 0.2, se = FALSE, 
               colour = "black") +
-  geom_vline(xintercept = 0.63, colour = "red", linewidth = 0.3,
+  geom_vline(xintercept = mult_catch, colour = "red", linewidth = 0.3,
+             linetype = "1111") +
+  geom_vline(xintercept = mult_catch_risk, colour = "red", linewidth = 0.3,
              linetype = "1111") +
   facet_wrap(~ name, scales = "free_y", strip.position = "left", 
              ncol = 1, labeller = label_parsed) +
-  geom_text(data = df_label,
+  geom_text(data = df_label_refset,
             aes(x = x, y = y, label = label),
             colour = "red", size = 2.5, hjust = 0) +
   labs(x = "Multiplier") +
@@ -513,7 +526,7 @@ df_Blim <- data.frame(name = "B[lim]~risk",
                        levels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
 df_label <- data.frame(name = c("B[lim]~risk", "Catch/MSY"),
                        x = c(1.2, 0.65), y = c(0.1, 0.5),
-                       label = c("5% risk threshold", "maximum catch")) %>%
+                       label = c("5% risk limit", "maximum catch")) %>%
   mutate(name = factor(name, 
                        levels = c("SSB/B[MSY]", "Catch/MSY", "B[lim]~risk")))
 p <- df_plot %>%
