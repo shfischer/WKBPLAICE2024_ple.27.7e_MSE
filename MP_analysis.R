@@ -856,6 +856,150 @@ ggsave(filename = "output/plots/MP/baseline_stats_x_w_v_n0.pdf", plot = p,
 
 
 
+### ------------------------------------------------------------------------ ###
+### refset - x & w ####
+### ------------------------------------------------------------------------ ###
+
+### load all results and combine
+df_runs <- foreach(index = c("Q1SWBeam", "UK-FSP"), .combine = bind_rows) %do% {
+  #browser()
+  path <- paste0("output/ple.27.7e/refset/1000_20/",
+                 ifelse(identical(index, "Q1SWBeam"),
+                        "x_w_n1_v_Q1SWBeam", "x_w_n1_v"),
+                 "/hr/")
+  tmp_runs <- readRDS(paste0(path, "runs.rds"))
+  tmp_runs <- lapply(tmp_runs, function(x) {
+    bind_cols(data.frame(t(x$pars)), data.frame(x$stats))
+  })
+  tmp_runs <- do.call(bind_rows, tmp_runs)
+  tmp_runs$index <- index
+  return(tmp_runs)
+}
+### add fitness value
+df_runs$fitness <- df_runs$X11.20_Catch_rel -
+  penalty(x = df_runs$X11.20_risk_Blim_max, 
+          negative = FALSE, max = 1, 
+          inflection = 0.06, 
+          steepness = 1000)
+### strict 5% risk limit
+df_runs$fitness2 <- df_runs$X11.20_Catch_rel -
+  ifelse(df_runs$X11.20_risk_Blim_max <= 0.05, 0, 1)
+### groups
+df_runs <- df_runs %>%
+  mutate(group = paste(interval, index)) %>%
+  mutate(group = factor(group, 
+                        levels = c("1 UK-FSP", "1 Q1SWBeam", 
+                                   "2 UK-FSP", "2 Q1SWBeam"),
+                        labels = c("UK-FSP (annual)", "Q1SWBeam (annual)",
+                                   "UK-FSP (biennial)", "Q1SWBeam (biennial)")))
+
+### find optima
+df_optima <- df_runs %>%
+  group_by(group) %>%
+  filter(X11.20_risk_Blim_max <= 0.05) %>%
+  filter(X11.20_Catch_rel == max(X11.20_Catch_rel))
+
+### save results
+saveRDS(df_runs, file = "output/refset_x_w_grid.rds")
+saveRDS(df_optima, file = "output/refset_x_w_grid_opt.rds")
+write.csv(df_optima, "output/refset_x_w_grid_opt.csv", row.names = FALSE)
+
+### plot raw data
+p_raw <- df_runs %>%
+  mutate(catch = X11.20_Catch_rel,
+         catch_col = ifelse(X11.20_risk_Blim_max <= 0.05, 
+                            X11.20_Catch_rel, NA)) %>%
+  ggplot(aes(x = multiplier, y = comp_b_multiplier, label = catch,
+             fill = catch_col)) +
+  geom_tile(alpha = 0.8) +
+  #geom_text(aes(label = round(X11.20_Catch_rel, 3)), size = 2.5) +
+  scale_fill_gradientn(paste0("Catch/MSY"),
+                       colours = hcl.colors(10),
+                       values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
+                                  1), 
+                       breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  geom_hline(data = df_optima,
+             aes(yintercept = comp_b_multiplier),
+             linewidth = 0.3, linetype = "1111", colour = "red") +
+  geom_vline(data = df_optima,
+             aes(xintercept = multiplier),
+             linewidth = 0.3, linetype = "1111", colour = "red") +
+  labs(x = "Multiplier (x)", y = expression(I[trigger]~multiplier~"(w)")) +
+  facet_wrap(~ group, scales = "free_y", ncol = 2) +
+  coord_cartesian(expand = FALSE, xlim = c(0, 1)) +
+  theme_bw(base_size = 8)
+p_raw
+ggsave(filename = "output/plots/MP/refset_x_w_grid.png", plot = p_raw,
+       width = 16, height = 10, units = "cm", dpi = 600, type = "cairo",
+       bg = "white")
+ggsave(filename = "output/plots/MP/refset_x_w_grid.pdf", plot = p_raw,
+       width = 16, height = 10, units = "cm", 
+       bg = "white")
+
+
+### interpolate missing cells by group (for plotting only)
+df_runs_int <- foreach(group_i = levels(df_runs$group),
+                       .combine = bind_rows) %do% {
+  data_i <- df_runs %>%
+    filter(group == group_i) %>%
+    mutate(catch = X11.20_Catch_rel) %>%
+    select(w = comp_b_multiplier, x = multiplier, 
+           catch = X11.20_Catch_rel, risk = X11.20_risk_Blim_max,
+           group)
+  n_x <- length(seq(min(data_i$x), max(data_i$x), 0.01))
+  n_w <- length(seq(min(data_i$w), max(data_i$w), 0.01))
+  
+  out_catch <- akima::interp(x = data_i$x, y = data_i$w,
+                             z = data_i$catch, 
+                             nx = n_x, ny = n_w)
+  out_risk <- akima::interp(x = data_i$x, y = data_i$w,
+                            z = data_i$risk, 
+                            nx = n_x, ny = n_w,
+                            linear = FALSE)
+  
+  ### format
+  df_out <- expand.grid(x = out_catch$x, w = out_catch$y)
+  df_out <- data.frame(df_out)
+  df_out$catch <- as.vector(out_catch$z)
+  df_out$risk <- as.vector(out_risk$z)
+  df_out$group <- group_i
+  return(df_out)
+}
+df_runs_int$group <- factor(df_runs_int$group,
+                            levels = c("UK-FSP (annual)", 
+                                       "Q1SWBeam (annual)",
+                                       "UK-FSP (biennial)", 
+                                       "Q1SWBeam (biennial)"))
+
+p_int <- df_runs_int %>%
+  mutate(catch_col = ifelse(risk <= 0.05, catch, NA)) %>%
+  ggplot(aes(x = x, y = w, fill = catch_col)) +
+  geom_raster(alpha = 0.8, interpolate = TRUE) +
+  scale_fill_gradientn(paste0("Catch/MSY"),
+                       colours = hcl.colors(10),
+                       values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
+                                  1), 
+                       breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  geom_hline(data = df_optima,
+             aes(yintercept = comp_b_multiplier),
+             linewidth = 0.3, linetype = "1111", colour = "red") +
+  geom_vline(data = df_optima,
+             aes(xintercept = multiplier),
+             linewidth = 0.3, linetype = "1111", colour = "red") +
+  labs(x = "Multiplier (x)", y = expression(I[trigger]~multiplier~"(w)")) +
+  facet_wrap(~ group, scales = "free_y", ncol = 2) +
+  coord_cartesian(expand = FALSE, xlim = c(0, 1)) +
+  theme_bw(base_size = 8)
+p_int
+ggsave(filename = "output/plots/MP/refset_x_w_grid_int.png", plot = p_int,
+       width = 16, height = 10, units = "cm", dpi = 600, type = "cairo",
+       bg = "white")
+ggsave(filename = "output/plots/MP/refset_x_w_grid_int.pdf", plot = p_int,
+       width = 16, height = 10, units = "cm", 
+       bg = "white")
+
+
+
 
 
 ### ------------------------------------------------------------------------ ###
