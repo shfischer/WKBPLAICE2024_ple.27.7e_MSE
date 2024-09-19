@@ -1265,9 +1265,9 @@ input_refpts <- function(stock_id = "ple.27.7e",
     OM <- c("baseline", "Catch_no_surv", "Catch_no_disc", "M_high", "M_low", 
             "M_Gislason", "migr_none")
   
-  ### use baseline values for overcatch OMs
+  ### use baseline values for some OMs (e.g. overcatch)
   if (isTRUE(OM %in% c("overcatch", "undercatch", "overcatch_known",
-                       "undercatch_known"))) {
+                       "undercatch_known", "Idx_higher"))) {
     OM_i <- "baseline"
   } else {
     OM_i <- OM
