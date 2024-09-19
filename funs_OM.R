@@ -735,6 +735,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                      overcatch = FALSE,
                      use_age_idcs = NULL, biomass_index = NULL,
                      idx_timing = NULL, catch_timing = NULL,
+                     idx_unc = NULL,
                      ### implementation error
                      use_iem = FALSE, iem_bias = NULL,
                      ### SAM forecast options
@@ -780,6 +781,13 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     }
   }
   
+  ### higher index uncertainty OM
+  if (identical(OM, "Idx_higher")) {
+    ### use baseline OM but increase index uncertainty
+    OM <- "baseline"
+    idx_unc <- 1.2
+  }
+  
   ### load data and adapt dimensions - for all OM(s)
   yr_end <- yr_start + n_yrs - 1
   OM_list <- foreach(OM_i = OM) %do% {
@@ -801,6 +809,25 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     SAM_conf <- readRDS(paste0(path_input, "SAM_conf.rds"))
     ALKs <- readRDS(paste0(path_input, "ALKs.rds"))
     refpts_mse <- readRDS(paste0(path_input, "refpts_mse.rds"))
+    sam_uncertainty <- readRDS(paste0(path_input, "SAM_uncertainty.rds"))
+    
+    ### change index uncertainty?
+    ### replicate process from create_OM() with full dimensions
+    if (!is.null(idx_unc)) {
+      set.seed(4)
+      idx_dev_new <- idx_dev
+      for (idx_i in 1:2) {
+        idx_dev_new[[idx_i]][] <- sam_uncertainty$survey_sd[[idx_i]] * idx_unc
+        idx_dev_new[[idx_i]][] <- stats::rnorm(n = length(idx_dev_new[[idx_i]]),
+                                           mean = 0, sd = idx_dev_new[[idx_i]])
+        idx_dev_new[[idx_i]] <- exp(idx_dev_new[[idx_i]])
+      }
+      ### update deviations for projection years
+      idx_yrs_update <- (yr_start - 1):max(dimnames(idx_dev[[1]])$year)
+      idx_dev[[1]][, ac(idx_yrs_update)] <- idx_dev_new[[1]][, ac(idx_yrs_update)]
+      idx_dev[[2]][, ac(idx_yrs_update)] <- idx_dev_new[[2]][, ac(idx_yrs_update)]
+    }
+    
     ### reduce dimensions, if requested
     if (isTRUE(n_yrs < 100)) {
       ### OM stock
