@@ -882,7 +882,7 @@ ggsave(filename = "output/plots/MP/baseline_stats_x_w_v_n0.pdf", plot = p,
 
 
 ### ------------------------------------------------------------------------ ###
-### refset - x & w ####
+### refset - x & w - summary ####
 ### ------------------------------------------------------------------------ ###
 
 ### load all results and combine
@@ -1023,6 +1023,230 @@ ggsave(filename = "output/plots/MP/refset_x_w_grid_int.pdf", plot = p_int,
        width = 16, height = 10, units = "cm", 
        bg = "white")
 
+### summary table
+df_x <- readRDS("output/refset_x_runs_opt.rds")
+df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
+df_x_w <- bind_rows(df_x, df_x_w)
+df_smry <- df_x_w %>%
+  ungroup() %>%
+  select(index, n1 = idxB_range_3, v = interval, x = multiplier,
+         w = comp_b_multiplier,
+         risk = X11.20_risk_Blim_max,
+         catch = X11.20_Catch_rel,
+         ssb = X11.20_SSB_rel)
+df_smry
+write.csv(df_smry, file = "output/refset_x_w_smry.csv", row.names = FALSE)
+
+
+### ------------------------------------------------------------------------ ###
+### refset - x & w - violin plots ####
+### ------------------------------------------------------------------------ ###
+
+### get optimised solutions
+df_x <- readRDS("output/refset_x_runs_opt.rds")
+df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
+df_x_w <- bind_rows(df_x, df_x_w)
+df_x_w <- df_x_w %>%
+  mutate(file = paste0(paste("mp", idxB_lag, idxB_range_3, exp_b, 
+                             comp_b_multiplier, interval, multiplier, 
+                             upper_constraint, lower_constraint, 
+                             sep = "_"),
+                       ".rds"))
+### list of all operating models
+OMs <- c("refset", 
+         "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+         "M_low", "M_high", "M_Gislason", 
+         "R_no_AC", "R_higher", "R_lower", 
+         "R_failure", "overcatch", "undercatch", "Idx_higher")
+OMs_label <- c("Reference set\n(combined)", 
+               "Baseline", "Catch:\nno discards", "Catch:\n100% discards", 
+               "Catch:\nno migration", 
+               "M: -50%", "M: +50%", "M: Gislason", 
+               "R: no AC", "R: +20%", "R: -20%", 
+               "R: failure", "Catch: +10%", "Catch: -20%", 
+               "Uncertainty:\nindex +20%")
+OMs_group <- c("refset (combined)", rep("refset", 7), rep("robset", 7))
+
+### get stats
+# , .combine = bind_rows
+stats <- foreach(i = split(df_x_w, f = seq(nrow(df_x_w))), 
+                 .combine = bind_rows) %:%
+  foreach(OM = OMs, OM_group = OMs_group, .combine = bind_rows) %do% {
+    #browser()
+    ### get projection
+    path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/",
+                     ifelse(identical(i$index, "Q1SWBeam"),
+                            "multiplier_Q1SWBeam", "multiplier"),
+                     "/hr/")
+    mp_i <- readRDS(paste0(path_i, i$file))
+
+    ### get reference points
+    refpts <- input_refpts(OM = OM)
+
+    ### extract metrics
+    stk <- mp_i@om@stock
+    stk_icv <- window(stk, start = 2034, end = 2044)
+    stk <- window(stk, start = 2035, end = 2044)
+    ssb_i <- c(ssb(stk)/refpts["Bmsy"])
+    catch_i <- c(catch(stk)/refpts["Cmsy"])
+    fbar_i <- c(fbar(stk)/refpts["Fmsy"])
+    risk_i <- c(apply(ssb(stk) < rep(c(refpts["Blim"]), 
+                                     each = dim(ssb(stk))[2]), 2, mean))
+    icv_i <- c(iav(catch(stk_icv), period = i$interval))
+    ### combine
+    df <- do.call(rbind, list(data.frame(val = ssb_i, metric = "SSB"),
+                              data.frame(val = catch_i, metric = "catch"),
+                              data.frame(val = fbar_i, metric = "Fbar"),
+                              data.frame(val = icv_i, metric = "ICV"),
+                              data.frame(val = risk_i, metric = "risk")
+    ))
+    df <- df %>%
+      mutate(n1 = i$idxB_range_3,
+             v = i$interval,
+             x = i$multiplier,
+             w = i$comp_b_multiplier,
+             index = i$index,
+             group = i$group,
+             OM = OM, OM_group = OM_group)
+    return(df)
+}
+saveRDS(stats, file = "output/refset_stats.rds")
+# stats <- readRDS("output/refset_stats.rds")
+
+### go through all solutions and plots stats
+stats_plot <- stats %>%
+  mutate(OM = factor(OM, levels = OMs,
+                     labels = OMs_label),
+         OM_group = factor(OM_group,
+                           levels = OMs_group,
+                           labels = c("", 
+                                      rep("Reference set", 7), 
+                                      rep("Robustness set", 7))),
+         group_plot = factor(group,
+            levels = c("UK-FSP", "Q1SWBeam",
+                       "UK-FSP (annual)", "UK-FSP (biennial)",
+                       "Q1SWBeam (annual)", "Q1SWBeam (biennial)"),
+            labels = c("UK-FSP - x", "Q1SWBeam - x",
+                       "UK-FSP - x & w - annual", "UK-FSP - x & w - biennial",
+                       "Q1SWBeam - x & w - annual", 
+                       "Q1SWBeam - x & w - biennial")),
+         group_file = factor(group,
+           levels = c("UK-FSP", "Q1SWBeam",
+                      "UK-FSP (annual)", "UK-FSP (biennial)",
+                      "Q1SWBeam (annual)", "Q1SWBeam (biennial)"),
+           labels = c("UK-FSP_x", "Q1SWBeam_x",
+                      "UK-FSP_x_w_annual", "UK-FSP_x_w_biennial",
+                      "Q1SWBeam_x_w_annual", 
+                      "Q1SWBeam_x_w_biennial")))
+
+. <- foreach(group_i = levels(stats_plot$group),
+             group_plot_i = levels(stats_plot$group_plot),
+             group_file_i = levels(stats_plot$group_file)) %do% {
+  #browser()
+  p_risk <- stats_plot %>%
+    filter(metric == "risk" & group == group_i) %>%
+    ggplot() +
+    geom_hline(yintercept = 0.05, colour = "red") +
+    geom_col(data = . %>%
+               group_by(OM, OM_group) %>%
+               summarise(val = max(val)),
+             aes(x = OM, y = val, fill = OM),
+             show.legend = FALSE, width = 0.8, colour = "black", size = 0.2,
+             position = position_dodge(width = 0.8)) +
+    geom_boxplot(aes(x = OM, y = val),
+                 position = position_dodge(width = 0.8),
+                 fill = "white", width = 0.1, size = 0.2,
+                 outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+                 outlier.fill = "transparent") +
+    stat_summary(aes(x = OM, y = val),
+                 fun = "mean", geom = "point", shape = 4, size = 1) +
+    #scale_fill_brewer(name = "", palette = "Dark2") +
+    facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+    labs(y = expression(max.~B[lim]~risk), title = group_plot_i) +
+    coord_cartesian(ylim = c(0, 0.3)) +
+    theme_bw(base_size = 8) +
+    theme(panel.spacing.x = unit(0, "lines"),
+          axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.title.x = element_blank(),
+          plot.title = element_text(hjust = 0.5))
+  #p_risk
+  p_catch <- stats_plot %>%
+    filter(metric == "catch" & group == group_i) %>%
+    ggplot(aes(x = OM, y = val)) +
+    geom_hline(yintercept = 1, colour = "grey") +
+    geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
+                position = position_dodge(width = 0.8), scale = "width") +
+    geom_boxplot(aes(group = OM), 
+                 position = position_dodge(width = 0.8),
+                 fill = "white", width = 0.1, size = 0.2,
+                 outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+                 outlier.fill = "transparent") +
+    #scale_fill_brewer(name = "", palette = "Dark2") +
+    facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+    labs(y = expression(Catch/MSY)) +
+    coord_cartesian(ylim = c(0, 2.5)) +
+    theme_bw(base_size = 8) +
+    theme(panel.spacing.x = unit(0, "lines"),
+          axis.title.x = element_blank(), 
+          axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          strip.text.x = element_blank())
+  #p_catch
+  p_ssb <- stats_plot %>%
+    filter(metric == "SSB" & group == group_i) %>%
+    ggplot(aes(x = OM, y = val)) +
+    geom_hline(yintercept = 1, colour = "grey") +
+    geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
+                position = position_dodge(width = 0.8), scale = "width") +
+    geom_boxplot(aes(group = OM), 
+                 position = position_dodge(width = 0.8),
+                 fill = "white", width = 0.1, size = 0.2,
+                 outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+                 outlier.fill = "transparent") +
+    #scale_fill_brewer(name = "", palette = "Dark2") +
+    facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+    labs(y = expression(SSB/B[MSY])) +
+    coord_cartesian(ylim = c(0, 2.5)) +
+    theme_bw(base_size = 8) +
+    theme(panel.spacing.x = unit(0, "lines"),
+          axis.title.x = element_blank(), 
+          axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          strip.text.x = element_blank())
+  #p_ssb
+  p_icv <- stats_plot %>%
+    filter(metric == "ICV" & group == group_i) %>%
+    ggplot(aes(x = OM, y = val)) +
+    geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
+                position = position_dodge(width = 0.8), scale = "width") +
+    geom_boxplot(aes(group = OM), 
+                 position = position_dodge(width = 0.8),
+                 fill = "white", width = 0.1, size = 0.2,
+                 outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+                 outlier.fill = "transparent") +
+    #scale_fill_brewer(name = "", palette = "Dark2") +
+    facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+    labs(y = "ICV") +
+    coord_cartesian(ylim = c(0, 0.5)) +
+    theme_bw(base_size = 8) +
+    theme(panel.spacing.x = unit(0, "lines"),
+          axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+          axis.title.x = element_blank(),
+          strip.text.x = element_blank())
+  #p_icv
+  p <- p_risk / p_catch / p_ssb / p_icv
+  #p
+  ggsave(filename = paste0("output/plots/MP/refset_stats_",
+                           group_file_i, ".png"), 
+         plot = p, width = 16, height = 10, units = "cm", dpi = 600, 
+         type = "cairo", bg = "white")
+  ggsave(filename = paste0("output/plots/MP/refset_stats_",
+                           group_file_i, ".pdf"), 
+         plot = p, width = 16, height = 10, units = "cm", bg = "white")
+}
+
+
 
 
 
@@ -1030,6 +1254,7 @@ ggsave(filename = "output/plots/MP/refset_x_w_grid_int.pdf", plot = p_int,
 ### ------------------------------------------------------------------------ ###
 ### OLD CODE from here - not updated ####
 ### ------------------------------------------------------------------------ ###
+
 
 
 ### ------------------------------------------------------------------------ ###
