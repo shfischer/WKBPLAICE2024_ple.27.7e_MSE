@@ -1,20 +1,26 @@
 #!/bin/sh
 ## job name
-#PBS -N ple_SAM_single
+#PBS -N ref_w_x_n12_v2_Q1
 ## maximum runtime
-#PBS -l walltime=50:00:00
+#PBS -l walltime=24:00:00
 ## select number of nodes, cpus (per node) and memory (per node)
-#PBS -l select=1:ncpus=1:mpiprocs=1:mem=20gb
+#PBS -l select=1:ncpus=256:mpiprocs=1:mem=920gb
 ## standard output standard error
 #PBS -o reports
 #PBS -e reports
 ## array job
 ###PBS -J 11-29
 ##PBS_ARRAY_INDEX=10
-## start job after another job finished?
-###PBS -W depend=afterany:2521439.pbs
+## start job after another job finished? #### REMOVE IF NOT USED!
+####PBS -W depend=afterany:9940057.pbs 
 ########### parameters
-OM="'"'baseline'"'"
+STOCK_ID="'"'ple.27.7e'"'"
+OM="'"'refset'"'"
+SCENARIO="'"'x_w_n1_v_Q1SWBeam'"'"
+N_WORKERS=100
+BIOMASS_INDEX="'"'Q1SWBeam'"'"
+INTERVAL=2
+RANGE=2
 
 ### print details about job
 echo ""
@@ -37,7 +43,7 @@ source activate R2024_R4.4.1
 echo "starting the simulations..."
 ### run job
 ### when running with MPI, worker count is one less than selected cores
-R CMD BATCH --no-save --no-restore "--args use_MPI=FALSE n_workers=1 n_blocks=1 mp_parallel=FALSE n_iter=1000 n_yrs=20 scenario='SAM' MP='ICES_SAM' OM=$OM rec_failure=FALSE ga_search=FALSE stat_yrs='multiple' save_MP=TRUE" $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/MP_run.R $HOME/reports/$PBS_JOBID.$PBS_ARRAY_INDEX.Rout
+R CMD BATCH --no-save --no-restore --max-connections=1024 "--args use_MPI=FALSE n_workers=$N_WORKERS n_blocks=1 ga_parallel=TRUE popSize=201 maxiter=1 run=1 stock_id=$STOCK_ID n_iter=1000 n_yrs=20 scenario=$SCENARIO MP='hr' biomass_index=$BIOMASS_INDEX OM=$OM ga_search=TRUE idxB_lag=FALSE idxB_range_3=$RANGE exp_b=FALSE comp_b_multiplier=seq(2,5,0.05) interval=$INTERVAL multiplier=seq(0.7,1,0.05) upper_constraint=1.2 lower_constraint=0.7 obj_fun='ICES' obj_yrs='11:20' stat_yrs='multiple' pen_neg=FALSE pen_max=1 pen_infl=0.06 pen_steep=1000 add_suggestions=TRUE" $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/MP_run.R $HOME/reports/$PBS_JOBID.$PBS_ARRAY_INDEX.Rout
 ## $PBS_ARRAY_INDEX
 
 echo ""
@@ -51,7 +57,4 @@ qstat -f
 echo "==============================================================================="
 qstat -t
 echo "==============================================================================="
-
-
-
 

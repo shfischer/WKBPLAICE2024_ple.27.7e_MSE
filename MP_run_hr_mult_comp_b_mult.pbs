@@ -1,6 +1,6 @@
 #!/bin/sh
 ## job name
-#PBS -N ple_hr_mult_b_1120
+#PBS -N hr_int12_C2
 ## maximum runtime
 #PBS -l walltime=72:00:00
 ## select number of nodes, cpus (per node) and memory (per node)
@@ -11,12 +11,12 @@
 ## array job
 ###PBS -J 11-29
 ##PBS_ARRAY_INDEX=10
-## start job after another job finished?
-###PBS -W depend=afterany:2521439.pbs
+## start job after another job finished? #### REMOVE IF NOT USED!
+####PBS -W depend=afterany:9940057.pbs 
 ########### parameters
 STOCK_ID="'"'ple.27.7e'"'"
 OM="'"'baseline'"'"
-SCENARIO="'"'mult_comp_b_mult'"'"
+SCENARIO="'"'mult_comp_b_mult_int2'"'"
 N_WORKERS=100
 
 ### print details about job
@@ -40,7 +40,7 @@ source activate R2024_R4.4.1
 echo "starting the simulations..."
 ### run job
 ### when running with MPI, worker count is one less than selected cores
-R CMD BATCH --no-save --no-restore --max-connections=1024 "--args use_MPI=FALSE n_workers=$N_WORKERS n_blocks=1 ga_parallel=TRUE popSize=201 maxiter=1 run=1 stock_id=$STOCK_ID n_iter=1000 n_yrs=20 scenario=$SCENARIO MP='hr' OM=$OM ga_search=TRUE idxB_lag=FALSE idxB_range_3=FALSE exp_b=FALSE comp_b_multiplier=seq(0,2,0.01) interval=FALSE multiplier=seq(0,2,0.01) upper_constraint=1.2 lower_constraint=0.7 obj_fun='ICES' obj_yrs='11:20' stat_yrs='multiple' pen_neg=FALSE pen_max=1 pen_infl=0.06 pen_steep=1000 add_suggestions=TRUE" $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/MP_run.R $HOME/reports/$PBS_JOBID.$PBS_ARRAY_INDEX.Rout
+R CMD BATCH --no-save --no-restore --max-connections=1024 "--args use_MPI=FALSE n_workers=$N_WORKERS n_blocks=1 ga_parallel=TRUE popSize=201 maxiter=1 run=1 stock_id=$STOCK_ID n_iter=1000 n_yrs=20 scenario=$SCENARIO MP='hr' OM=$OM ga_search=TRUE idxB_lag=FALSE idxB_range_3=2 exp_b=FALSE comp_b_multiplier=seq(0,2,0.01) interval=c(1,2) multiplier=seq(0,2,0.01) upper_constraint=1.2 lower_constraint=0.7 obj_fun='ICES' obj_yrs='11:20' stat_yrs='multiple' pen_neg=FALSE pen_max=1 pen_infl=0.06 pen_steep=1000 add_suggestions=TRUE" $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/MP_run.R $HOME/reports/$PBS_JOBID.$PBS_ARRAY_INDEX.Rout
 ## $PBS_ARRAY_INDEX
 
 echo ""
