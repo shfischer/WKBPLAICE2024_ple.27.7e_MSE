@@ -28,52 +28,49 @@ source("funs_OM.R")
 cl1 <- FALSE
 
 ### ------------------------------------------------------------------------ ###
-### baseline - hr - optimised multiplier ####
+### baseline - hr - x & w & v & n0 ####
 ### ------------------------------------------------------------------------ ###
 args_local <- c("n_blocks=1", "n_workers=0", 
-                "scenario='multiplier'", "MP='hr'",
-                "n_yrs=20", "check_file=FALSE",
-                "ga_search=TRUE", "OM='baseline'", "MP='hr'", "save_MP=TRUE", 
-                "popSize=1", "maxiter=1",
-                "add_suggestions=FALSE", "collate=FALSE",
-                "idxB_lag=1", "idxB_range_3=1", "exp_b=1", 
-                "comp_b_multiplier=1.4", "interval=1", 
-                "multiplier=0.63",
-                "upper_constraint=1.2", "lower_constraint=0.7")
-source("MP_run.R")
-
-### project for 100 years
-args_local <- c("n_blocks=1", "n_workers=0", 
-                "scenario='multiplier'", "MP='hr'",
-                "n_yrs=100", "check_file=FALSE",
-                "ga_search=TRUE", "OM='baseline'", "save_MP=TRUE", 
-                "popSize=1", "maxiter=1",
-                "add_suggestions=FALSE", "collate=FALSE",
-                "idxB_lag=1", "idxB_range_3=1", "exp_b=1", 
-                "comp_b_multiplier=1.4", "interval=1", 
-                "multiplier=0.63",
-                "upper_constraint=1.2", "lower_constraint=0.7")
-source("MP_run.R")
-
-args_local <- c("n_blocks=1", "n_workers=10", "n_blocks=10", "mp_parallel=TRUE",
-                "n_iter=10000", 
-                "scenario='multiplier'", "MP='hr'",
+                "scenario='mult_comp_b_mult'", "MP='hr'",
                 "n_yrs=20", "check_file=FALSE",
                 "ga_search=TRUE", "OM='baseline'", "save_MP=TRUE", 
                 "popSize=1", "maxiter=1",
                 "add_suggestions=FALSE", "collate=FALSE",
                 "idxB_lag=1", "idxB_range_3=1", "exp_b=1", 
-                "comp_b_multiplier=1.4", "interval=1", 
-                "multiplier=0.63",
+                "comp_b_multiplier=0.66", "interval=1", 
+                "multiplier=0.64",
                 "upper_constraint=1.2", "lower_constraint=0.7")
 source("MP_run.R")
+
+rm(args_local)
+args_local <- "n_blocks=1"
+idxB_range_3 <- 1
+interval <- 2
+comp_b_multiplier <- 0.68
+multiplier <- 0.61
+source("MP_run.R")
+
+idxB_range_3 <- 2
+interval <- 1
+comp_b_multiplier <- 0.92
+multiplier <- 0.59
+source("MP_run.R")
+
+idxB_range_3 <- 2
+interval <- 2
+comp_b_multiplier <- 0.87
+multiplier <- 0.58
+source("MP_run.R")
+
+
 
 ### ------------------------------------------------------------------------ ###
 ### reference set - hr optimised multiplier ####
 ### ------------------------------------------------------------------------ ###
 res <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/multiplier-upper_constraint1.2-lower_constraint0.7--obj_ICES_res_11-20.rds")
 res@solution[, "multiplier"]
-### 0.61
+### 0.6
+### but slightly above 5% risk -> use 0.59
 args_local <- c("n_blocks=10", "n_workers=10", "mp_parallel=TRUE",
                 "scenario='multiplier'", "MP='hr'",
                 "n_yrs=20", "check_file=FALSE",
@@ -82,10 +79,17 @@ args_local <- c("n_blocks=10", "n_workers=10", "mp_parallel=TRUE",
                 "add_suggestions=FALSE", "collate=FALSE",
                 "idxB_lag=1", "idxB_range_3=1", "exp_b=1", 
                 "comp_b_multiplier=1.4", "interval=1", 
-                "multiplier=0.61",
+                "multiplier=0.59",
                 "upper_constraint=1.2", "lower_constraint=0.7")
 source("MP_run.R")
 
+### with Q1SWBeam index
+rm(args_local)
+args_local <- "a=1"
+biomass_index <- "Q1SWBeam"
+scenario <- "multiplier_Q1SWBeam"
+multiplier <- 0.75
+source("MP_run.R")
 
 ### ------------------------------------------------------------------------ ###
 ### SAM - all OMs ####
@@ -128,141 +132,70 @@ for (OM in alt_OMs) {
 }
 
 ### ------------------------------------------------------------------------ ###
-### harvest rate & rfb rule: all stocks & OMs - default & optimised ####
+### baseline - hr - optimise multiplier - Q1SWBeam ####
 ### ------------------------------------------------------------------------ ###
-stocks <- c("ple.27.7e", "cod.27.47d20", "her.27.3a47d")
-OMs_cod <- c("baseline", "rec_higher", "M_dd", "M_no_migration", "rec_failure")
-OMs_ple <- c("baseline", "M_low", "M_high", "M_Gislason", "no_discards",
-             "rec_no_AC", "rec_failure")
-OMs_her <- c("baseline", "rec_higher", "rec_failure",
-             "M_high", "M_low")
+args_local <- c("n_blocks=1", "n_workers=15", "ga_parallel=TRUE",
+                "scenario='multiplier_Q1SWBeam'", "MP='hr'",
+                "biomass_index='Q1SWBeam'",
+                "n_yrs=20", "check_file=FALSE",
+                "ga_search=TRUE", "OM='baseline'", "MP='hr'", "save_MP=FALSE", 
+                "popSize=1", "maxiter=1",
+                "add_suggestions=FALSE", "collate=FALSE",
+                "idxB_lag=1", "idxB_range_3=1", "exp_b=1", 
+                "comp_b_multiplier=1.4", "interval=1", 
+                "multiplier=seq(0,2,0.01)",
+                "upper_constraint=1.2", "lower_constraint=0.7")
+source("MP_run.R")
 
-. <- foreach(stock = stocks) %:%
-  foreach(OM = switch(stock,
-    "ple.27.7e" = OMs_ple,
-    "cod.27.47d20" = OMs_cod,
-    "her.27.3a47d" = OMs_her
-  )) %:%
-  foreach(MP = c("rfb", "hr"))  %:%
-  foreach(optimised = c("default", "multiplier", "all")) %do% {
+### ------------------------------------------------------------------------ ###
+### refset x & w -> all OMs ####
+### ------------------------------------------------------------------------ ###
+
+### get optimised solutions
+df_x <- readRDS("output/refset_x_runs_opt.rds")
+df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
+df_x_w <- bind_rows(df_x, df_x_w)
+
+OMs <- c("refset", "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+         "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", 
+         "R_failure", "overcatch", "undercatch", "Idx_higher")
+
+. <- foreach(x = split(df_x_w, f = seq(nrow(df_x_w)))) %:% 
+  foreach(OM = OMs) %do% {
     #browser()
-    cat(paste0("stock=", stock, " - OM=", OM, " - MP=", MP, " - optimised=",
-               optimised, "\n"))
-    suppressWarnings(
-      rm(lag_idx, range_idx_1, range_idx_2, range_catch, exp_r, exp_f, exp_b, 
-       interval, multiplier, upper_constraint, lower_constraint,
-       idxB_lag, idxB_range_3, comp_b_multiplier))
-    ### change if recruitment failure included
-    scenario <- ifelse(OM == "rec_failure", "rec_failure", "")
-    rec_failure <- ifelse(OM == "rec_failure", TRUE, FALSE)
-    if (isTRUE(rec_failure)) rec_failure <- 2021:2025
-    OM <- ifelse(OM == "rec_failure", "baseline", OM)
-    ### default multiplier
-    if (identical(optimised, "default")) {
-      if (identical(MP, "hr")) {
-        multiplier <- 1
-      } else if (identical(MP, "rfb")) {
-        multiplier <- switch(stock,
-                             "ple.27.7e" = 0.95,
-                             "cod.27.47d20" = 0.95,
-                             "her.27.3a47d" = 0.90)
-      } else {
-        stop()
-      }
-    } else if (identical(optimised, "multiplier")) {
-      if (identical(stock, "cod.27.47d20")) {
-        multiplier <- switch(MP, "rfb" = 1.73, "hr" = 0.83)
-      } else if (identical(stock, "ple.27.7e")) {
-        multiplier <- switch(MP, "rfb" = 1.16, "hr" = 2.46)
-      } else if (identical(stock, "her.27.3a47d")) {
-        multiplier <- switch(MP, "rfb" = 0.93, "hr" = 1.55)
-      }
-    } else if (identical(optimised, "all")) {
-      if (identical(stock, "cod.27.47d20")) {
-        if (identical(MP, "rfb")) {
-          lag_idx <- 0.4453777
-          range_idx_1 <- 3.912436
-          range_idx_2 <- 3.415026
-          range_catch <- 1
-          exp_r <- 0.1190475
-          exp_f <- 1.310675
-          exp_b <- 0.3605948
-          interval <- 4.180232
-          multiplier <- 1.055067
-        } else if (identical(MP, "hr")) {
-          idxB_lag <- 0.3107843
-          idxB_range_3 <- 1.497951
-          exp_b <- 1
-          comp_b_multiplier <- 1.046093
-          interval <- 3.79667
-          multiplier <- 1.66751
-        }
-      } else if (identical(stock, "ple.27.7e")) {
-        if (identical(MP, "rfb")) {
-          lag_idx <- 0.3889051
-          range_idx_1 <- 4.742625
-          range_idx_2 <- 4.48785
-          range_catch <- 1
-          exp_r <- 1.720633
-          exp_f <- 1.712309
-          exp_b <- 1.924345
-          interval <- 2.205795
-          multiplier <- 1.648888
-        } else if (identical(MP, "hr")) {
-          idxB_lag <- 0.5264083
-          idxB_range_3 <- 2.318901
-          exp_b <- 1
-          comp_b_multiplier <- 0.8147290
-          interval <- 1.826095
-          multiplier <- 2.559064
-        }
-      } else if (identical(stock, "her.27.3a47d")) {
-        if (identical(MP, "rfb")) {
-          lag_idx <- 0.2586439
-          range_idx_1 <- 2.026223
-          range_idx_2 <- 2.784513
-          range_catch <- 1
-          exp_r <- 1.205622
-          exp_f <- 1.464026
-          exp_b <- 1.367814
-          interval <- 2.867753
-          multiplier <- 0.9355739
-        } else if (identical(MP, "hr")) {
-          idxB_lag <- 0.3070643
-          idxB_range_3 <- 2.295637
-          exp_b <- 1
-          comp_b_multiplier <- 1.035724
-          interval <- 1.388251
-          multiplier <- 1.692025
-        }
-      }
+    print(x)
+    print(paste0("OM=", OM, ", index = ", x$index))
+    
+    if (identical(OM, "refset")) {
+      n_blocks <- 10; n_workers <- 10; mp_parallel <- TRUE
+    } else {
+      n_blocks <- 1; n_workers <- 1; mp_parallel <- FALSE
     }
-    ### define local arguments
-    args_local <- c("ga_search=TRUE","n_blocks=1", "n_workers=0", 
-                    paste0("scenario=\'", scenario, "\'"),
-                    paste0("MP=\'", MP, "\'"),
+    
+    ### chr params
+    idxB_lag <- x$idxB_lag
+    idxB_range_3 <- x$idxB_range_3
+    exp_b <- x$exp_b
+    comp_b_multiplier <- x$comp_b_multiplier
+    interval <- x$interval
+    multiplier <- x$multiplier
+    upper_constraint <- x$upper_constraint
+    lower_constraint <- x$lower_constraint
+    biomass_index <- x$index
+    
+    #OM <- OM
+    ### scenario directory
+    scenario <- ifelse(identical(x$index, "Q1SWBeam"), 
+                       "multiplier_Q1SWBeam", "multiplier") 
+    
+    args_local <- c("MP='hr'",
                     "n_yrs=20", "check_file=FALSE",
-                    paste0("stock_id=\'", stock, "\'"),
-                    paste0("OM=\'", OM, "\'"),
-                    "save_MP=TRUE", "popSize=1", "maxiter=1",
-                    paste0("multiplier=", multiplier, ""),
+                    "ga_search=TRUE", "MP='hr'", "save_MP=TRUE", 
+                    "popSize=1", "maxiter=1",
                     "add_suggestions=FALSE", "collate=FALSE")
-    if (identical(MP, "rfb") & identical(optimised, "all")) 
-      args_local <- append(args_local, 
-                           c(paste0("lag_idx=", lag_idx),
-                            paste0("range_idx_1=", range_idx_1),
-                            paste0("range_idx_2=", range_idx_2),
-                            paste0("range_catch=", range_catch),
-                            paste0("exp_r=", exp_r),
-                            paste0("exp_f=", exp_f),
-                            paste0("exp_b=", exp_b),
-                            paste0("interval=", interval)))
-    if (identical(MP, "hr") & identical(optimised, "all"))
-      args_local <- append(args_local, 
-                           c(paste0("idxB_lag=", idxB_lag),
-                            paste0("idxB_range_3=", idxB_range_3),
-                            paste0("exp_b=", exp_b),
-                            paste0("comp_b_multiplier=", comp_b_multiplier),
-                            paste0("interval=", interval)))
     source("MP_run.R")
+    
+    if (isTRUE(is(cl, "cluster"))) stopCluster(cl)
 }
+
+
