@@ -1039,7 +1039,7 @@ write.csv(df_smry, file = "output/refset_x_w_smry.csv", row.names = FALSE)
 
 
 ### ------------------------------------------------------------------------ ###
-### refset - x & w - violin plots ####
+### refset - x & w - violin plots - by MP ####
 ### ------------------------------------------------------------------------ ###
 
 ### get optimised solutions
@@ -1139,6 +1139,19 @@ stats_plot <- stats %>%
                       "Q1SWBeam_x_w_annual", 
                       "Q1SWBeam_x_w_biennial")))
 
+#scales::show_col(scales::hue_pal()(20))
+#cols <- scales::hue_pal()(15)[c(1, 2, 3:5, 8:10, 11:14, 6:7, 15)]
+cols <- scales::hue_pal()(15)
+#cols <- scales::hue_pal()(20)[c(1, 3, 5:7, 11:13, 14:17, 8:9, 19)]
+# cols <- scales::hue_pal()(30)[c(1,
+#                                 29,
+#                                 16:18, # catch blue
+#                                 4:6, # M brown
+#                                 24:27, # R purple
+#                                 19:20, # catch blue
+#                                 11
+#                                )]
+
 . <- foreach(group_i = levels(stats_plot$group),
              group_plot_i = levels(stats_plot$group_plot),
              group_file_i = levels(stats_plot$group_file)) %do% {
@@ -1160,7 +1173,7 @@ stats_plot <- stats %>%
                  outlier.fill = "transparent") +
     stat_summary(aes(x = OM, y = val),
                  fun = "mean", geom = "point", shape = 4, size = 1) +
-    #scale_fill_brewer(name = "", palette = "Dark2") +
+    scale_fill_manual("", values = cols) +
     facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
     labs(y = expression(max.~B[lim]~risk), title = group_plot_i) +
     coord_cartesian(ylim = c(0, 0.3)) +
@@ -1182,7 +1195,7 @@ stats_plot <- stats %>%
                  fill = "white", width = 0.1, size = 0.2,
                  outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                  outlier.fill = "transparent") +
-    #scale_fill_brewer(name = "", palette = "Dark2") +
+    scale_fill_manual("", values = cols) +
     facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
     labs(y = expression(Catch/MSY)) +
     coord_cartesian(ylim = c(0, 2.5)) +
@@ -1204,7 +1217,7 @@ stats_plot <- stats %>%
                  fill = "white", width = 0.1, size = 0.2,
                  outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                  outlier.fill = "transparent") +
-    #scale_fill_brewer(name = "", palette = "Dark2") +
+    scale_fill_manual("", values = cols) +
     facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
     labs(y = expression(SSB/B[MSY])) +
     coord_cartesian(ylim = c(0, 2.5)) +
@@ -1225,7 +1238,7 @@ stats_plot <- stats %>%
                  fill = "white", width = 0.1, size = 0.2,
                  outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                  outlier.fill = "transparent") +
-    #scale_fill_brewer(name = "", palette = "Dark2") +
+    scale_fill_manual("", values = cols) +
     facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
     labs(y = "ICV") +
     coord_cartesian(ylim = c(0, 0.5)) +
@@ -1246,8 +1259,114 @@ stats_plot <- stats %>%
          plot = p, width = 16, height = 10, units = "cm", bg = "white")
 }
 
+### ------------------------------------------------------------------------ ###
+### refset - x & w - violin plots - compare MPs ####
+### ------------------------------------------------------------------------ ###
 
+stats_plot_MP <- stats_plot %>%
+  mutate(MP_label = factor(group,
+                           levels = c("UK-FSP", "Q1SWBeam",
+                                      "UK-FSP (annual)", 
+                                      "UK-FSP (biennial)",
+                                      "Q1SWBeam (annual)", 
+                                      "Q1SWBeam (biennial)"),
+                           labels = c("UK-FSP", "Q1SWBeam",
+                                      "UK-FSP\n(annual)", 
+                                      "UK-FSP\n(biennial)",
+                                      "Q1SWBeam\n(annual)", 
+                                      "Q1SWBeam\n(biennial)")))
 
+p_risk <- stats_plot_MP %>%
+  filter(metric == "risk" & OM == "Reference set\n(combined)") %>%
+  ggplot() +
+  geom_hline(yintercept = 0.05, colour = "red") +
+  geom_col(data = . %>%
+             group_by(MP_label) %>%
+             summarise(val = max(val)),
+           aes(x = MP_label, y = val), fill = "#F8766D",
+           show.legend = FALSE, width = 0.8, colour = "black", size = 0.2,
+           position = position_dodge(width = 0.8)) +
+  geom_boxplot(aes(x = MP_label, y = val),
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  stat_summary(aes(x = MP_label, y = val),
+               fun = "mean", geom = "point", shape = 4, size = 1) +
+  scale_fill_manual("", values = cols) +
+  labs(y = expression(max.~B[lim]~risk)) +
+  coord_cartesian(ylim = c(0, NA)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank())
+#p_risk
+p_catch <- stats_plot_MP %>%
+  filter(metric == "catch" & OM == "Reference set\n(combined)") %>%
+  ggplot(aes(x = MP_label, y = val)) +
+  geom_hline(yintercept = 1, colour = "grey") +
+  geom_violin(fill = "#F8766D",, size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = MP_label), 
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  labs(y = expression(Catch/MSY)) +
+  coord_cartesian(ylim = c(0, 2.5)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.title.x = element_blank(), 
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        strip.text.x = element_blank())
+#p_catch
+p_ssb <- stats_plot_MP %>%
+  filter(metric == "SSB" & OM == "Reference set\n(combined)") %>%
+  ggplot(aes(x = MP_label, y = val)) +
+  geom_hline(yintercept = 1, colour = "grey") +
+  geom_violin(fill = "#F8766D", size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = MP_label), 
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  labs(y = expression(SSB/B[MSY])) +
+  coord_cartesian(ylim = c(0, 2.5)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.title.x = element_blank(), 
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        strip.text.x = element_blank())
+#p_ssb
+p_icv <- stats_plot_MP %>%
+  filter(metric == "ICV" & OM == "Reference set\n(combined)") %>%
+  ggplot(aes(x = MP_label, y = val)) +
+  geom_violin(fill = "#F8766D", size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = MP_label),
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  labs(y = "ICV") +
+  coord_cartesian(ylim = c(0, 0.5)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        axis.title.x = element_blank(),
+        strip.text.x = element_blank())
+#p_icv
+p <- p_risk / p_catch / p_ssb / p_icv
+p
+ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.png"), 
+       plot = p, width = 16, height = 10, units = "cm", dpi = 600, 
+       type = "cairo", bg = "white")
+ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.pdf"), 
+       plot = p, width = 16, height = 10, units = "cm", bg = "white")
 
 
 
