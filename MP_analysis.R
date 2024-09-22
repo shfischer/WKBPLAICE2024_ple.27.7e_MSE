@@ -1368,6 +1368,245 @@ ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.png"),
 ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.pdf"), 
        plot = p, width = 16, height = 10, units = "cm", bg = "white")
 
+### ------------------------------------------------------------------------ ###
+### rfb & SAM - violin plots - by OM ####
+### ------------------------------------------------------------------------ ###
+
+### list of all operating models
+OMs <- c("refset", 
+         "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+         "M_low", "M_high", "M_Gislason", 
+         "R_no_AC", "R_higher", "R_lower", 
+         "R_failure", "overcatch", "undercatch", "Idx_higher")
+OMs_refset <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+                "M_low", "M_high", "M_Gislason")
+OMs_label <- c("Reference set\n(combined)", 
+               "Baseline", "Catch:\nno discards", "Catch:\n100% discards", 
+               "Catch:\nno migration", 
+               "M: -50%", "M: +50%", "M: Gislason", 
+               "R: no AC", "R: +20%", "R: -20%", 
+               "R: failure", "Catch: +10%", "Catch: -20%", 
+               "Uncertainty:\nindex +20%")
+OMs_group <- c("refset (combined)", rep("refset", 7), rep("robset", 7))
+
+### get stats
+# , .combine = bind_rows
+stats <- foreach(MP = c("rfb", "ICES_SAM"), 
+                 .combine = bind_rows) %:%
+  foreach(OM = OMs, OM_group = OMs_group, .combine = bind_rows)  %:%
+  foreach(period = c("long-term", "short-term", "all"),
+          period_yrs = list(2035:2044, 2025:2034, 2025:2044),
+          .combine = bind_rows) %do% {
+    #browser()
+    ### refset OM - combine manually
+    if (identical(OM, "refset")) {
+      stks <- lapply(OMs_refset, function(OM_i) {
+        path_i <- paste0("output/ple.27.7e/", OM_i, "/1000_20/", MP, "/")
+        mp_i <- readRDS(paste0(path_i, "mp.rds"))
+        stk_i <- mp_i@om@stock
+        return(stk_i)
+      })
+      stk <- Reduce(FLCore::combine, stks)
+      
+    } else {
+      ### get projection
+      path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/", MP, "/")
+      #if (!file.exists(paste0(path_i, "mp.rds"))) return(NULL)
+      mp_i <- readRDS(paste0(path_i, "mp.rds"))
+      stk <- mp_i@om@stock
+    }
+    
+    ### get reference points
+    refpts <- input_refpts(OM = OM)
+    
+    ### extract metrics
+    yr_min <- min(period_yrs)
+    yr_max <- max(period_yrs)
+    stk_icv <- window(stk, start = yr_min - 1, end = yr_max)
+    stk <- window(stk, start = yr_min, end = yr_max)
+    ssb_i <- c(ssb(stk)/refpts["Bmsy"])
+    catch_i <- c(catch(stk)/refpts["Cmsy"])
+    fbar_i <- c(fbar(stk)/refpts["Fmsy"])
+    risk_i <- c(apply(ssb(stk) < rep(c(refpts["Blim"]), 
+                                     each = dim(ssb(stk))[2]), 2, mean))
+    icv_i <- c(iav(catch(stk_icv), period = i$interval))
+    ### combine
+    df <- do.call(rbind, list(data.frame(val = ssb_i, metric = "SSB"),
+                              data.frame(val = catch_i, metric = "catch"),
+                              data.frame(val = fbar_i, metric = "Fbar"),
+                              data.frame(val = icv_i, metric = "ICV"),
+                              data.frame(val = risk_i, metric = "risk")
+    ))
+    df <- df %>%
+      mutate(MP = MP, OM = OM, OM_group = OM_group, period = period)
+    return(df)
+}
+saveRDS(stats, file = "output/altMPs_stats.rds")
+# stats <- readRDS("output/altMPs_stats.rds")
+
+### go through all solutions and plots stats
+stats_plot <- stats %>%
+  mutate(
+   OM = factor(OM, levels = OMs,
+                     labels = OMs_label),
+   OM_group = factor(OM_group,
+                     levels = OMs_group,
+                     labels = c("", 
+                                rep("Reference set", 7), 
+                                rep("Robustness set", 7))),
+   MP_title = case_when(MP == "rfb" ~ "rfb (default)",
+                        MP == "ICES_SAM" ~ "ICES MSY (with SAM)"),
+   period_label = factor(period, levels = c("long-term", "short-term", "all"),
+                         labels = c("long term", "short term",
+                                    "all years")))
+
+cols <- scales::hue_pal()(15)
+
+. <- foreach(MP_i = unique(stats_plot$MP),
+             MP_title_i = unique(stats_plot$MP_title)) %:%
+  foreach(period_i = unique(stats_plot$period),
+          period_label_i = unique(stats_plot$period_label)) %do% {
+  #browser()
+  p_risk <- stats_plot %>%
+   filter(metric == "risk" & MP == MP_i & period == period_i) %>%
+   ggplot() +
+   geom_hline(yintercept = 0.05, colour = "red") +
+   geom_col(data = . %>%
+              group_by(OM, OM_group) %>%
+              summarise(val = max(val)),
+            aes(x = OM, y = val, fill = OM),
+            show.legend = FALSE, width = 0.8, colour = "black", size = 0.2,
+            position = position_dodge(width = 0.8)) +
+   geom_boxplot(aes(x = OM, y = val),
+                position = position_dodge(width = 0.8),
+                fill = "white", width = 0.1, size = 0.2,
+                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+                outlier.fill = "transparent") +
+   stat_summary(aes(x = OM, y = val),
+                fun = "mean", geom = "point", shape = 4, size = 1) +
+   scale_fill_manual("", values = cols) +
+   facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+   labs(y = expression(max.~B[lim]~risk), 
+        title = paste0(MP_title_i, " - ", period_label_i)) +
+   coord_cartesian(ylim = c(0, NA)) +
+   theme_bw(base_size = 8) +
+   theme(panel.spacing.x = unit(0, "lines"),
+         axis.text.x = element_blank(),
+         axis.ticks.x = element_blank(),
+         axis.title.x = element_blank(),
+         plot.title = element_text(hjust = 0.5))
+  #p_risk
+  p_catch <- stats_plot %>%
+   filter(metric == "catch" & MP == MP_i & period == period_i) %>%
+   ggplot(aes(x = OM, y = val)) +
+   geom_hline(yintercept = 1, colour = "grey") +
+   geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
+               position = position_dodge(width = 0.8), scale = "width") +
+   geom_boxplot(aes(group = OM), 
+                position = position_dodge(width = 0.8),
+                fill = "white", width = 0.1, size = 0.2,
+                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+                outlier.fill = "transparent") +
+   scale_fill_manual("", values = cols) +
+   facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+   labs(y = expression(Catch/MSY)) +
+   coord_cartesian(ylim = c(0, 2.5)) +
+   theme_bw(base_size = 8) +
+   theme(panel.spacing.x = unit(0, "lines"),
+         axis.title.x = element_blank(), 
+         axis.text.x = element_blank(),
+         axis.ticks.x = element_blank(),
+         strip.text.x = element_blank())
+  #p_catch
+  p_ssb <- stats_plot %>%
+   filter(metric == "SSB" & MP == MP_i & period == period_i) %>%
+   ggplot(aes(x = OM, y = val)) +
+   geom_hline(yintercept = 1, colour = "grey") +
+   geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
+               position = position_dodge(width = 0.8), scale = "width") +
+   geom_boxplot(aes(group = OM), 
+                position = position_dodge(width = 0.8),
+                fill = "white", width = 0.1, size = 0.2,
+                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+                outlier.fill = "transparent") +
+   scale_fill_manual("", values = cols) +
+   facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+   labs(y = expression(SSB/B[MSY])) +
+   coord_cartesian(ylim = c(0, 2.5)) +
+   theme_bw(base_size = 8) +
+   theme(panel.spacing.x = unit(0, "lines"),
+         axis.title.x = element_blank(), 
+         axis.text.x = element_blank(),
+         axis.ticks.x = element_blank(),
+         strip.text.x = element_blank())
+  #p_ssb
+  p_icv <- stats_plot %>%
+   filter(metric == "ICV" & MP == MP_i & period == period_i) %>%
+   ggplot(aes(x = OM, y = val)) +
+   geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
+               position = position_dodge(width = 0.8), scale = "width") +
+   geom_boxplot(aes(group = OM), 
+                position = position_dodge(width = 0.8),
+                fill = "white", width = 0.1, size = 0.2,
+                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+                outlier.fill = "transparent") +
+   scale_fill_manual("", values = cols) +
+   facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+   labs(y = "ICV") +
+   coord_cartesian(ylim = c(0, 0.5)) +
+   theme_bw(base_size = 8) +
+   theme(panel.spacing.x = unit(0, "lines"),
+         axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         axis.title.x = element_blank(),
+         strip.text.x = element_blank())
+  #p_icv
+  p <- p_risk / p_catch / p_ssb / p_icv
+  #p
+  ggsave(filename = paste0("output/plots/MP/", MP_i, "_stats_",
+                           period_i, ".png"), 
+        plot = p, width = 16, height = 10, units = "cm", dpi = 600, 
+        type = "cairo", bg = "white")
+  ggsave(filename = paste0("output/plots/MP/", MP_i, "_stats_",
+                           period_i, ".pdf"), 
+        plot = p, width = 16, height = 10, units = "cm", bg = "white")
+}
+
+### summary table
+stats_smry <- foreach(stats_i = split(stats_plot, f = stats_plot$MP), 
+                      .combine = bind_rows) %:% 
+  foreach(period_i = unique(stats_plot$period),
+          period_label_i = unique(stats_plot$period_label)) %do% {
+  #browser()
+  stats_y <- foreach(metric_i = unique(stats_i$metric),
+                     .combine = bind_rows) %do% {
+    #browser()
+    if (!identical(metric_i, "risk")) {
+      res_y <- stats_i %>% 
+        filter(metric == metric_i & period == period_i) %>%
+        group_by(metric, MP, OM, period) %>%
+        summarise(val = median(val))
+    } else {
+      res_y <- stats_i %>% 
+        filter(metric == metric_i & period == period_i) %>%
+        group_by(metric, MP, OM, period) %>%
+        summarise(val = max(val))
+    }
+    return(res_y)
+  }
+}
+stats_smry <- stats_smry %>%
+  pivot_wider(names_from = metric, values_from = val)
+stats_smry <- stats_smry %>%
+  select(MP, period, OM, risk, catch, SSB, Fbar, ICV) %>%
+  mutate(MP = ifelse(MP == "ICES_SAM", "ICES MSY", MP),
+         period = case_when(period == "long-term" ~ "long term",
+                            period == "short-term" ~ "short term",
+                            period == "all" ~ "all years"),
+         OM = gsub(x = OM, pattern = "\n", replacement = " "),
+         OM = gsub(x = OM, pattern = "\\(combined\\)", replacement = "")) 
+saveRDS(stats_smry, file = "output/altMPs_stats_smry.rds")
+write.csv(stats_smry, file = "output/altMPs_stats_smry.csv", row.names = FALSE)
+
 
 
 ### ------------------------------------------------------------------------ ###
