@@ -104,7 +104,7 @@ source("MP_run.R")
 stopCluster(cl); rm(cl); gc()
 rm(args_local)
 ### other OMs
-alt_OMs <- c("Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_failure", "overcatch", "undercatch")
+alt_OMs <- c("Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_failure", "overcatch", "undercatch", "Idx_higher")
 for (OM in alt_OMs) {
   print(paste0("OM=", OM))
   args_local <- c(paste0("OM='", OM, "'"))
@@ -124,7 +124,7 @@ source("MP_run.R")
 rm(args_local)
 ### other OMs
 alt_OMs <- c("Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_failure", "overcatch",
-             "undercatch")
+             "undercatch", "Idx_higher")
 for (OM in alt_OMs) {
   print(paste0("OM=", OM))
   args_local <- c(paste0("OM='", OM, "'"))
