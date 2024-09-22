@@ -1607,6 +1607,68 @@ stats_smry <- stats_smry %>%
 saveRDS(stats_smry, file = "output/altMPs_stats_smry.rds")
 write.csv(stats_smry, file = "output/altMPs_stats_smry.csv", row.names = FALSE)
 
+### ------------------------------------------------------------------------ ###
+### rfb & SAM - wormplots ####
+### ------------------------------------------------------------------------ ###
+OMs <- c("refset", 
+         "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+         "M_low", "M_high", "M_Gislason", 
+         "R_no_AC", "R_higher", "R_lower", 
+         "R_failure", "overcatch", "undercatch", "Idx_higher")
+OMs_refset <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+                "M_low", "M_high", "M_Gislason")
+OMs_label <- c("Reference set (combined)", 
+               "Baseline", "Catch: no discards", "Catch: 100% discards", 
+               "Catch: no migration", 
+               "M: -50%", "M: +50%", "M: Gislason", 
+               "R: no AC", "R: +20%", "R: -20%", 
+               "R: failure", "Catch: +10%", "Catch: -20%", 
+               "Uncertainty: index +20%")
+
+. <- foreach(MP = c("rfb", "ICES_SAM"), 
+             MP_label = c("rfb", "ICES MSY (with SAM)")) %:%
+  foreach(OM = OMs[-1], OM_label = OMs_label[-1])  %do% {
+  #browser()
+  ### refset OM - combine manually
+  if (identical(OM, "refset")) {
+    stks <- lapply(OMs_refset, function(OM_i) {
+      path_i <- paste0("output/ple.27.7e/", OM_i, "/1000_20/", MP, "/")
+      mp_i <- readRDS(paste0(path_i, "mp.rds"))
+      stk_i <- mp_i@om@stock
+      return(stk_i)
+    })
+    stk <- Reduce(FLCore::combine, stks)
+    
+  } else {
+    ### get projection
+    path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/", MP, "/")
+    mp_i <- readRDS(paste0(path_i, "mp.rds"))
+    stk <- mp_i@om@stock
+  }
+            
+  ### historical stock
+  input <- input_mp(OM = OM, n_yrs = 20, MP = "hr")
+  stk_hist <- input$om@stock
+  
+  ### get reference points
+  refpts <- input_refpts(OM = OM)
+  
+  ### plot
+  # p <- plot_worm(stk = stk, stk_hist = stk_hist, refpts = refpts,
+  #                title = paste0(MP_label, " - ", OM_label))
+  p <- plot_worm_distr(stk = stk, stk_hist = stk_hist, refpts = refpts,
+                       title = paste0(MP_label, " - ", OM_label))
+
+  ggsave(filename = paste0("output/plots/wormplots/", MP, "_", OM, ".png"),
+         plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
+         type = "cairo")
+  ggsave(filename = paste0("output/plots/wormplots/", MP, "_", OM, ".pdf"), 
+         plot = p, width = 16, height = 7.5, units = "cm")
+
+}
+
+
+
 
 
 ### ------------------------------------------------------------------------ ###
