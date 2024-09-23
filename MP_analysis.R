@@ -1323,7 +1323,7 @@ stats_plot_MP <- stats_plot %>%
                         case_when(optimum == "local" ~ "(local optimum)",
                                   optimum == "global" ~ "(global optimum)"))) %>%
   mutate(MP_label = factor(MP_label,
-                           levels = unique(MP_label))) %>%
+    levels = unique(MP_label)[c(1, 5, 9, 6, 10, 2, 3, 7, 4, 8)])) %>%
   mutate(period_label = factor(period, 
                                levels = c("long-term", "short-term", "all"),
                                labels = c("long term", "short term",
