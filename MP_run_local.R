@@ -154,7 +154,9 @@ source("MP_run.R")
 ### get optimised solutions
 df_x <- readRDS("output/refset_x_runs_opt.rds")
 df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
-df_x_w <- bind_rows(df_x, df_x_w)
+df_x_w <- bind_rows(
+  df_x %>% mutate(optimum = "global"), 
+  df_x_w)
 
 OMs <- c("refset", "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
          "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", 
