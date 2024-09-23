@@ -919,10 +919,21 @@ df_runs <- df_runs %>%
                                    "UK-FSP (biennial)", "Q1SWBeam (biennial)")))
 
 ### find optima
-df_optima <- df_runs %>%
-  group_by(group) %>%
-  filter(X11.20_risk_Blim_max <= 0.05) %>%
-  filter(X11.20_Catch_rel == max(X11.20_Catch_rel))
+df_optima <- bind_rows(
+  df_runs %>%
+    group_by(group) %>%
+    filter(comp_b_multiplier <= 1.5) %>%
+             #& !(index == "Q1SWBeam" & interval == 1)
+    filter(X11.20_risk_Blim_max <= 0.05) %>%
+    filter(X11.20_Catch_rel == max(X11.20_Catch_rel)) %>%
+    mutate(optimum = "local"),
+  df_runs %>%
+    group_by(group) %>%
+    filter(X11.20_risk_Blim_max <= 0.05) %>%
+    filter(X11.20_Catch_rel == max(X11.20_Catch_rel)) %>%
+    mutate(optimum = "global")
+) %>%
+  mutate(optimum = factor(optimum, levels = c("local", "global")))
 
 ### save results
 saveRDS(df_runs, file = "output/refset_x_w_grid.rds")
@@ -944,11 +955,13 @@ p_raw <- df_runs %>%
                                   1), 
                        breaks = c(0, 0.25, 0.5, 0.75, 1)) +
   geom_hline(data = df_optima,
-             aes(yintercept = comp_b_multiplier),
-             linewidth = 0.3, linetype = "1111", colour = "red") +
+             aes(yintercept = comp_b_multiplier, colour = optimum),
+             linewidth = 0.3, linetype = "1111") +
   geom_vline(data = df_optima,
-             aes(xintercept = multiplier),
-             linewidth = 0.3, linetype = "1111", colour = "red") +
+             aes(xintercept = multiplier, colour = optimum),
+             linewidth = 0.3, linetype = "1111") +
+  scale_colour_manual("Optimum",
+                      values = c(local = "blue", global = "red")) +
   labs(x = "Multiplier (x)", y = expression(I[trigger]~multiplier~"(w)")) +
   facet_wrap(~ group, scales = "free_y", ncol = 2) +
   coord_cartesian(expand = FALSE, xlim = c(0, 1)) +
@@ -971,16 +984,23 @@ df_runs_int <- foreach(group_i = levels(df_runs$group),
     select(w = comp_b_multiplier, x = multiplier, 
            catch = X11.20_Catch_rel, risk = X11.20_risk_Blim_max,
            group)
+  ### remove some cells to avoid NAs - no change to optimum
+  # if (identical(group_i, "UK-FSP (annual)"))
+  #   data_i <- data_i %>% filter(!(x %in% c(0.51, 0.52, 0.53, 0.54) &
+  #                                   w %in% c(1.65, 1.7, 1.75, 1.8, 1.85, 1.9, 
+  #                                            1.95)))
+  
   n_x <- length(seq(min(data_i$x), max(data_i$x), 0.01))
   n_w <- length(seq(min(data_i$w), max(data_i$w), 0.01))
   
   out_catch <- akima::interp(x = data_i$x, y = data_i$w,
                              z = data_i$catch, 
-                             nx = n_x, ny = n_w)
+                             nx = n_x, ny = n_w,
+                             linear = TRUE)
   out_risk <- akima::interp(x = data_i$x, y = data_i$w,
                             z = data_i$risk, 
                             nx = n_x, ny = n_w,
-                            linear = FALSE)
+                            linear = TRUE)
   
   ### format
   df_out <- expand.grid(x = out_catch$x, w = out_catch$y)
@@ -1006,11 +1026,13 @@ p_int <- df_runs_int %>%
                                   1), 
                        breaks = c(0, 0.25, 0.5, 0.75, 1)) +
   geom_hline(data = df_optima,
-             aes(yintercept = comp_b_multiplier),
-             linewidth = 0.3, linetype = "1111", colour = "red") +
+             aes(yintercept = comp_b_multiplier, colour = optimum),
+             linewidth = 0.3, linetype = "1111") +
   geom_vline(data = df_optima,
-             aes(xintercept = multiplier),
-             linewidth = 0.3, linetype = "1111", colour = "red") +
+             aes(xintercept = multiplier, colour = optimum),
+             linewidth = 0.3, linetype = "1111") +
+  scale_colour_manual("Optimum",
+                      values = c(local = "blue", global = "red")) +
   labs(x = "Multiplier (x)", y = expression(I[trigger]~multiplier~"(w)")) +
   facet_wrap(~ group, scales = "free_y", ncol = 2) +
   coord_cartesian(expand = FALSE, xlim = c(0, 1)) +
@@ -1026,17 +1048,21 @@ ggsave(filename = "output/plots/MP/refset_x_w_grid_int.pdf", plot = p_int,
 ### summary table
 df_x <- readRDS("output/refset_x_runs_opt.rds")
 df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
-df_x_w <- bind_rows(df_x, df_x_w)
+df_x_w <- bind_rows(
+  df_x %>% mutate(optimum = "global"), 
+  df_x_w)
 df_smry <- df_x_w %>%
   ungroup() %>%
-  select(index, n1 = idxB_range_3, v = interval, x = multiplier,
+  select(index, optimum, 
+         n1 = idxB_range_3, v = interval, x = multiplier,
          w = comp_b_multiplier,
          risk = X11.20_risk_Blim_max,
          catch = X11.20_Catch_rel,
          ssb = X11.20_SSB_rel)
+df_smry <- df_smry[c(1:2, 5:6, 3:4, 9:10, 7:8), ]
 df_smry
 write.csv(df_smry, file = "output/refset_x_w_smry.csv", row.names = FALSE)
-
+saveRDS(df_smry, file = "output/refset_x_w_smry.rds")
 
 ### ------------------------------------------------------------------------ ###
 ### refset - x & w - violin plots - by MP ####
