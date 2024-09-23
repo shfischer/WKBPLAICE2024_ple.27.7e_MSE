@@ -1091,7 +1091,7 @@ OMs_label <- c("Reference set\n(combined)",
                "Catch:\nno migration", 
                "M: -50%", "M: +50%", "M: Gislason", 
                "R: no AC", "R: +20%", "R: -20%", 
-               "R: failure", "Catch: +10%", "Catch: -20%", 
+               "R: failure", "Catch: +10%", "Catch: -10%", 
                "Uncertainty:\nindex +20%")
 OMs_group <- c("refset (combined)", rep("refset", 7), rep("robset", 7))
 
@@ -1469,7 +1469,7 @@ OMs_label <- c("Reference set (combined)",
                "Catch: no migration", 
                "M: -50%", "M: +50%", "M: Gislason", 
                "R: no AC", "R: +20%", "R: -20%", 
-               "R: failure", "Catch: +10%", "Catch: -20%", 
+               "R: failure", "Catch: +10%", "Catch: -10%", 
                "Uncertainty: index +20%")
 
 . <- foreach(x = split(df_x_w, seq(nrow(df_x_w)))) %:%
@@ -1524,7 +1524,7 @@ OMs_label <- c("Reference set\n(combined)",
                "Catch:\nno migration", 
                "M: -50%", "M: +50%", "M: Gislason", 
                "R: no AC", "R: +20%", "R: -20%", 
-               "R: failure", "Catch: +10%", "Catch: -20%", 
+               "R: failure", "Catch: +10%", "Catch: -10%", 
                "Uncertainty:\nindex +20%")
 OMs_group <- c("refset (combined)", rep("refset", 7), rep("robset", 7))
 
@@ -1761,7 +1761,7 @@ OMs_label <- c("Reference set (combined)",
                "Catch: no migration", 
                "M: -50%", "M: +50%", "M: Gislason", 
                "R: no AC", "R: +20%", "R: -20%", 
-               "R: failure", "Catch: +10%", "Catch: -20%", 
+               "R: failure", "Catch: +10%", "Catch: -10%", 
                "Uncertainty: index +20%")
 
 . <- foreach(MP = c("rfb", "ICES_SAM"), 
