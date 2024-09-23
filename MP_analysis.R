@@ -1494,7 +1494,7 @@ OMs_label <- c("Reference set (combined)",
     # p <- plot_worm(stk = stk, stk_hist = stk_hist, refpts = refpts,
     #                title = paste0(MP_label, " - ", OM_label))
     p <- plot_worm_distr(stk = stk, stk_hist = stk_hist, refpts = refpts,
-                         title = x$group)
+                         title = paste0(x$group, " - ", OM_label))
     
     ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
                              "_", OM, ".png"),
