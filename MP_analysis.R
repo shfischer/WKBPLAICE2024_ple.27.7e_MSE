@@ -947,7 +947,7 @@ p_raw <- df_runs %>%
                             X11.20_Catch_rel, NA)) %>%
   ggplot(aes(x = multiplier, y = comp_b_multiplier, label = catch,
              fill = catch_col)) +
-  geom_tile(alpha = 0.8) +
+  geom_point(alpha = 0.8, shape = 21, stroke = NA, size = 0.4) +
   #geom_text(aes(label = round(X11.20_Catch_rel, 3)), size = 2.5) +
   scale_fill_gradientn(paste0("Catch/MSY"),
                        colours = hcl.colors(10),
@@ -956,10 +956,10 @@ p_raw <- df_runs %>%
                        breaks = c(0, 0.25, 0.5, 0.75, 1)) +
   geom_hline(data = df_optima,
              aes(yintercept = comp_b_multiplier, colour = optimum),
-             linewidth = 0.3, linetype = "1111") +
+             linewidth = 0.2, linetype = "1111") +
   geom_vline(data = df_optima,
              aes(xintercept = multiplier, colour = optimum),
-             linewidth = 0.3, linetype = "1111") +
+             linewidth = 0.2, linetype = "1111") +
   scale_colour_manual("Optimum",
                       values = c(local = "blue", global = "red")) +
   labs(x = "Multiplier (x)", y = expression(I[trigger]~multiplier~"(w)")) +
