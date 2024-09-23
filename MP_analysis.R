@@ -882,7 +882,7 @@ ggsave(filename = "output/plots/MP/baseline_stats_x_w_v_n0.pdf", plot = p,
 
 
 ### ------------------------------------------------------------------------ ###
-### refset - x & w - summary ####
+### refset - x & w - grid search summary ####
 ### ------------------------------------------------------------------------ ###
 
 ### load all results and combine
@@ -1071,7 +1071,9 @@ saveRDS(df_smry, file = "output/refset_x_w_smry.rds")
 ### get optimised solutions
 df_x <- readRDS("output/refset_x_runs_opt.rds")
 df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
-df_x_w <- bind_rows(df_x, df_x_w)
+df_x_w <- bind_rows(
+  df_x %>% mutate(optimum = "global"), 
+  df_x_w)
 df_x_w <- df_x_w %>%
   mutate(file = paste0(paste("mp", idxB_lag, idxB_range_3, exp_b, 
                              comp_b_multiplier, interval, multiplier, 
@@ -1097,7 +1099,10 @@ OMs_group <- c("refset (combined)", rep("refset", 7), rep("robset", 7))
 # , .combine = bind_rows
 stats <- foreach(i = split(df_x_w, f = seq(nrow(df_x_w))), 
                  .combine = bind_rows) %:%
-  foreach(OM = OMs, OM_group = OMs_group, .combine = bind_rows) %do% {
+  foreach(OM = OMs, OM_group = OMs_group, .combine = bind_rows)  %:%
+  foreach(period = c("long-term", "short-term", "all"),
+          period_yrs = list(2035:2044, 2025:2034, 2025:2044),
+          .combine = bind_rows) %do% {
     #browser()
     ### get projection
     path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/",
@@ -1105,14 +1110,16 @@ stats <- foreach(i = split(df_x_w, f = seq(nrow(df_x_w))),
                             "multiplier_Q1SWBeam", "multiplier"),
                      "/hr/")
     mp_i <- readRDS(paste0(path_i, i$file))
+    stk <- mp_i@om@stock
 
     ### get reference points
     refpts <- input_refpts(OM = OM)
 
     ### extract metrics
-    stk <- mp_i@om@stock
-    stk_icv <- window(stk, start = 2034, end = 2044)
-    stk <- window(stk, start = 2035, end = 2044)
+    yr_min <- min(period_yrs)
+    yr_max <- max(period_yrs)
+    stk_icv <- window(stk, start = yr_min - 1, end = yr_max)
+    stk <- window(stk, start = yr_min, end = yr_max)
     ssb_i <- c(ssb(stk)/refpts["Bmsy"])
     catch_i <- c(catch(stk)/refpts["Cmsy"])
     fbar_i <- c(fbar(stk)/refpts["Fmsy"])
@@ -1133,7 +1140,9 @@ stats <- foreach(i = split(df_x_w, f = seq(nrow(df_x_w))),
              w = i$comp_b_multiplier,
              index = i$index,
              group = i$group,
-             OM = OM, OM_group = OM_group)
+             OM = OM, OM_group = OM_group,
+             optimum = i$optimum,
+             period = period)
     return(df)
 }
 saveRDS(stats, file = "output/refset_stats.rds")
@@ -1147,23 +1156,30 @@ stats_plot <- stats %>%
                            levels = OMs_group,
                            labels = c("", 
                                       rep("Reference set", 7), 
-                                      rep("Robustness set", 7))),
-         group_plot = factor(group,
-            levels = c("UK-FSP", "Q1SWBeam",
-                       "UK-FSP (annual)", "UK-FSP (biennial)",
-                       "Q1SWBeam (annual)", "Q1SWBeam (biennial)"),
-            labels = c("UK-FSP - x", "Q1SWBeam - x",
-                       "UK-FSP - x & w - annual", "UK-FSP - x & w - biennial",
-                       "Q1SWBeam - x & w - annual", 
-                       "Q1SWBeam - x & w - biennial")),
-         group_file = factor(group,
-           levels = c("UK-FSP", "Q1SWBeam",
-                      "UK-FSP (annual)", "UK-FSP (biennial)",
-                      "Q1SWBeam (annual)", "Q1SWBeam (biennial)"),
-           labels = c("UK-FSP_x", "Q1SWBeam_x",
-                      "UK-FSP_x_w_annual", "UK-FSP_x_w_biennial",
-                      "Q1SWBeam_x_w_annual", 
-                      "Q1SWBeam_x_w_biennial")))
+                                      rep("Robustness set", 7)))) %>%
+  mutate(group = paste0(index, " - ",
+                        case_when(v == 1 ~ "annual",
+                                  v == 2 ~ "biennial"),
+                        " - ",
+                        case_when(w == 1.4 ~ "x",
+                                  w != 1.4 ~ "x & w"),
+                        case_when(optimum == "local" ~ " (local optimum)",
+                                  optimum == "global" ~ " (global optimum)"),
+                        " - ",
+                        case_when(period == "long-term" ~ "long term",
+                                  period == "short-term" ~ "short term",
+                                  period == "all" ~ "all years"))) %>%
+  mutate(group_label = paste0(index, "_",
+                              case_when(v == 1 ~ "annual",
+                                        v == 2 ~ "biennial"),
+                              "_",
+                              case_when(w == 1.4 ~ "x",
+                                        w != 1.4 ~ "x_w"),
+                              "_", optimum, "_",
+                              case_when(period == "long-term" ~ "long",
+                                        period == "short-term" ~ "short",
+                                        period == "all" ~ "all")))
+
 
 #scales::show_col(scales::hue_pal()(20))
 #cols <- scales::hue_pal()(15)[c(1, 2, 3:5, 8:10, 11:14, 6:7, 15)]
@@ -1178,12 +1194,19 @@ cols <- scales::hue_pal()(15)
 #                                 11
 #                                )]
 
-. <- foreach(group_i = levels(stats_plot$group),
-             group_plot_i = levels(stats_plot$group_plot),
-             group_file_i = levels(stats_plot$group_file)) %do% {
+. <- foreach(group_i = unique(stats_plot$group)) %do% {
   #browser()
-  p_risk <- stats_plot %>%
-    filter(metric == "risk" & group == group_i) %>%
+  stats_plot_i <- stats_plot %>%
+    filter(group == group_i)
+  title_i <- stats_plot_i$group[1]
+  file_i <- stats_plot_i$group_label[1]
+  risk_max <- stats_plot_i %>%
+    filter(metric == "risk") %>%
+    filter(val == max(val)) %>%
+    select(val) %>% unlist()
+  risk_max <- ifelse(risk_max <= 0.3, 0.3, NA)
+  p_risk <- stats_plot_i %>%
+    filter(metric == "risk") %>%
     ggplot() +
     geom_hline(yintercept = 0.05, colour = "red") +
     geom_col(data = . %>%
@@ -1201,8 +1224,8 @@ cols <- scales::hue_pal()(15)
                  fun = "mean", geom = "point", shape = 4, size = 1) +
     scale_fill_manual("", values = cols) +
     facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
-    labs(y = expression(max.~B[lim]~risk), title = group_plot_i) +
-    coord_cartesian(ylim = c(0, 0.3)) +
+    labs(y = expression(max.~B[lim]~risk), title = title_i) +
+    coord_cartesian(ylim = c(0, risk_max)) +
     theme_bw(base_size = 8) +
     theme(panel.spacing.x = unit(0, "lines"),
           axis.text.x = element_blank(),
@@ -1210,8 +1233,8 @@ cols <- scales::hue_pal()(15)
           axis.title.x = element_blank(),
           plot.title = element_text(hjust = 0.5))
   #p_risk
-  p_catch <- stats_plot %>%
-    filter(metric == "catch" & group == group_i) %>%
+  p_catch <- stats_plot_i %>%
+    filter(metric == "catch") %>%
     ggplot(aes(x = OM, y = val)) +
     geom_hline(yintercept = 1, colour = "grey") +
     geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
@@ -1232,8 +1255,8 @@ cols <- scales::hue_pal()(15)
           axis.ticks.x = element_blank(),
           strip.text.x = element_blank())
   #p_catch
-  p_ssb <- stats_plot %>%
-    filter(metric == "SSB" & group == group_i) %>%
+  p_ssb <- stats_plot_i %>%
+    filter(metric == "SSB") %>%
     ggplot(aes(x = OM, y = val)) +
     geom_hline(yintercept = 1, colour = "grey") +
     geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
@@ -1254,8 +1277,8 @@ cols <- scales::hue_pal()(15)
           axis.ticks.x = element_blank(),
           strip.text.x = element_blank())
   #p_ssb
-  p_icv <- stats_plot %>%
-    filter(metric == "ICV" & group == group_i) %>%
+  p_icv <- stats_plot_i %>%
+    filter(metric == "ICV") %>%
     ggplot(aes(x = OM, y = val)) +
     geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
                 position = position_dodge(width = 0.8), scale = "width") +
@@ -1277,11 +1300,11 @@ cols <- scales::hue_pal()(15)
   p <- p_risk / p_catch / p_ssb / p_icv
   #p
   ggsave(filename = paste0("output/plots/MP/refset_stats_",
-                           group_file_i, ".png"), 
+                           file_i, ".png"), 
          plot = p, width = 16, height = 10, units = "cm", dpi = 600, 
          type = "cairo", bg = "white")
   ggsave(filename = paste0("output/plots/MP/refset_stats_",
-                           group_file_i, ".pdf"), 
+                           file_i, ".pdf"), 
          plot = p, width = 16, height = 10, units = "cm", bg = "white")
 }
 
@@ -1290,24 +1313,28 @@ cols <- scales::hue_pal()(15)
 ### ------------------------------------------------------------------------ ###
 
 stats_plot_MP <- stats_plot %>%
-  mutate(MP_label = factor(group,
-                           levels = c("UK-FSP", "Q1SWBeam",
-                                      "UK-FSP (annual)", 
-                                      "UK-FSP (biennial)",
-                                      "Q1SWBeam (annual)", 
-                                      "Q1SWBeam (biennial)"),
-                           labels = c("UK-FSP", "Q1SWBeam",
-                                      "UK-FSP\n(annual)", 
-                                      "UK-FSP\n(biennial)",
-                                      "Q1SWBeam\n(annual)", 
-                                      "Q1SWBeam\n(biennial)")))
+  mutate(MP_label = paste0(index, " - ",
+                        case_when(v == 1 ~ "annual",
+                                  v == 2 ~ "biennial"),
+                        " - ",
+                        case_when(w == 1.4 ~ "x",
+                                  w != 1.4 ~ "x & w"),
+                        "\n", 
+                        case_when(optimum == "local" ~ "(local optimum)",
+                                  optimum == "global" ~ "(global optimum)"))) %>%
+  mutate(MP_label = factor(MP_label,
+                           levels = unique(MP_label))) %>%
+  mutate(period_label = factor(period, 
+                               levels = c("long-term", "short-term", "all"),
+                               labels = c("long term", "short term",
+                                          "all years")))
 
 p_risk <- stats_plot_MP %>%
   filter(metric == "risk" & OM == "Reference set\n(combined)") %>%
   ggplot() +
   geom_hline(yintercept = 0.05, colour = "red") +
   geom_col(data = . %>%
-             group_by(MP_label) %>%
+             group_by(MP_label, period_label) %>%
              summarise(val = max(val)),
            aes(x = MP_label, y = val), fill = "#F8766D",
            show.legend = FALSE, width = 0.8, colour = "black", size = 0.2,
@@ -1320,6 +1347,7 @@ p_risk <- stats_plot_MP %>%
   stat_summary(aes(x = MP_label, y = val),
                fun = "mean", geom = "point", shape = 4, size = 1) +
   scale_fill_manual("", values = cols) +
+  facet_wrap(~ period_label) +
   labs(y = expression(max.~B[lim]~risk)) +
   coord_cartesian(ylim = c(0, NA)) +
   theme_bw(base_size = 8) +
@@ -1339,6 +1367,7 @@ p_catch <- stats_plot_MP %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  facet_wrap(~ period_label) +
   labs(y = expression(Catch/MSY)) +
   coord_cartesian(ylim = c(0, 2.5)) +
   theme_bw(base_size = 8) +
@@ -1359,6 +1388,7 @@ p_ssb <- stats_plot_MP %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  facet_wrap(~ period_label) +
   labs(y = expression(SSB/B[MSY])) +
   coord_cartesian(ylim = c(0, 2.5)) +
   theme_bw(base_size = 8) +
@@ -1378,6 +1408,7 @@ p_icv <- stats_plot_MP %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  facet_wrap(~ period_label) +
   labs(y = "ICV") +
   coord_cartesian(ylim = c(0, 0.5)) +
   theme_bw(base_size = 8) +
@@ -1389,10 +1420,92 @@ p_icv <- stats_plot_MP %>%
 p <- p_risk / p_catch / p_ssb / p_icv
 p
 ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.png"), 
-       plot = p, width = 16, height = 10, units = "cm", dpi = 600, 
+       plot = p, width = 16, height = 13, units = "cm", dpi = 600, 
        type = "cairo", bg = "white")
 ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.pdf"), 
        plot = p, width = 16, height = 10, units = "cm", bg = "white")
+
+### ------------------------------------------------------------------------ ###
+### refset - x & w - wormplots ####
+### ------------------------------------------------------------------------ ###
+
+### get optimised solutions
+df_x <- readRDS("output/refset_x_runs_opt.rds")
+df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
+df_x_w <- bind_rows(
+  df_x %>% mutate(optimum = "global"), 
+  df_x_w)
+df_x_w <- df_x_w %>%
+  mutate(file = paste0(paste("mp", idxB_lag, idxB_range_3, exp_b, 
+                             comp_b_multiplier, interval, multiplier, 
+                             upper_constraint, lower_constraint, 
+                             sep = "_"),
+                       ".rds"))
+df_x_w <- df_x_w %>%
+  mutate(group = paste0(index, " - ",
+                        case_when(interval == 1 ~ "annual",
+                                  interval == 2 ~ "biennial"),
+                        " - ",
+                        case_when(comp_b_multiplier == 1.4 ~ "x",
+                                  comp_b_multiplier != 1.4 ~ "x & w"),
+                        case_when(optimum == "local" ~ " (local optimum)",
+                                  optimum == "global" ~ " (global optimum)"))) %>%
+  mutate(group_label = paste0(index, "_",
+                              case_when(interval == 1 ~ "annual",
+                                        interval == 2 ~ "biennial"),
+                              "_",
+                              case_when(comp_b_multiplier == 1.4 ~ "x",
+                                        comp_b_multiplier != 1.4 ~ "x_w"),
+                              "_", optimum))
+
+
+OMs <- c("refset", 
+         "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+         "M_low", "M_high", "M_Gislason", 
+         "R_no_AC", "R_higher", "R_lower", 
+         "R_failure", "overcatch", "undercatch", "Idx_higher")
+OMs_label <- c("Reference set (combined)", 
+               "Baseline", "Catch: no discards", "Catch: 100% discards", 
+               "Catch: no migration", 
+               "M: -50%", "M: +50%", "M: Gislason", 
+               "R: no AC", "R: +20%", "R: -20%", 
+               "R: failure", "Catch: +10%", "Catch: -20%", 
+               "Uncertainty: index +20%")
+
+. <- foreach(x = split(df_x_w, seq(nrow(df_x_w)))) %:%
+  foreach(OM = OMs[-1], OM_label = OMs_label[-1])  %do% {
+    #browser()
+    ### get projection
+    path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/", 
+                     ifelse(identical(x$index, "Q1SWBeam"),
+                            "multiplier_Q1SWBeam", "multiplier"),
+                     "/hr/")
+    mp_i <- readRDS(paste0(path_i, x$file))
+    stk <- mp_i@om@stock
+    
+    ### historical stock
+    input <- input_mp(OM = OM, n_yrs = 20, MP = "hr")
+    stk_hist <- input$om@stock
+    
+    ### get reference points
+    refpts <- input_refpts(OM = OM)
+    
+    ### plot
+    # p <- plot_worm(stk = stk, stk_hist = stk_hist, refpts = refpts,
+    #                title = paste0(MP_label, " - ", OM_label))
+    p <- plot_worm_distr(stk = stk, stk_hist = stk_hist, refpts = refpts,
+                         title = x$group)
+    
+    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
+                             "_", OM, ".png"),
+           plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
+           type = "cairo")
+    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
+                             "_", OM, ".pdf"), 
+           plot = p, width = 16, height = 7.5, units = "cm")
+    
+}
+
 
 ### ------------------------------------------------------------------------ ###
 ### rfb & SAM - violin plots - by OM ####
