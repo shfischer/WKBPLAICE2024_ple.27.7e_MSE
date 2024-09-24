@@ -1506,6 +1506,50 @@ OMs_label <- c("Reference set (combined)",
     
 }
 
+### plot refset
+OMs_refset <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+                "M_low", "M_high", "M_Gislason")
+OMs_refset_label <- c("Baseline", "Catch:\nno discards", 
+                      "Catch:\n100% discards", 
+                      "Catch:\nno migration", 
+                      "M: -50%", "M: +50%", "M: Gislason")
+. <- foreach(x = split(df_x_w, seq(nrow(df_x_w)))) %:%
+  foreach(OM = OMs[1], OM_label = OMs_label[1])  %do% {
+    #browser()
+    ### get projection
+    path_i <- paste0("output/ple.27.7e/", OMs_refset, "/1000_20/", 
+                     ifelse(identical(x$index, "Q1SWBeam"),
+                            "multiplier_Q1SWBeam", "multiplier"),
+                     "/hr/")
+    stk <- lapply(path_i, function(y) {
+      readRDS(paste0(y, x$file))@om@stock
+    })
+    
+    ### historical stock
+    stk_hist <- lapply(OMs_refset, function(y) {
+      input_mp(OM = y, n_yrs = 20, MP = "hr")$om@stock
+    })
+    
+    ### get reference points
+    refpts <- lapply(OMs_refset, function(y) {
+      input_refpts(OM = y)
+    })
+    
+    ### plot
+    p <- plot_worm_distr_mult(stk = stk, stk_hist = stk_hist, refpts = refpts,
+                              stk_labels = OMs_refset_label,
+                              title = paste0(x$group, " - ", OM_label))
+    
+    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
+                             "_", OM, ".png"),
+           plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
+           type = "cairo")
+    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
+                             "_", OM, ".pdf"), 
+           plot = p, width = 16, height = 7.5, units = "cm")
+    
+}
+
 
 ### ------------------------------------------------------------------------ ###
 ### rfb & SAM - violin plots - by OM ####
@@ -1768,23 +1812,11 @@ OMs_label <- c("Reference set (combined)",
              MP_label = c("rfb", "ICES MSY (with SAM)")) %:%
   foreach(OM = OMs[-1], OM_label = OMs_label[-1])  %do% {
   #browser()
-  ### refset OM - combine manually
-  if (identical(OM, "refset")) {
-    stks <- lapply(OMs_refset, function(OM_i) {
-      path_i <- paste0("output/ple.27.7e/", OM_i, "/1000_20/", MP, "/")
-      mp_i <- readRDS(paste0(path_i, "mp.rds"))
-      stk_i <- mp_i@om@stock
-      return(stk_i)
-    })
-    stk <- Reduce(FLCore::combine, stks)
-    
-  } else {
-    ### get projection
-    path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/", MP, "/")
-    mp_i <- readRDS(paste0(path_i, "mp.rds"))
-    stk <- mp_i@om@stock
-  }
-            
+  ### get projection
+  path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/", MP, "/")
+  mp_i <- readRDS(paste0(path_i, "mp.rds"))
+  stk <- mp_i@om@stock
+  
   ### historical stock
   input <- input_mp(OM = OM, n_yrs = 20, MP = "hr")
   stk_hist <- input$om@stock
@@ -1806,6 +1838,45 @@ OMs_label <- c("Reference set (combined)",
 
 }
 
+### plot refset
+OMs_refset <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+                "M_low", "M_high", "M_Gislason")
+OMs_refset_label <- c("Baseline", "Catch:\nno discards", 
+                      "Catch:\n100% discards", 
+                      "Catch:\nno migration", 
+                      "M: -50%", "M: +50%", "M: Gislason")
+. <- foreach(MP = c("rfb", "ICES_SAM"), 
+             MP_label = c("rfb", "ICES MSY (with SAM)")) %:%
+  foreach(OM = OMs[1], OM_label = OMs_label[1])  %do% {
+    #browser()
+    ### get projection
+    path_i <- paste0("output/ple.27.7e/", OMs_refset, "/1000_20/", MP, "/")
+    stk <- lapply(path_i, function(y) {
+      readRDS(paste0(y, "mp.rds"))@om@stock
+    })
+    
+    ### historical stock
+    stk_hist <- lapply(OMs_refset, function(y) {
+      input_mp(OM = y, n_yrs = 20, MP = "hr")$om@stock
+    })
+    
+    ### get reference points
+    refpts <- lapply(OMs_refset, function(y) {
+      input_refpts(OM = y)
+    })
+    
+    ### plot
+    p <- plot_worm_distr_mult(stk = stk, stk_hist = stk_hist, refpts = refpts,
+                              stk_labels = OMs_refset_label,
+                              title = paste0(MP_label, " - ", OM_label))
+    
+    ggsave(filename = paste0("output/plots/wormplots/", MP, "_", OM, ".png"),
+           plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
+           type = "cairo")
+    ggsave(filename = paste0("output/plots/wormplots/", MP, "_", OM, ".pdf"), 
+           plot = p, width = 16, height = 7.5, units = "cm")
+    
+}
 
 
 
