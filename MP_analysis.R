@@ -735,7 +735,7 @@ for (i in split(df_baseline, f = seq(nrow(df_baseline)))) {#browser()
   path_OM <- paste0("input/ple.27.7e/baseline/1000_100/")
   stk_hist <- readRDS(paste0(path_OM, "stk.rds"))
   refpts <- readRDS(paste0(path_OM, "refpts_mse.rds"))
-  p <- plot_worm(stk = stk_res, stk_hist = stk_hist, refpts = refpts)
+  p <- plot_worm_distr(stk = stk_res, stk_hist = stk_hist, refpts = refpts)
   ggsave(filename = paste0("output/plots/wormplots/baseline_", i$optimisation, 
                            ".png"), plot = p, 
          width = 16, height = 7, units = "cm", dpi = 600, type = "cairo")
