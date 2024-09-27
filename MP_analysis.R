@@ -408,11 +408,17 @@ df_optima <- df_runs %>%
   group_by(group) %>%
   filter(X11.20_risk_Blim_max <= 0.05) %>%
   filter(X11.20_Catch_rel == max(X11.20_Catch_rel))
+### number and sort
+df_optima$MP <- c(1, 6)
+df_optima <- df_optima %>%
+  arrange(MP) %>%
+  relocate(MP)
 
 ### save results
 saveRDS(df_runs, file = "output/refset_x_runs.rds")
 saveRDS(df_optima, file = "output/refset_x_runs_opt.rds")
 write.csv(df_optima, "output/refset_x_runs_opt.csv", row.names = FALSE)
+# df_optima <- readRDS("output/refset_x_runs_opt.rds")
 
 ### plot
 df_runs_plot <- df_runs %>%
@@ -935,8 +941,16 @@ df_optima <- bind_rows(
 ) %>%
   mutate(optimum = factor(optimum, levels = c("local", "global")))
 
+### number the MPs
+df_optima$MP <- c(7, 9, 2, 4, 8, 10, 3, 5)
+df_optima <- df_optima %>%
+  arrange(MP) %>%
+  relocate(MP)
+
+
 ### save results
 saveRDS(df_runs, file = "output/refset_x_w_grid.rds")
+# df_runs <- readRDS("output/refset_x_w_grid.rds")
 saveRDS(df_optima, file = "output/refset_x_w_grid_opt.rds")
 write.csv(df_optima, "output/refset_x_w_grid_opt.csv", row.names = FALSE)
 
@@ -1053,13 +1067,13 @@ df_x_w <- bind_rows(
   df_x_w)
 df_smry <- df_x_w %>%
   ungroup() %>%
-  select(index, optimum, 
+  select(MP, index, optimum, 
          n1 = idxB_range_3, v = interval, x = multiplier,
          w = comp_b_multiplier,
          risk = X11.20_risk_Blim_max,
          catch = X11.20_Catch_rel,
-         ssb = X11.20_SSB_rel)
-df_smry <- df_smry[c(1:2, 5:6, 3:4, 9:10, 7:8), ]
+         ssb = X11.20_SSB_rel) %>%
+  arrange(MP)
 df_smry
 write.csv(df_smry, file = "output/refset_x_w_smry.csv", row.names = FALSE)
 saveRDS(df_smry, file = "output/refset_x_w_smry.rds")
@@ -1079,7 +1093,8 @@ df_x_w <- df_x_w %>%
                              comp_b_multiplier, interval, multiplier, 
                              upper_constraint, lower_constraint, 
                              sep = "_"),
-                       ".rds"))
+                       ".rds")) %>%
+  arrange(MP)
 ### list of all operating models
 OMs <- c("refset", 
          "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
@@ -1142,7 +1157,9 @@ stats <- foreach(i = split(df_x_w, f = seq(nrow(df_x_w))),
              group = i$group,
              OM = OM, OM_group = OM_group,
              optimum = i$optimum,
-             period = period)
+             period = period,
+             MP = i$MP) %>%
+      relocate(MP)
     return(df)
 }
 saveRDS(stats, file = "output/refset_stats.rds")
@@ -1157,7 +1174,7 @@ stats_plot <- stats %>%
                            labels = c("", 
                                       rep("Reference set", 7), 
                                       rep("Robustness set", 7)))) %>%
-  mutate(group = paste0(index, " - ",
+  mutate(group = paste0("MP", MP, " - ", index, " - ",
                         case_when(v == 1 ~ "annual",
                                   v == 2 ~ "biennial"),
                         " - ",
@@ -1313,7 +1330,7 @@ cols <- scales::hue_pal()(15)
 ### ------------------------------------------------------------------------ ###
 
 stats_plot_MP <- stats_plot %>%
-  mutate(MP_label = paste0(index, " - ",
+  mutate(MP_label = paste0("MP", MP, " - ", index, " - ",
                         case_when(v == 1 ~ "annual",
                                   v == 2 ~ "biennial"),
                         " - ",
@@ -1323,7 +1340,7 @@ stats_plot_MP <- stats_plot %>%
                         case_when(optimum == "local" ~ "(local optimum)",
                                   optimum == "global" ~ "(global optimum)"))) %>%
   mutate(MP_label = factor(MP_label,
-    levels = unique(MP_label)[c(1, 5, 9, 6, 10, 2, 3, 7, 4, 8)])) %>%
+    levels = sort(unique(MP_label))[c(1, 3:10, 2)])) %>%
   mutate(period_label = factor(period, 
                                levels = c("long-term", "short-term", "all"),
                                labels = c("long term", "short term",
@@ -1494,7 +1511,8 @@ OMs_label <- c("Reference set (combined)",
     # p <- plot_worm(stk = stk, stk_hist = stk_hist, refpts = refpts,
     #                title = paste0(MP_label, " - ", OM_label))
     p <- plot_worm_distr(stk = stk, stk_hist = stk_hist, refpts = refpts,
-                         title = paste0(x$group, " - ", OM_label))
+                         title = paste0("MP", x$MP, " - ", x$group, " - ",
+                                        OM_label))
     
     ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
                              "_", OM, ".png"),
@@ -1538,7 +1556,8 @@ OMs_refset_label <- c("Baseline", "Catch:\nno discards",
     ### plot
     p <- plot_worm_distr_mult(stk = stk, stk_hist = stk_hist, refpts = refpts,
                               stk_labels = OMs_refset_label,
-                              title = paste0(x$group, " - ", OM_label))
+                              title = paste0("MP", x$MP, " - ", x$group, " - ",
+                                             OM_label))
     
     ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
                              "_", OM, ".png"),
