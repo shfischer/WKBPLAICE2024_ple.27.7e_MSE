@@ -1898,4 +1898,76 @@ OMs_refset_label <- c("Baseline", "Catch:\nno discards",
 }
 
 
+### ------------------------------------------------------------------------ ###
+### refset - x & w - sensitivity to index uncertainty ####
+### ------------------------------------------------------------------------ ###
 
+### get optimised solutions
+### get optimised solutions
+df_x <- readRDS("output/refset_x_runs_opt.rds")
+df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
+df_x_w <- bind_rows(
+  df_x %>% mutate(optimum = "global"), 
+  df_x_w)
+df_x_w <- df_x_w %>%
+  mutate(file = paste0(paste(idxB_lag, idxB_range_3, exp_b, 
+                             comp_b_multiplier, interval, multiplier, 
+                             upper_constraint, lower_constraint, 
+                             sep = "_")))
+runs_idx <- foreach(df_i = split(df_x_w, f = seq(nrow(df_x_w))),
+                    .combine = bind_rows) %do% {
+  # browser()
+  path <- "output/ple.27.7e/refset/1000_20/sensitivity_idx/hr/"
+  runs_i <- readRDS(paste0(path, "runs_", df_i$file, "_0-2_",
+                           df_i$index, ".rds"))
+  runs_i <- runs_i %>%
+    mutate(MP = df_i$MP) %>%
+    relocate(MP, idx_unc)
+  
+  return(runs_i)
+  
+}
+saveRDS(runs_idx, 
+        file = "output/ple.27.7e/refset/1000_20/sensitivity_idx/hr/runs.rds")
+
+### plot
+df_plot <- runs_idx %>%
+  select(MP, idx_unc, risk = `11:20_risk_Blim_max`,
+         SSB = `11:20_SSB_rel`, catch = `11:20_Catch_rel`) %>%
+  pivot_longer(-1:-2) %>%
+  mutate(MP_label = factor(MP, levels = 1:10,
+                           labels = paste0("MP", 1:10)),
+         name = factor(name, levels = c("risk", "catch", "SSB"),
+                       labels = c("max.~B[lim]~risk", "Catch/MSY", 
+                                  "SSB/B[MSY]"
+                                  )))
+df_risk <- data.frame(value = 0.05,
+                      name = "max.~B[lim]~risk") %>%
+  mutate(name = factor(name, levels = c("max.~B[lim]~risk", "Catch/MSY", 
+                                        "SSB/B[MSY]"
+  )))
+
+p <- df_plot %>%
+  ggplot(aes(x = idx_unc, y = value)) +
+  geom_vline(xintercept = 1, linewidth = 0.3, colour = "black") +
+  geom_hline(data = df_risk,
+             aes(yintercept = value),
+             colour = "red", linewidth = 0.3) +
+  geom_point(size = 0.1) + 
+  geom_smooth(span = 0.4, linewidth = 0.3) +
+  facet_grid(name ~ MP_label, scales = "free_y", switch = "y", 
+             labeller = label_parsed) + 
+  labs(x = "Index uncertainty multiplier") +
+  scale_x_continuous(breaks = c(0, 1, 2)) +
+  ylim(c(0, NA)) + 
+  theme_bw(base_size = 8) +
+  theme(axis.title.y = element_blank(),
+        strip.placement = "outside",
+        strip.background.y = element_blank(),
+        strip.text.y = element_text(size = 8))
+p
+ggsave(filename = paste0("output/plots/MP/refset_idx_unc.png"),
+       plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
+       type = "cairo")
+ggsave(filename = paste0("output/plots/MP/refset_idx_unc.pdf"), 
+       plot = p, width = 16, height = 7.5, units = "cm")
