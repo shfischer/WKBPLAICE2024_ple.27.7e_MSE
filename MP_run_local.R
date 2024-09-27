@@ -221,7 +221,7 @@ OMs <- c("refset", "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none",
     print(paste0("OM=", OM, ", index = ", x$index))
     
     if (identical(OM, "refset")) {
-      n_blocks <- 14; n_workers <- 14; mp_parallel <- TRUE
+      n_blocks <- 10; n_workers <- 10; mp_parallel <- TRUE
     } else {
       n_blocks <- 1; n_workers <- 1; mp_parallel <- FALSE
     }

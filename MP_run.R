@@ -451,27 +451,13 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
                      n_iter, "_", n_yrs, "/", scenario, "/", MP, "/")
   dir.create(path_out, recursive = TRUE)
   
-  if (identical(MP, "constF")) {
-    if (identical(Ftrgt, "MSY")) {
-      input$ctrl$hcr@args$ftrg <- median(c(refpts["Fmsy"]))
-    } else {
-      input$ctrl$hcr@args$ftrg <- Ftrgt
-    }
-    res_mp <- do.call(mp, input)
-    file_name <- paste0("mp_", Ftrgt)
-    if (isTRUE(save_MP))
-      saveRDS(res_mp, paste0(path_out, file_name, ".rds"))
-    stats <- mp_stats(input = input, res_mp = res_mp, refpts = refpts, 
-                      stat_yrs = stat_yrs)
-    saveRDS(stats, paste0(path_out, "stats", ".rds"))
-    
-  } else if (identical(MP, "hr")) {
+  if (identical(MP, "hr")) {
     ### MP parameters
     pars_names <- c("idxB_lag", "idxB_range_3", "exp_b", "comp_b_multiplier",
                     "interval", "multiplier",
                     "upper_constraint", "lower_constraint")
     pars <- mget(pars_names, 
-                    ifnotfound = c(1, 1, 1, 1.4, 1, 1, 1.2, 0.7))
+                 ifnotfound = c(1, 1, 1, 1.4, 1, 1, 1.2, 0.7))
     pars <- expand.grid(pars)
     ### additional parameters
     pars_more_names <- c("idx_unc")
@@ -480,7 +466,7 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
                              stringsAsFactors = FALSE)
     
     res_stats <- foreach(mp_pars_i = split(pars, f = seq(nrow(pars))), 
-                 .combine = bind_rows) %:%
+                         .combine = bind_rows) %:%
       foreach(pars_more_i = split(pars_more, f = seq(nrow(pars_more))),
               .combine = bind_rows) %do% {
         #browser()
@@ -519,6 +505,24 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
     }), collapse = "_")
     saveRDS(res_stats, file = paste0(path_out, "runs_", file, ".rds"))
     
+    
+  } else {
+  
+    if (identical(MP, "constF")) {
+      if (identical(Ftrgt, "MSY")) {
+        input$ctrl$hcr@args$ftrg <- median(c(refpts["Fmsy"]))
+      } else {
+        input$ctrl$hcr@args$ftrg <- Ftrgt
+      }
+    }
+    
+    res_mp <- do.call(mp, input)
+    file_name <- paste0("mp_", Ftrgt)
+    if (isTRUE(save_MP))
+      saveRDS(res_mp, paste0(path_out, file_name, ".rds"))
+    stats <- mp_stats(input = input, res_mp = res_mp, refpts = refpts, 
+                      stat_yrs = stat_yrs)
+    saveRDS(stats, paste0(path_out, "stats", ".rds"))
     
   }
   
