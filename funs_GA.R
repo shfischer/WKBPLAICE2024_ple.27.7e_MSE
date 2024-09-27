@@ -391,3 +391,67 @@ mp_postFitness <- function(x, path, check_file, MP, summarise_runs = FALSE,
   return(x)
   
 }
+
+### ------------------------------------------------------------------------ ###
+### insert MP parameters into input  ####
+### ------------------------------------------------------------------------ ###
+mp_pars <- function(params, 
+                    params_names, 
+                    input, MP, 
+                    rounding = Inf ### digits for rounding (default: none)
+                    ) {
+  
+  ### rounding of arguments
+  if (!missing(params_names)) 
+    names(params) <- params_names
+  if (!missing(rounding)) 
+    params <- round(params, rounding)
+  
+  ### fix NaN for upper_constraint
+  if (!missing(params_names)) {
+    if (isTRUE("upper_constraint" %in% params_names)) {
+      if (is.nan(params[names(params) == "upper_constraint"]))
+        params[names(params) == "upper_constraint"] <- Inf
+    }
+  }
+
+  ### insert arguments into input object for mp
+  if (identical(MP, "rfb")) {
+    
+    input$ctrl$est@args$idxB_lag          <- params[1]
+    input$ctrl$est@args$idxB_range_1      <- params[2]
+    input$ctrl$est@args$idxB_range_2      <- params[3]
+    input$ctrl$est@args$catch_range       <- params[4]
+    input$ctrl$est@args$comp_m            <- params[9]
+    input$ctrl$phcr@args$exp_r            <- params[5]
+    input$ctrl$phcr@args$exp_f            <- params[6]
+    input$ctrl$phcr@args$exp_b            <- params[7]
+    input$ctrl$hcr@args$interval          <- params[8]
+    input$ctrl$isys@args$interval         <- params[8]
+    input$ctrl$isys@args$upper_constraint <- params[10]
+    input$ctrl$isys@args$lower_constraint <- params[11]
+    
+  } else if (identical(MP, "hr")) {
+    
+    ### biomass index 
+    input$ctrl$est@args$idxB_lag <- params[1]
+    input$ctrl$est@args$idxB_range_3 <- params[2]
+    ### biomass safeguard
+    input$ctrl$phcr@args$exp_b <- params[3]
+    ### change Itrigger? (default: Itrigger=1.4*Iloss)
+    input$ctrl$est@args$comp_b_multiplier <- params[4]
+    ### multiplier
+    input$ctrl$est@args$comp_m <- params[6]
+    ### catch interval (default: 1)
+    if (is.numeric(params[5])) {
+      input$ctrl$hcr@args$interval <- params[5]
+      input$ctrl$isys@args$interval <- params[5]
+    }
+    ### catch constraint
+    input$ctrl$isys@args$upper_constraint <- params[7]
+    input$ctrl$isys@args$lower_constraint <- params[8]
+  }
+  
+  return(input)
+  
+}

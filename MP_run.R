@@ -35,7 +35,8 @@ if (length(args) > 0) {
   ### scenario definition
   if (!exists("scenario")) scenario <- "multiplier"
   if (!exists("Ftrgt")) Ftrgt <- "MSY" # only for constF MP
-  if (!exists("biomass_index")) biomass_index <- NULL ### which biomass index?
+  if (!exists("biomass_index")) biomass_index <- "UK-FSP" ### which biomass index?
+  if (!exists("idx_unc")) idx_unc <- 1 ### increase survey uncertainty?
   # if (!exists("rec_failure")) rec_failure <- FALSE
   # if (!exists("overcatch")) overcatch <- FALSE
   # if (!exists("oem_catch_bias")) oem_catch_bias <- FALSE
@@ -445,41 +446,81 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
 ### ------------------------------------------------------------------------ ###
 } else {
   
+  ### output path
+  path_out <- paste0("output/", stock_id, "/", OM, "/",
+                     n_iter, "_", n_yrs, "/", scenario, "/", MP, "/")
+  dir.create(path_out, recursive = TRUE)
+  
   if (identical(MP, "constF")) {
     if (identical(Ftrgt, "MSY")) {
       input$ctrl$hcr@args$ftrg <- median(c(refpts["Fmsy"]))
     } else {
       input$ctrl$hcr@args$ftrg <- Ftrgt
     }
+    res_mp <- do.call(mp, input)
+    file_name <- paste0("mp_", Ftrgt)
+    if (isTRUE(save_MP))
+      saveRDS(res_mp, paste0(path_out, file_name, ".rds"))
+    stats <- mp_stats(input = input, res_mp = res_mp, refpts = refpts, 
+                      stat_yrs = stat_yrs)
+    saveRDS(stats, paste0(path_out, "stats", ".rds"))
+    
+  } else if (identical(MP, "hr")) {
+    ### MP parameters
+    pars_names <- c("idxB_lag", "idxB_range_3", "exp_b", "comp_b_multiplier",
+                    "interval", "multiplier",
+                    "upper_constraint", "lower_constraint")
+    pars <- mget(pars_names, 
+                    ifnotfound = c(1, 1, 1, 1.4, 1, 1, 1.2, 0.7))
+    pars <- expand.grid(pars)
+    ### additional parameters
+    pars_more_names <- c("idx_unc")
+    pars_more <- expand.grid(idx_unc = idx_unc,
+                             biomass_index = biomass_index,
+                             stringsAsFactors = FALSE)
+    
+    res_stats <- foreach(mp_pars_i = split(pars, f = seq(nrow(pars))), 
+                 .combine = bind_rows) %:%
+      foreach(pars_more_i = split(pars_more, f = seq(nrow(pars_more))),
+              .combine = bind_rows) %do% {
+        #browser()
+        ### create input
+        input_i <- input_mp(stock_id = stock_id, OM = OM, n_iter = n_iter,
+                            n_yrs = n_yrs, yr_start = yr_start, 
+                            n_blocks = n_blocks, MP = MP, 
+                            biomass_index = pars_more_i$biomass_index,
+                            idx_unc = pars_more_i$idx_unc)
+        ### insert MP parameters
+        input_i = mp_pars(params = unlist(mp_pars_i), 
+                          params_names = pars_names, 
+                          input = input_i, MP = MP)
+        ### run MP
+        res_i <- do.call(mp, input_i)
+        if (isTRUE(save_MP))
+          saveRDS(res_i, paste0(path_out, "mp_", 
+                                paste0(mp_pars_i, collapse = "_"), "-",
+                                paste0(pars_more_i, collapse = "_"),
+                                ".rds"))
+        ### calculate stats
+        stats <- mp_stats(input = input_i, res_mp = res_i, stat_yrs = stat_yrs,
+                          refpts = refpts,
+                          collapse_correction = TRUE)
+        saveRDS(stats, paste0(path_out, 
+                              paste0(mp_pars_i, collapse = "_"), "-",
+                              paste0(pars_more_i, collapse = "_"),
+                              ".rds"))
+        ### return stats
+        return(bind_cols(mp_pars_i, pars_more_i, stats))
+    }
+    
+    file <- paste0(sapply(as.list(bind_cols(pars, pars_more)), function(x) {
+      ifelse(identical(length(unique(x)), 1L),
+             unique(x), paste0(min(x), "-", max(x)))
+    }), collapse = "_")
+    saveRDS(res_stats, file = paste0(path_out, "runs_", file, ".rds"))
+    
+    
   }
-  
-  ### output path
-  path_out <- paste0("output/", stock_id, "/", paste0(OM, collapse = "-"), "/",
-                     n_iter, "_", n_yrs, "/", scenario, "/", MP, "/")
-  dir.create(path_out, recursive = TRUE)
-  
-  ### run MSE
-  registerDoRNG(123)
-  set.seed(1)
-  
-  res_mp <- do.call(mp, input)
-  
-  file_name <- "mp"
-  if (isTRUE(MP == "hr")) {
-    idx_quant <- i
-    file_name <- paste0("int-", input$ctrl$hcr@args$interval, "_",
-                        "mult-", input$ctrl$phcr@args$rate, "_",
-                        file_name)
-  } else if (identical(MP, "constF")) {
-    file_name <- paste0(file_name, "_", Ftrgt)
-  }
-  if (isTRUE(save_MP))
-    saveRDS(res_mp, paste0(path_out, file_name, ".rds"))
-  
-  ### stats
-  stats <- mp_stats(input = input, res_mp = res_mp, refpts = refpts, 
-                    stat_yrs = stat_yrs)
-  saveRDS(stats, paste0(path_out, "stats", ".rds"))
   
 }
 

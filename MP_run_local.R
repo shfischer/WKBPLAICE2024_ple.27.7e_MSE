@@ -200,4 +200,51 @@ OMs <- c("refset", "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none",
     if (isTRUE(is(cl, "cluster"))) stopCluster(cl)
 }
 
+### ------------------------------------------------------------------------ ###
+### sensitivity - index uncertainty ####
+### ------------------------------------------------------------------------ ###
+
+df_x <- readRDS("output/refset_x_runs_opt.rds")
+df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
+df_x_w <- bind_rows(
+  df_x %>% mutate(optimum = "global"), 
+  df_x_w)
+
+OMs <- c("refset", "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+         "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", 
+         "R_failure", "overcatch", "undercatch", "Idx_higher")
+
+. <- foreach(x = split(df_x_w, f = seq(nrow(df_x_w)))) %:% 
+  foreach(OM = OMs[1]) %do% {
+    #browser()
+    print(x)
+    print(paste0("OM=", OM, ", index = ", x$index))
+    
+    if (identical(OM, "refset")) {
+      n_blocks <- 14; n_workers <- 14; mp_parallel <- TRUE
+    } else {
+      n_blocks <- 1; n_workers <- 1; mp_parallel <- FALSE
+    }
+    
+    ### chr params
+    idxB_lag <- x$idxB_lag
+    idxB_range_3 <- x$idxB_range_3
+    exp_b <- x$exp_b
+    comp_b_multiplier <- x$comp_b_multiplier
+    interval <- x$interval
+    multiplier <- x$multiplier
+    upper_constraint <- x$upper_constraint
+    lower_constraint <- x$lower_constraint
+    biomass_index <- x$index
+    
+    OM <- OM
+    scenario <- "sensitivity_idx"
+    
+    idx_unc <- seq(0, 2, 0.1)
+    
+    args_local <- c("ga_search=FALSE")
+    source("MP_run.R")
+    
+    if (isTRUE(is(cl, "cluster"))) stopCluster(cl)
+}
 
