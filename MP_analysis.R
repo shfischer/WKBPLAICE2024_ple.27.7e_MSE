@@ -1569,6 +1569,78 @@ OMs_refset_label <- c("Baseline", "Catch:\nno discards",
     
 }
 
+### ------------------------------------------------------------------------ ###
+### refset - x & w - proportion below Itrigger ####
+### ------------------------------------------------------------------------ ###
+### get optimised solutions
+df_x <- readRDS("output/refset_x_runs_opt.rds")
+df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
+df_x_w <- bind_rows(
+  df_x %>% mutate(optimum = "global"), 
+  df_x_w)
+df_x_w <- df_x_w %>%
+  mutate(file = paste0(paste("mp", idxB_lag, idxB_range_3, exp_b, 
+                             comp_b_multiplier, interval, multiplier, 
+                             upper_constraint, lower_constraint, 
+                             sep = "_"),
+                       ".rds"))
+df_x_w <- df_x_w %>%
+  mutate(group = paste0(index, " - ",
+                        case_when(interval == 1 ~ "annual",
+                                  interval == 2 ~ "biennial"),
+                        " - ",
+                        case_when(comp_b_multiplier == 1.4 ~ "x",
+                                  comp_b_multiplier != 1.4 ~ "x & w"),
+                        case_when(optimum == "local" ~ " (local optimum)",
+                                  optimum == "global" ~ " (global optimum)"))) %>%
+  mutate(group_label = paste0(index, "_",
+                              case_when(interval == 1 ~ "annual",
+                                        interval == 2 ~ "biennial"),
+                              "_",
+                              case_when(comp_b_multiplier == 1.4 ~ "x",
+                                        comp_b_multiplier != 1.4 ~ "x_w"),
+                              "_", optimum))
+
+res_b <- foreach(x = split(df_x_w, seq(nrow(df_x_w))),
+                 .combine = bind_rows) %:%
+  foreach(OM = "refset", OM_label = "Reference set (combined)",
+          .combine = bind_rows)  %do% {
+    #browser()
+    ### get projection
+    path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/", 
+                     ifelse(identical(x$index, "Q1SWBeam"),
+                            "multiplier_Q1SWBeam", "multiplier"),
+                     "/hr/")
+    tracking <- readRDS(paste0(path_i, x$file))@tracking[[1]]
+    
+    b_tmp <- tracking["comp_b", ]
+    b_tmp <- iterMeans(b_tmp)
+    df_tmp <- as.data.frame(b_tmp) %>%
+      select(year, b = data) %>%
+      mutate(MP = x$MP)
+    
+    return(df_tmp)
+    
+}
+
+p <- res_b %>%
+  mutate(prop = 1 - b) %>%
+  mutate(MP_label = paste0("MP", MP)) %>%
+  mutate(MP_label = factor(MP_label,
+                           levels = paste0("MP", 1:10))) %>%
+  ggplot(aes(x = year, y = prop)) +
+  geom_line() +
+  facet_wrap(~ MP_label, nrow = 2) +
+  labs(x = "Year", y = expression("Proportion below "*I[trigger])) +
+  coord_cartesian(xlim = c(2024.5, NA), ylim = c(-0.01, 0.5), expand = FALSE) +
+  theme_bw(base_size = 8)
+p
+
+ggsave(filename = paste0("output/plots/MP/refset_prop_b.png"),
+       plot = p, width = 16, height = 6, units = "cm", dpi = 600, 
+       type = "cairo")
+ggsave(filename = paste0("output/plots/MP/refset_prop_b.pdf"), 
+       plot = p, width = 16, height = 6, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
 ### rfb & SAM - violin plots - by OM ####
