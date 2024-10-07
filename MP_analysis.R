@@ -1971,3 +1971,31 @@ ggsave(filename = paste0("output/plots/MP/refset_idx_unc.png"),
        type = "cairo")
 ggsave(filename = paste0("output/plots/MP/refset_idx_unc.pdf"), 
        plot = p, width = 16, height = 7.5, units = "cm")
+
+
+### ------------------------------------------------------------------------ ###
+### HR hockey-stick principle visualisation ####
+### ------------------------------------------------------------------------ ###
+
+data.frame(x = c(0, 1, 2),
+           y = c(0, 1, 1)) %>%
+  ggplot(aes(x = x, y = y)) +
+  geom_line() +
+  scale_x_continuous("Biomass index I", expand = c(0, 0),
+                     breaks = c(0, 1), 
+                     labels = c(0, expression(italic(I)[trigger]))) +
+  scale_y_continuous("Harvest rate", limits = c(0, 1.2), expand = c(0, 0),
+                     breaks = c(0, 1), 
+                     labels = c(0, expression(italic(H)))) +
+  annotate(geom = "segment", x = 1, xend = 1, y = 0, yend = 1,
+           linetype = "dotted") +
+  annotate(geom = "segment", x = 0, xend = 1, y = 1, yend = 1,
+           linetype = "dotted") +
+  theme_classic()
+ggsave(filename = "output/plots/HR_principle.png",
+       width = 8.5, height = 5, units = "cm", dpi = 600,
+       type = "cairo")
+ggsave(filename = "output/plots/HR_principle.pdf",
+       width = 8.5, height = 5, units = "cm")
+
+
