@@ -687,7 +687,7 @@ p <- df_runs %>%
   geom_vline(data = df_runs_opt,
              aes(xintercept = multiplier),
              linewidth = 0.3, linetype = "1111") +
-  facet_grid(paste0("Index years (n0): ", idxB_range_3) ~ 
+  facet_grid(paste0("Index years (n1): ", idxB_range_3) ~ 
                paste0("Advice interval (v): ", interval)) + 
   labs(x = "Multiplier (x)", y = expression(I[trigger]~multiplier~"(w)")) +
   coord_cartesian(expand = FALSE) +
@@ -783,15 +783,15 @@ baseline_stats <- baseline_stats %>%
   mutate(
     MP_label = factor(optimisation,
                       levels = c("v=1_n1=1_w=1.4_x",
-                                 "v=1_n1=1_x_w",
+                                 "v=1_n1=1_x_w",   
+                                 "v=1_n1=2_x_w",
                                  "v=2_n1=1_x_w",
-                                 "v=2_n1=2_x_w",   
-                                 "v=1_n1=2_x_w"),
+                                 "v=2_n1=2_x_w"),
                       labels = c("x\n(v=1, n1=1, w=1.4)", 
                                  "x & w\n(v=1, n1=1)",
+                                 "x & w\n(v=1, n1=2)",
                                  "x & w\n(v=2, n1=1)",
-                                 "x & w\n(v=2, n1=2)",
-                                 "x & w\n(v=1, n1=2)")))
+                                 "x & w\n(v=2, n1=2)")))
 saveRDS(baseline_stats, file = "output/baseline_stats.rds")
 # baseline_stats <- readRDS("output/baseline_stats.rds")
 
@@ -799,7 +799,6 @@ saveRDS(baseline_stats, file = "output/baseline_stats.rds")
 p_risk <- baseline_stats %>%
   filter(metric == "risk") %>%
   ggplot() +
-  geom_hline(yintercept = 0.05, colour = "red") +
   geom_col(data = baseline_stats %>%
              filter(metric == "risk") %>%
              group_by(MP_label) %>%
@@ -812,6 +811,7 @@ p_risk <- baseline_stats %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  geom_hline(yintercept = 0.05, colour = "red", size = 0.4, linetype = "1111") +
   stat_summary(aes(x = MP_label, y = val),
                fun = "mean", geom = "point", shape = 4, size = 1) +
   scale_fill_brewer(name = "", palette = "Dark2") +
@@ -824,7 +824,6 @@ p_risk <- baseline_stats %>%
 p_catch <- baseline_stats %>%
   filter(metric == "catch") %>%
   ggplot(aes(x = MP_label, y = val)) +
-  geom_hline(yintercept = 1, colour = "grey") +
   geom_violin(aes(fill = MP_label), size = 0.2, show.legend = FALSE,
               position = position_dodge(width = 0.8), scale = "width") +
   geom_boxplot(aes(group = MP_label), 
@@ -832,6 +831,8 @@ p_catch <- baseline_stats %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  geom_hline(yintercept = 1, colour = "#ebebeb", size = 0.4, 
+             linetype = "dotted") +
   scale_fill_brewer(name = "", palette = "Dark2") +
   labs(y = expression(Catch/MSY)) +
   coord_cartesian(ylim = c(0, 2.5)) +
@@ -843,7 +844,6 @@ p_catch <- baseline_stats %>%
 p_ssb <- baseline_stats %>%
   filter(metric == "SSB") %>%
   ggplot(aes(x = MP_label, y = val)) +
-  geom_hline(yintercept = 1, colour = "grey") +
   geom_violin(aes(fill = MP_label), size = 0.2, show.legend = FALSE,
               position = position_dodge(width = 0.8), scale = "width") +
   geom_boxplot(aes(group = MP_label), 
@@ -851,6 +851,8 @@ p_ssb <- baseline_stats %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  geom_hline(yintercept = 1, colour = "#ebebeb", size = 0.4, 
+             linetype = "dotted") +
   scale_fill_brewer(name = "", palette = "Dark2") +
   labs(y = expression(SSB/B[MSY])) +
   coord_cartesian(ylim = c(0, 2.5)) +
@@ -862,7 +864,6 @@ p_ssb <- baseline_stats %>%
 p_icv <- baseline_stats %>%
   filter(metric == "ICV") %>%
   ggplot(aes(x = MP_label, y = val)) +
-  geom_hline(yintercept = 1, colour = "grey") +
   geom_violin(aes(fill = MP_label), size = 0.2, show.legend = FALSE,
               position = position_dodge(width = 0.8), scale = "width") +
   geom_boxplot(aes(group = MP_label), 
@@ -870,6 +871,8 @@ p_icv <- baseline_stats %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  geom_hline(yintercept = 1, colour = "#ebebeb", size = 0.4, 
+             linetype = "dotted") +
   scale_fill_brewer(name = "", palette = "Dark2") +
   labs(y = "ICV") +
   coord_cartesian(ylim = c(0, 1)) +
@@ -1072,7 +1075,8 @@ df_smry <- df_x_w %>%
          w = comp_b_multiplier,
          risk = X11.20_risk_Blim_max,
          catch = X11.20_Catch_rel,
-         ssb = X11.20_SSB_rel) %>%
+         ssb = X11.20_SSB_rel,
+         icv = X11.20_ICV) %>%
   arrange(MP)
 df_smry
 write.csv(df_smry, file = "output/refset_x_w_smry.csv", row.names = FALSE)
@@ -1225,7 +1229,6 @@ cols <- scales::hue_pal()(15)
   p_risk <- stats_plot_i %>%
     filter(metric == "risk") %>%
     ggplot() +
-    geom_hline(yintercept = 0.05, colour = "red") +
     geom_col(data = . %>%
                group_by(OM, OM_group) %>%
                summarise(val = max(val)),
@@ -1237,6 +1240,8 @@ cols <- scales::hue_pal()(15)
                  fill = "white", width = 0.1, size = 0.2,
                  outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                  outlier.fill = "transparent") +
+    geom_hline(yintercept = 0.05, colour = "red", size = 0.4, 
+               linetype = "1111") +
     stat_summary(aes(x = OM, y = val),
                  fun = "mean", geom = "point", shape = 4, size = 1) +
     scale_fill_manual("", values = cols) +
@@ -1253,7 +1258,6 @@ cols <- scales::hue_pal()(15)
   p_catch <- stats_plot_i %>%
     filter(metric == "catch") %>%
     ggplot(aes(x = OM, y = val)) +
-    geom_hline(yintercept = 1, colour = "grey") +
     geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
                 position = position_dodge(width = 0.8), scale = "width") +
     geom_boxplot(aes(group = OM), 
@@ -1261,6 +1265,8 @@ cols <- scales::hue_pal()(15)
                  fill = "white", width = 0.1, size = 0.2,
                  outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                  outlier.fill = "transparent") +
+    geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
+               linetype = "1111") +
     scale_fill_manual("", values = cols) +
     facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
     labs(y = expression(Catch/MSY)) +
@@ -1275,7 +1281,6 @@ cols <- scales::hue_pal()(15)
   p_ssb <- stats_plot_i %>%
     filter(metric == "SSB") %>%
     ggplot(aes(x = OM, y = val)) +
-    geom_hline(yintercept = 1, colour = "grey") +
     geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
                 position = position_dodge(width = 0.8), scale = "width") +
     geom_boxplot(aes(group = OM), 
@@ -1283,6 +1288,8 @@ cols <- scales::hue_pal()(15)
                  fill = "white", width = 0.1, size = 0.2,
                  outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                  outlier.fill = "transparent") +
+    geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
+               linetype = "1111") +
     scale_fill_manual("", values = cols) +
     facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
     labs(y = expression(SSB/B[MSY])) +
@@ -1349,7 +1356,6 @@ stats_plot_MP <- stats_plot %>%
 p_risk <- stats_plot_MP %>%
   filter(metric == "risk" & OM == "Reference set\n(combined)") %>%
   ggplot() +
-  geom_hline(yintercept = 0.05, colour = "red") +
   geom_col(data = . %>%
              group_by(MP_label, period_label) %>%
              summarise(val = max(val)),
@@ -1361,6 +1367,8 @@ p_risk <- stats_plot_MP %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  geom_hline(yintercept = 0.05, colour = "red", linewidth = 0.4,
+             linetype = "1111") +
   stat_summary(aes(x = MP_label, y = val),
                fun = "mean", geom = "point", shape = 4, size = 1) +
   scale_fill_manual("", values = cols) +
@@ -1376,7 +1384,6 @@ p_risk <- stats_plot_MP %>%
 p_catch <- stats_plot_MP %>%
   filter(metric == "catch" & OM == "Reference set\n(combined)") %>%
   ggplot(aes(x = MP_label, y = val)) +
-  geom_hline(yintercept = 1, colour = "grey") +
   geom_violin(fill = "#F8766D",, size = 0.2, show.legend = FALSE,
               position = position_dodge(width = 0.8), scale = "width") +
   geom_boxplot(aes(group = MP_label), 
@@ -1384,6 +1391,8 @@ p_catch <- stats_plot_MP %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
+             linetype = "1111") +
   facet_wrap(~ period_label) +
   labs(y = expression(Catch/MSY)) +
   coord_cartesian(ylim = c(0, 2.5)) +
@@ -1397,7 +1406,6 @@ p_catch <- stats_plot_MP %>%
 p_ssb <- stats_plot_MP %>%
   filter(metric == "SSB" & OM == "Reference set\n(combined)") %>%
   ggplot(aes(x = MP_label, y = val)) +
-  geom_hline(yintercept = 1, colour = "grey") +
   geom_violin(fill = "#F8766D", size = 0.2, show.legend = FALSE,
               position = position_dodge(width = 0.8), scale = "width") +
   geom_boxplot(aes(group = MP_label), 
@@ -1405,6 +1413,8 @@ p_ssb <- stats_plot_MP %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
+             linetype = "1111") +
   facet_wrap(~ period_label) +
   labs(y = expression(SSB/B[MSY])) +
   coord_cartesian(ylim = c(0, 2.5)) +
@@ -1440,7 +1450,7 @@ ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.png"),
        plot = p, width = 16, height = 13, units = "cm", dpi = 600, 
        type = "cairo", bg = "white")
 ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.pdf"), 
-       plot = p, width = 16, height = 10, units = "cm", bg = "white")
+       plot = p, width = 16, height = 13, units = "cm", bg = "white")
 
 ### ------------------------------------------------------------------------ ###
 ### refset - x & w - wormplots ####
@@ -1744,7 +1754,6 @@ cols <- scales::hue_pal()(15)
   p_risk <- stats_plot %>%
    filter(metric == "risk" & MP == MP_i & period == period_i) %>%
    ggplot() +
-   geom_hline(yintercept = 0.05, colour = "red") +
    geom_col(data = . %>%
               group_by(OM, OM_group) %>%
               summarise(val = max(val)),
@@ -1756,6 +1765,8 @@ cols <- scales::hue_pal()(15)
                 fill = "white", width = 0.1, size = 0.2,
                 outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                 outlier.fill = "transparent") +
+    geom_hline(yintercept = 0.05, colour = "red", linewidth = 0.4,
+               linetype = "1111") +
    stat_summary(aes(x = OM, y = val),
                 fun = "mean", geom = "point", shape = 4, size = 1) +
    scale_fill_manual("", values = cols) +
@@ -1773,7 +1784,6 @@ cols <- scales::hue_pal()(15)
   p_catch <- stats_plot %>%
    filter(metric == "catch" & MP == MP_i & period == period_i) %>%
    ggplot(aes(x = OM, y = val)) +
-   geom_hline(yintercept = 1, colour = "grey") +
    geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
                position = position_dodge(width = 0.8), scale = "width") +
    geom_boxplot(aes(group = OM), 
@@ -1781,6 +1791,8 @@ cols <- scales::hue_pal()(15)
                 fill = "white", width = 0.1, size = 0.2,
                 outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                 outlier.fill = "transparent") +
+    geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
+               linetype = "1111") +
    scale_fill_manual("", values = cols) +
    facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
    labs(y = expression(Catch/MSY)) +
@@ -1795,7 +1807,6 @@ cols <- scales::hue_pal()(15)
   p_ssb <- stats_plot %>%
    filter(metric == "SSB" & MP == MP_i & period == period_i) %>%
    ggplot(aes(x = OM, y = val)) +
-   geom_hline(yintercept = 1, colour = "grey") +
    geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
                position = position_dodge(width = 0.8), scale = "width") +
    geom_boxplot(aes(group = OM), 
@@ -1803,6 +1814,8 @@ cols <- scales::hue_pal()(15)
                 fill = "white", width = 0.1, size = 0.2,
                 outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                 outlier.fill = "transparent") +
+   geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
+              linetype = "1111") +
    scale_fill_manual("", values = cols) +
    facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
    labs(y = expression(SSB/B[MSY])) +
