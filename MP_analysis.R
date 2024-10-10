@@ -2084,3 +2084,57 @@ ggsave(filename = "output/plots/HR_principle.pdf",
        width = 8.5, height = 5, units = "cm")
 
 
+### ------------------------------------------------------------------------ ###
+### Exceptional circumstances - biomass index range ####
+### ------------------------------------------------------------------------ ###
+### use MP4
+
+### load mp results
+mp <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/mp_1_2_1_1.02_2_0.58_1.2_0.7.rds")
+### input data
+input <- input_mp(OM = "refset", n_yrs = 20)
+
+### historical index data
+### @index slot does not include weight at age
+idxB_hist <- quantSums(input$oem@observations$idx$`UK-FSP`@index *
+  input$oem@observations$idx$`UK-FSP`@catch.wt *
+  input$oem@deviances$idx$`UK-FSP`)
+
+### projected index
+### @index slot includes weight at age
+idxB_proj <- quantSums(mp@oem@observations$idx$`UK-FSP`@index *
+                         window(input$oem@deviances$idx$`UK-FSP`, start = 2024))
+
+### combine history and projection
+idxB <- idxB_hist
+idxB[, ac(2024:2044)] <- idxB_proj
+
+#plot(idxB) + ylim(c(0, NA))
+
+### get percentiles
+idxB_qnt <- quantile(idxB, 
+                     probs = c(0.025, 0.25, 0.5, 0.75, 0.975),
+                     na.rm = TRUE)
+df <- as.data.frame(idxB_qnt) %>%
+  select(year, iter, data) %>%
+  pivot_wider(names_from = iter, values_from = data) %>%
+  mutate(period = ifelse(year < 2024, "Data", "Projection"))
+
+### plot
+p <- df %>%
+  ggplot() +
+  geom_ribbon(aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.1,
+              show.legend = FALSE) +
+  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.1,
+              show.legend = FALSE) +
+  geom_line(aes(x = year, y = `50%`), linewidth = 0.4) +
+  facet_grid(1 ~ period, shrink = TRUE, space = "free_x", scales = "free_x") +
+  coord_cartesian(ylim = c(0, 3.5), expand = FALSE) + 
+  labs(x = "Year", y = "UK-FSP biomass index (kg/hr m beam)") + 
+  theme_bw(base_size = 8) +
+  theme(strip.text.y = element_blank())
+ggsave(filename = "output/plots/EC/MP4_idx_hist_proj.png",
+       width = 16, height = 8, units = "cm", dpi = 600,
+       type = "cairo")
+ggsave(filename = "output/plots/EC/MP4_idx_hist_proj.pdf",
+       width = 16, height = 8, units = "cm")
