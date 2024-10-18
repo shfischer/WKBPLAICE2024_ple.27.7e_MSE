@@ -1092,6 +1092,56 @@ write.csv(df_smry, file = "output/refset_x_w_smry.csv", row.names = FALSE)
 saveRDS(df_smry, file = "output/refset_x_w_smry.rds")
 
 ### ------------------------------------------------------------------------ ###
+### refset - visualise chr for all chr rule versions ####
+### ------------------------------------------------------------------------ ###
+df_smry <- readRDS("output/refset_x_w_smry.rds")
+
+df_plot <- df_smry %>%
+  mutate(opt_pars = ifelse(MP %in% c(1, 6), "x", "x & w"),
+         interval = ifelse(v == 1, "annual", "biennial"))
+View(df_plot)
+df_plot <- foreach(x = split(df_plot, df_plot$MP), 
+                   .combine = bind_rows) %do% {
+  #browser()
+  ### points of chr rule
+  x_values <- c(0, x$w, 10)
+  y_values <- c(0, x$x, x$x)
+  x <- bind_rows(x, x, x)
+  x$x_axis <- x_values
+  x$y_axis <- y_values
+  return(x)
+}
+
+p <- df_plot %>%
+  mutate(index = factor(index, levels = c("UK-FSP", "Q1SWBeam")),
+         optimum = factor(optimum, levels = c("local", "global"))) %>%
+  group_by(MP) %>%
+  mutate(y_axis_label = max(y_axis)) %>%
+  ggplot(aes(x = x_axis, y = y_axis, group = MP, 
+             linetype = optimum, colour = optimum)) +
+  geom_line() +
+  geom_text(aes(label = paste0("MP", MP),
+                x = 4.75, y = y_axis_label + 0.045),
+            show.legend = FALSE, size = 2) + 
+  scale_colour_manual("Optimum",
+                        values = c("local" = "blue", "global" = "red")) + 
+  scale_linetype_manual("Optimum",
+                        values = c("local" = "solid", "global" = "1111")) + 
+  facet_grid(paste0(interval, " - ", opt_pars) ~ index) +
+  labs(x = "w", y = "x") + 
+  coord_cartesian(xlim = c(0, 5.9), ylim = c(0, 0.99), expand = FALSE) + 
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"),
+        legend.background = element_blank(),
+        legend.position = "inside",
+        legend.position.inside = c(0.8, 0.8))
+p
+ggsave(filename = "output/plots/MP/refset_chr_illustration.png", plot = p,
+       width = 8, height = 8, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/MP/refset_chr_illustration.pdf", plot = p,
+       width = 8, height = 8, units = "cm")
+
+### ------------------------------------------------------------------------ ###
 ### refset - x & w - violin plots - by MP ####
 ### ------------------------------------------------------------------------ ###
 
@@ -1529,15 +1579,14 @@ p_icv_annual <- stats_plot_MP %>%
   theme(panel.spacing.x = unit(0, "lines"),
         axis.title.x = element_blank(), 
         axis.text.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        strip.text.x = element_blank())
+        axis.ticks.x = element_blank())
 p <- p_icv_annual / p_icv
 p
 ggsave(filename = paste0("output/plots/MP/refset_stats_comparison_ICV.png"), 
-       plot = p, width = 16, height = 8, units = "cm", dpi = 600, 
+       plot = p, width = 8, height = 12, units = "cm", dpi = 600, 
        type = "cairo", bg = "white")
 ggsave(filename = paste0("output/plots/MP/refset_stats_comparison_ICV.pdf"), 
-       plot = p, width = 16, height = 8, units = "cm", bg = "white")
+       plot = p, width = 8, height = 12, units = "cm", bg = "white")
 
 
 ### ------------------------------------------------------------------------ ###
