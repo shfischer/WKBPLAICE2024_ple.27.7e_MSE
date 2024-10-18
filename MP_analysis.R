@@ -1154,11 +1154,14 @@ stats <- foreach(i = split(df_x_w, f = seq(nrow(df_x_w))),
     risk_i <- c(apply(ssb(stk) < rep(c(refpts["Blim"]), 
                                      each = dim(ssb(stk))[2]), 2, mean))
     icv_i <- c(iav(catch(stk_icv), period = i$interval))
+    icv_annual_i <- c(iav(catch(stk_icv), period = 1))
     ### combine
     df <- do.call(rbind, list(data.frame(val = ssb_i, metric = "SSB"),
                               data.frame(val = catch_i, metric = "catch"),
                               data.frame(val = fbar_i, metric = "Fbar"),
                               data.frame(val = icv_i, metric = "ICV"),
+                              data.frame(val = icv_annual_i, 
+                                         metric = "ICV_annual"),
                               data.frame(val = risk_i, metric = "risk")
     ))
     df <- df %>%
@@ -1461,6 +1464,9 @@ p_icv <- stats_plot_MP %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  stat_summary(aes(x = MP_label, y = val),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
   facet_wrap(~ period_label) +
   labs(y = "ICV") +
   coord_cartesian(ylim = c(0, 0.5)) +
@@ -1477,6 +1483,39 @@ ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.png"),
        type = "cairo", bg = "white")
 ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.pdf"), 
        plot = p, width = 16, height = 13, units = "cm", bg = "white")
+
+
+### ICV only - default (annual/biennial) and annual
+p_icv_annual <- stats_plot_MP %>%
+  filter(metric == "ICV_annual" & OM == "Reference set\n(combined)") %>%
+  ggplot(aes(x = MP_label, y = val)) +
+  geom_violin(fill = "#F8766D", size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = MP_label),
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  stat_summary(aes(x = MP_label, y = val),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
+  facet_wrap(~ period_label) +
+  labs(y = "ICV (annual)") +
+  coord_cartesian(ylim = c(0, 0.5)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.title.x = element_blank(), 
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        strip.text.x = element_blank())
+p <- p_icv_annual / p_icv
+p
+ggsave(filename = paste0("output/plots/MP/refset_stats_comparison_ICV.png"), 
+       plot = p, width = 16, height = 8, units = "cm", dpi = 600, 
+       type = "cairo", bg = "white")
+ggsave(filename = paste0("output/plots/MP/refset_stats_comparison_ICV.pdf"), 
+       plot = p, width = 16, height = 8, units = "cm", bg = "white")
+
 
 ### ------------------------------------------------------------------------ ###
 ### refset - x & w - wormplots ####
