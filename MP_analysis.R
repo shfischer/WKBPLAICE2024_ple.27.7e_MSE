@@ -811,9 +811,9 @@ p_risk <- baseline_stats %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
-  geom_hline(yintercept = 0.05, colour = "red", size = 0.4, linetype = "1111") +
   stat_summary(aes(x = MP_label, y = val),
                fun = "mean", geom = "point", shape = 4, size = 1) +
+  geom_hline(yintercept = 0.05, colour = "red", size = 0.4, linetype = "1111") +
   scale_fill_brewer(name = "", palette = "Dark2") +
   labs(y = expression(max.~B[lim]~risk)) +
   ylim(c(0, NA)) +
@@ -831,6 +831,9 @@ p_catch <- baseline_stats %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  stat_summary(aes(x = MP_label, y = val),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
   geom_hline(yintercept = 1, colour = "#ebebeb", size = 0.4, 
              linetype = "dotted") +
   scale_fill_brewer(name = "", palette = "Dark2") +
@@ -851,6 +854,9 @@ p_ssb <- baseline_stats %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  stat_summary(aes(x = MP_label, y = val),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
   geom_hline(yintercept = 1, colour = "#ebebeb", size = 0.4, 
              linetype = "dotted") +
   scale_fill_brewer(name = "", palette = "Dark2") +
@@ -871,6 +877,9 @@ p_icv <- baseline_stats %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  stat_summary(aes(x = MP_label, y = val),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
   geom_hline(yintercept = 1, colour = "#ebebeb", size = 0.4, 
              linetype = "dotted") +
   scale_fill_brewer(name = "", palette = "Dark2") +
@@ -1243,7 +1252,8 @@ cols <- scales::hue_pal()(15)
     geom_hline(yintercept = 0.05, colour = "red", size = 0.4, 
                linetype = "1111") +
     stat_summary(aes(x = OM, y = val),
-                 fun = "mean", geom = "point", shape = 4, size = 1) +
+                 fun = "mean", geom = "point", shape = 4, size = 1,
+                 stroke = 0.25) +
     scale_fill_manual("", values = cols) +
     facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
     labs(y = expression(max.~B[lim]~risk), title = title_i) +
@@ -1265,6 +1275,9 @@ cols <- scales::hue_pal()(15)
                  fill = "white", width = 0.1, size = 0.2,
                  outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                  outlier.fill = "transparent") +
+    stat_summary(aes(x = OM, y = val),
+                 fun = "mean", geom = "point", shape = 4, size = 1,
+                 stroke = 0.25) +
     geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
                linetype = "1111") +
     scale_fill_manual("", values = cols) +
@@ -1288,6 +1301,9 @@ cols <- scales::hue_pal()(15)
                  fill = "white", width = 0.1, size = 0.2,
                  outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                  outlier.fill = "transparent") +
+    stat_summary(aes(x = OM, y = val),
+                 fun = "mean", geom = "point", shape = 4, size = 1,
+                 stroke = 0.25) +
     geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
                linetype = "1111") +
     scale_fill_manual("", values = cols) +
@@ -1311,6 +1327,9 @@ cols <- scales::hue_pal()(15)
                  fill = "white", width = 0.1, size = 0.2,
                  outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                  outlier.fill = "transparent") +
+    stat_summary(aes(x = OM, y = val),
+                 fun = "mean", geom = "point", shape = 4, size = 1,
+                 stroke = 0.25) +
     scale_fill_manual("", values = cols) +
     facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
     labs(y = "ICV") +
@@ -1370,7 +1389,8 @@ p_risk <- stats_plot_MP %>%
   geom_hline(yintercept = 0.05, colour = "red", linewidth = 0.4,
              linetype = "1111") +
   stat_summary(aes(x = MP_label, y = val),
-               fun = "mean", geom = "point", shape = 4, size = 1) +
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
   scale_fill_manual("", values = cols) +
   facet_wrap(~ period_label) +
   labs(y = expression(max.~B[lim]~risk)) +
@@ -1391,6 +1411,9 @@ p_catch <- stats_plot_MP %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  stat_summary(aes(x = MP_label, y = val),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
   geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
              linetype = "1111") +
   facet_wrap(~ period_label) +
@@ -1413,6 +1436,9 @@ p_ssb <- stats_plot_MP %>%
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
+  stat_summary(aes(x = MP_label, y = val),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
   geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
              linetype = "1111") +
   facet_wrap(~ period_label) +
