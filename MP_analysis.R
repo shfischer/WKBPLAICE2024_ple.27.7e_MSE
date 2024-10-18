@@ -1485,9 +1485,32 @@ ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.pdf"),
        plot = p, width = 16, height = 13, units = "cm", bg = "white")
 
 
-### ICV only - default (annual/biennial) and annual
+### ICV only - default (annual/biennial) and annual - long term
+p_icv <- stats_plot_MP %>%
+  filter(metric == "ICV" & OM == "Reference set\n(combined)" &
+           period == "long-term") %>%
+  ggplot(aes(x = MP_label, y = val)) +
+  geom_violin(fill = "#F8766D", size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = MP_label),
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  stat_summary(aes(x = MP_label, y = val),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
+  facet_wrap(~ period_label) +
+  labs(y = "ICV") +
+  coord_cartesian(ylim = c(0, 0.5)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        axis.title.x = element_blank(),
+        strip.text.x = element_blank())
 p_icv_annual <- stats_plot_MP %>%
-  filter(metric == "ICV_annual" & OM == "Reference set\n(combined)") %>%
+  filter(metric == "ICV_annual" & OM == "Reference set\n(combined)" &
+           period == "long-term") %>%
   ggplot(aes(x = MP_label, y = val)) +
   geom_violin(fill = "#F8766D", size = 0.2, show.legend = FALSE,
               position = position_dodge(width = 0.8), scale = "width") +
