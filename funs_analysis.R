@@ -760,3 +760,123 @@ plot_worm_distr_mult <- function(stk, stk_hist, refpts, stk_labels,
   
   return(p)
 }
+
+### ------------------------------------------------------------------------ ###
+### wormplot - compare MPs ####
+### ------------------------------------------------------------------------ ###
+
+plot_worm_comparison <- function(stk, stk_hist, refpts, 
+                                 names = NA,
+                      title = NULL,
+                      scale_ssb = 1/1000, scale_catch = 1/1000, 
+                      scale_rec = 1/1000,
+                      history = TRUE, 
+                      its = 1:5,
+                      n_years = 20, yr_end = 2044, yr_start = 2010,
+                      xintercept = 2024, 
+                      title_rec = "Recruitment (1000s)",
+                      title_catch = "Catch (1000t)",
+                      title_ssb = "SSB (1000t)",
+                      title_fbar = paste0("Mean F (ages ", 
+                                          range(stk[[1]])[["minfbar"]], "-", 
+                                          range(stk[[1]])[["maxfbar"]], ")")
+) {
+  #browser()
+  
+  stk <- FLStocks(stk_hist)
+  stk_list <- FLStocks(stk_list)
+  yrs_res <- dimnames(stk_list[[1]])$year
+  
+  for (i in seq_along(stk_list))
+    stk[[i]][, ac(yrs_res)] <- stk_list[[i]]
+  
+  stk <- window(stk, max(yr_start - 10, dims(stk[[1]])$minyear), 
+                end = yr_end)
+  
+  ### load reference points
+  refpts <- iterMedians(refpts)
+  
+  ### get metrics
+  
+  qnts <- lapply(seq_along(stk), function(x) {
+    qnts_i <- FLQuants(catch = catch(stk[[x]]), rec = rec(stk[[x]]),
+                       fbar = fbar(stk[[x]]), ssb = ssb(stk[[x]]))
+    ### scale values
+    qnts_i$catch <- qnts_i$catch * scale_catch
+    qnts_i$rec <- qnts_i$rec * scale_rec
+    qnts_i$ssb <- qnts_i$ssb * scale_ssb
+    ### percentiles
+    qnts_i <- lapply(qnts_i, quantile, probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
+                     na.rm = TRUE)
+    qnts_i_perc <- FLQuants(qnts_i)
+    qnts_i_perc <- as.data.frame(qnts_i_perc)
+    qnts_i_perc$source <- names[x]
+    return(qnts_i_perc)
+  })
+  qnts <- do.call(rbind, qnts)
+  
+  refpts["Cmsy"] <- refpts["Cmsy"] * scale_catch
+  refpts["Bmsy"] <- refpts["Bmsy"] * scale_ssb
+  refpts["Blim"] <- refpts["Blim"] * scale_ssb
+  
+  qnts_perc <- qnts %>% select(year, iter, data, qname, source) %>%
+    pivot_wider(names_from = iter, values_from = data) %>%
+    mutate(qname = factor(qname,
+                          levels = c("catch", "rec", "fbar", "ssb"),
+                          labels = c(title_catch, title_rec, 
+                                     title_fbar, title_ssb)))
+  
+  df_MSY <- data.frame(
+    qname = c("catch", "fbar", "ssb"),
+    value = c(refpts["Cmsy"], refpts["Fmsy"], refpts["Bmsy"])
+  ) %>%
+    mutate(qname = factor(qname,
+                          levels = c("catch", "rec", "fbar", "ssb"),
+                          labels = c(title_catch, title_rec, 
+                                     title_fbar, title_ssb)))
+  df_Blim <- data.frame(
+    qname = c("ssb"),
+    value = c(refpts["Blim"])
+  ) %>%
+    mutate(qname = factor(qname,
+                          levels = c("catch", "rec", "fbar", "ssb"),
+                          labels = c(title_catch, title_rec, 
+                                     title_fbar, title_ssb)))
+  
+  p <- qnts_perc %>%
+    ggplot(aes(x = year, y = `50%`, colour = source, fill = source)) +
+    geom_vline(xintercept = xintercept, colour = "grey", size = 0.5) +
+    geom_ribbon(aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.1,
+                show.legend = FALSE, linewidth = 0) +
+    geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.1,
+                show.legend = FALSE, linewidth = 0) +
+    geom_hline(data = df_MSY, 
+               aes(yintercept = value),
+               linewidth = 0.5, linetype = "dashed",
+               show.legend = FALSE) +
+    geom_hline(data = df_Blim, 
+               aes(yintercept = value),
+               linewidth = 0.5, linetype = "dotted",
+               show.legend = FALSE) +
+    geom_line() +
+    scale_colour_brewer("", palette = "Dark2") + 
+    scale_fill_brewer("", palette = "Dark2") + 
+    facet_wrap(~ qname, scales = "free_y", strip.position = "left") +
+    labs(x = "Year") +
+    coord_cartesian(ylim = c(0, NA), xlim = c(yr_start, NA), expand = FALSE) +
+    theme_bw(base_size = 8) +
+    theme(strip.placement = "outside",
+          strip.text = element_text(size = 8),
+          strip.background = element_blank(),
+          axis.title.y = element_blank(),
+          legend.key.height = unit(0.6, "lines"))
+  if (!is.null(title)) {
+    p <- p +
+      labs(title = title) +
+      theme(plot.title = element_text(hjust = 0.5))
+  }
+  #p
+  
+  return(p)
+}
+

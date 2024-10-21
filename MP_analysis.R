@@ -2275,3 +2275,87 @@ ggsave(filename = "output/plots/EC/MP4_idx_hist_proj.png",
        type = "cairo")
 ggsave(filename = "output/plots/EC/MP4_idx_hist_proj.pdf",
        width = 16, height = 8, units = "cm")
+
+### ------------------------------------------------------------------------ ###
+### compare trajectories ####
+### ------------------------------------------------------------------------ ###
+### MP4 vs MP5
+
+### get optimised solutions
+df_x <- readRDS("output/refset_x_runs_opt.rds")
+df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
+df_x_w <- bind_rows(
+  df_x %>% mutate(optimum = "global"), 
+  df_x_w)
+df_x_w <- df_x_w %>%
+  mutate(file = paste0(paste("mp", idxB_lag, idxB_range_3, exp_b, 
+                             comp_b_multiplier, interval, multiplier, 
+                             upper_constraint, lower_constraint, 
+                             sep = "_"),
+                       ".rds"))
+df_x_w <- df_x_w %>%
+  arrange(MP)
+
+### get projection
+path <- paste0("output/ple.27.7e/refset/1000_20/multiplier/hr/")
+
+MPs <- c(4, 5)
+names(MPs) <- paste0("MP", MPs)
+mp_list <- lapply(paste0(path, df_x_w$file[MPs]), readRDS)
+stk_list <- lapply(mp_list, function(x) x@om@stock)
+input <- input_mp(OM = "refset", n_yrs = 20, MP = "hr")
+stk_hist <- input$om@stock
+stk_hist <- list(stk_hist, stk_hist)
+refpts <- input_refpts(OM = "refset")
+
+#debugonce(plot_worm_comparison)
+p <- plot_worm_comparison(stk = stk_list, stk_hist = stk_hist, 
+                          names = names(MPs), refpts = refpts)
+p
+
+ggsave(filename = "output/plots/wormplots/refset_comparison_MP4_MP5.png",
+       width = 16, height = 8, units = "cm", dpi = 600,
+       type = "cairo")
+ggsave(filename = "output/plots/wormplots/refset_comparison_MP4_MP5.pdf",
+       width = 16, height = 8, units = "cm")
+
+
+### compare MP5 to rfb and ICES MSY rules
+
+### load 
+OMs_refset <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+                "M_low", "M_high", "M_Gislason")
+stk_ICES_MSY <- lapply(paste0("output/ple.27.7e/", OMs_refset, 
+                              "/1000_20/ICES_SAM/"),
+  function(y) {
+    readRDS(paste0(y, "mp.rds"))@om@stock
+})
+stk_ICES_MSY <- Reduce(FLCore::combine, stk_ICES_MSY)
+stk_rfb <- lapply(paste0("output/ple.27.7e/", OMs_refset, 
+                              "/1000_20/rfb/"),
+  function(y) {
+    readRDS(paste0(y, "mp.rds"))@om@stock
+})
+stk_rfb <- Reduce(FLCore::combine, stk_rfb)
+stk_MP5 <- readRDS(paste0("output/ple.27.7e/refset/1000_20/multiplier/hr/",
+                          df_x_w$file[5]))@om@stock
+MPs <- c("chr rule (MP5)", "rfb rule", "ICES MSY rule")
+names(MPs) <- MPs
+stk_list <- list(stk_MP5, stk_rfb, stk_ICES_MSY)
+input <- input_mp(OM = "refset", n_yrs = 20, MP = "hr")
+stk_hist <- input$om@stock
+stk_hist <- list(stk_hist, stk_hist, stk_hist)
+refpts <- input_refpts(OM = "refset")
+
+#debugonce(plot_worm_comparison)
+p <- plot_worm_comparison(stk = stk_list, stk_hist = stk_hist, 
+                          names = names(MPs), refpts = refpts)
+p
+
+ggsave(filename = "output/plots/wormplots/refset_comparison_MP5_rfb_MSY.png",
+       width = 16, height = 8, units = "cm", dpi = 600,
+       type = "cairo")
+ggsave(filename = "output/plots/wormplots/refset_comparison_MP5_rfb_MSY.pdf",
+       width = 16, height = 8, units = "cm")
+
+
