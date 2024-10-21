@@ -2227,7 +2227,7 @@ ggsave(filename = "output/plots/HR_principle.pdf",
 ### use MP4
 
 ### load mp results
-mp <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/mp_1_2_1_1.02_2_0.58_1.2_0.7.rds")
+mp <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/mp_1_2_1_3.7_2_0.66_1.2_0.7.rds")
 ### input data
 input <- input_mp(OM = "refset", n_yrs = 20)
 
