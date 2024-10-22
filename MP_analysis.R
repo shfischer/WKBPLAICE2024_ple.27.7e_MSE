@@ -1716,6 +1716,78 @@ OMs_refset_label <- c("Baseline", "Catch:\nno discards",
     
 }
 
+### 100-year projection (for MP5)
+df_MP5 <- df_x_w[df_x_w$MP == 5, ]
+. <- foreach(x = list(df_MP5)) %:%
+  foreach(OM = OMs[1], OM_label = OMs_label[1])  %do% {
+    #browser()
+    ### get projection
+    path_i <- paste0("output/ple.27.7e/", OM, "/1000_100/", 
+                     ifelse(identical(x$index, "Q1SWBeam"),
+                            "multiplier_Q1SWBeam", "multiplier"),
+                     "/hr/")
+    stk <- readRDS(paste0(path_i, x$file))@om@stock
+    stk <- lapply(seq_along(OMs_refset), function(x) {
+      iter(stk, seq(from = (x - 1) * 1000 + 1, to = (x - 1) * 1000 + 1000))
+    })
+    
+    ### historical stock
+    stk_hist <- lapply(OMs_refset, function(y) {
+      input_mp(OM = y, n_yrs = 100, MP = "hr")$om@stock
+    })
+    
+    ### get reference points
+    refpts <- lapply(OMs_refset, function(y) {
+      input_refpts(OM = y)
+    })
+    
+    ### plot
+    p <- plot_worm_distr_mult(stk = stk, stk_hist = stk_hist, refpts = refpts,
+                              stk_labels = OMs_refset_label,
+                              title = paste0("MP", x$MP, " - ", x$group, " - ",
+                                             OM_label),
+                              yr_end = 2124, xintercept = c(2024, 2044.5))
+    
+    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
+                             "_", OM, "_100.png"),
+           plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
+           type = "cairo")
+    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
+                             "_", OM, "_100.pdf"), 
+           plot = p, width = 16, height = 7.5, units = "cm")
+    
+    ### Blim risk over time
+    stk_combined <- readRDS(paste0(path_i, x$file))@om@stock
+    refpts_combined <- Reduce(refpts, f = FLCore::combine)
+    SSBs <- FLCore::window(ssb(stk_combined), start = 2025)
+    yrs <- dim(SSBs)[2]
+    its <- dim(SSBs)[6]
+    ### collapse correction - not needed, all above threshold
+    Blim <- c(refpts_combined["Blim"])
+    Blim_ts <- SSBs %=% rep(c(Blim), each = dim(SSBs)[2])
+    risk <- iterMeans(SSBs/Blim_ts < 1)
+    
+    p <- as.data.frame(risk) %>%
+      ggplot(aes(x = year, y = data)) +
+      geom_vline(xintercept = c(2034.5, 2044.5), colour = "grey") +
+      geom_line() +
+      geom_hline(yintercept = 0.05, colour = "red", linetype = "1111") + 
+      labs(x = "Year", y = expression(B[lim]~risk),
+           title = paste0("MP", x$MP, " - ", x$group, " - ",
+                          OM_label)) + 
+      coord_cartesian(xlim = c(2025, 2124), ylim = c(0, 0.15), expand = FALSE) + 
+      theme_bw(base_size = 8) +
+      theme(plot.title = element_text(hjust = 1, size = 8))
+    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
+                             "_", OM, "_100_risk.png"),
+           plot = p, width = 10, height = 5, units = "cm", dpi = 600, 
+           type = "cairo")
+    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
+                             "_", OM, "_100_risk.pdf"), 
+           plot = p, width = 10, height = 5, units = "cm")
+    
+}
+
 ### ------------------------------------------------------------------------ ###
 ### refset - x & w - proportion below Itrigger ####
 ### ------------------------------------------------------------------------ ###

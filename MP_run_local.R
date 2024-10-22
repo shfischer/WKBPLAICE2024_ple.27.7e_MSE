@@ -201,6 +201,45 @@ OMs <- c("refset", "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none",
 }
 
 ### ------------------------------------------------------------------------ ###
+### refset - MP5 100 years ####
+### ------------------------------------------------------------------------ ###
+
+### get optimised solutions
+df_x <- readRDS("output/refset_x_runs_opt.rds")
+df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
+df_x_w <- bind_rows(
+  df_x %>% mutate(optimum = "global"), 
+  df_x_w)
+pars <- df_x_w[df_x_w$MP == 5, ]
+
+n_blocks <- 7 
+n_workers <- 7 
+mp_parallel <- TRUE
+    
+### chr params
+idxB_lag <- pars$idxB_lag
+idxB_range_3 <- pars$idxB_range_3
+exp_b <- pars$exp_b
+comp_b_multiplier <- pars$comp_b_multiplier
+interval <- pars$interval
+multiplier <- pars$multiplier
+upper_constraint <- pars$upper_constraint
+lower_constraint <- pars$lower_constraint
+biomass_index <- pars$index
+    
+#OM <- OM
+### scenario directory
+scenario <- "multiplier"
+
+args_local <- c("MP='hr'", "OM='refset'",
+                "n_yrs=100", "check_file=FALSE",
+                "ga_search=TRUE", "MP='hr'", "save_MP=TRUE", 
+                "popSize=1", "maxiter=1",
+                "add_suggestions=FALSE", "collate=FALSE")
+source("MP_run.R")
+
+
+### ------------------------------------------------------------------------ ###
 ### sensitivity - index uncertainty ####
 ### ------------------------------------------------------------------------ ###
 
