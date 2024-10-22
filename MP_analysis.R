@@ -17,6 +17,28 @@ source("funs_analysis.R")
 source("funs_OM.R")
 
 ### ------------------------------------------------------------------------ ###
+### define operating model (OM) names, reference and robustness set ####
+### ------------------------------------------------------------------------ ###
+### list of all operating models
+OMs <- c("refset", 
+         "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+         "M_low", "M_high", "M_Gislason", 
+         "R_no_AC", "R_higher", "R_lower", 
+         "R_failure", "overcatch", "undercatch", "Idx_higher")
+OMs_label <- c("Reference set\n(combined)", 
+               "Baseline", "Catch:\nno discards", "Catch:\n100% discards", 
+               "Catch:\nno migration", 
+               "M: -50%", "M: +50%", "M: Gislason", 
+               "R: no AC", "R: +20%", "R: -20%", 
+               "R: failure", "Catch: +10%", "Catch: -10%", 
+               "Uncertainty:\nindex +20%")
+
+OMs_group <- c("refset (combined)", rep("refset", 7), rep("robset", 7))
+
+OMs_refset <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+                "M_low", "M_high", "M_Gislason")
+
+### ------------------------------------------------------------------------ ###
 ### check Blim risk and projection length - baseline ####
 ### ------------------------------------------------------------------------ ###
 ### baseline OM
@@ -1158,20 +1180,7 @@ df_x_w <- df_x_w %>%
                              sep = "_"),
                        ".rds")) %>%
   arrange(MP)
-### list of all operating models
-OMs <- c("refset", 
-         "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
-         "M_low", "M_high", "M_Gislason", 
-         "R_no_AC", "R_higher", "R_lower", 
-         "R_failure", "overcatch", "undercatch", "Idx_higher")
-OMs_label <- c("Reference set\n(combined)", 
-               "Baseline", "Catch:\nno discards", "Catch:\n100% discards", 
-               "Catch:\nno migration", 
-               "M: -50%", "M: +50%", "M: Gislason", 
-               "R: no AC", "R: +20%", "R: -20%", 
-               "R: failure", "Catch: +10%", "Catch: -10%", 
-               "Uncertainty:\nindex +20%")
-OMs_group <- c("refset (combined)", rep("refset", 7), rep("robset", 7))
+
 
 ### get stats
 # , .combine = bind_rows
@@ -1623,18 +1632,6 @@ df_x_w <- df_x_w %>%
                               "_", optimum))
 
 
-OMs <- c("refset", 
-         "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
-         "M_low", "M_high", "M_Gislason", 
-         "R_no_AC", "R_higher", "R_lower", 
-         "R_failure", "overcatch", "undercatch", "Idx_higher")
-OMs_label <- c("Reference set (combined)", 
-               "Baseline", "Catch: no discards", "Catch: 100% discards", 
-               "Catch: no migration", 
-               "M: -50%", "M: +50%", "M: Gislason", 
-               "R: no AC", "R: +20%", "R: -20%", 
-               "R: failure", "Catch: +10%", "Catch: -10%", 
-               "Uncertainty: index +20%")
 
 . <- foreach(x = split(df_x_w, seq(nrow(df_x_w)))) %:%
   foreach(OM = OMs[-1], OM_label = OMs_label[-1])  %do% {
@@ -1865,23 +1862,6 @@ ggsave(filename = paste0("output/plots/MP/refset_prop_b.pdf"),
 ### rfb & SAM - violin plots - by OM ####
 ### ------------------------------------------------------------------------ ###
 
-### list of all operating models
-OMs <- c("refset", 
-         "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
-         "M_low", "M_high", "M_Gislason", 
-         "R_no_AC", "R_higher", "R_lower", 
-         "R_failure", "overcatch", "undercatch", "Idx_higher")
-OMs_refset <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
-                "M_low", "M_high", "M_Gislason")
-OMs_label <- c("Reference set\n(combined)", 
-               "Baseline", "Catch:\nno discards", "Catch:\n100% discards", 
-               "Catch:\nno migration", 
-               "M: -50%", "M: +50%", "M: Gislason", 
-               "R: no AC", "R: +20%", "R: -20%", 
-               "R: failure", "Catch: +10%", "Catch: -10%", 
-               "Uncertainty:\nindex +20%")
-OMs_group <- c("refset (combined)", rep("refset", 7), rep("robset", 7))
-
 ### get stats
 # , .combine = bind_rows
 stats <- foreach(MP = c("rfb", "ICES_SAM"), 
@@ -2106,21 +2086,6 @@ write.csv(stats_smry, file = "output/altMPs_stats_smry.csv", row.names = FALSE)
 ### ------------------------------------------------------------------------ ###
 ### rfb & SAM - wormplots ####
 ### ------------------------------------------------------------------------ ###
-OMs <- c("refset", 
-         "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
-         "M_low", "M_high", "M_Gislason", 
-         "R_no_AC", "R_higher", "R_lower", 
-         "R_failure", "overcatch", "undercatch", "Idx_higher")
-OMs_refset <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
-                "M_low", "M_high", "M_Gislason")
-OMs_label <- c("Reference set (combined)", 
-               "Baseline", "Catch: no discards", "Catch: 100% discards", 
-               "Catch: no migration", 
-               "M: -50%", "M: +50%", "M: Gislason", 
-               "R: no AC", "R: +20%", "R: -20%", 
-               "R: failure", "Catch: +10%", "Catch: -10%", 
-               "Uncertainty: index +20%")
-
 . <- foreach(MP = c("rfb", "ICES_SAM"), 
              MP_label = c("rfb", "ICES MSY (with SAM)")) %:%
   foreach(OM = OMs[-1], OM_label = OMs_label[-1])  %do% {
