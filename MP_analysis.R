@@ -2344,6 +2344,7 @@ input <- input_mp(OM = "refset", n_yrs = 20, MP = "hr")
 stk_hist <- input$om@stock
 stk_hist <- list(stk_hist, stk_hist)
 refpts <- input_refpts(OM = "refset")
+refpts[] <- NA
 
 #debugonce(plot_worm_comparison)
 p <- plot_worm_comparison(stk = stk_list, stk_hist = stk_hist, 
@@ -2383,8 +2384,8 @@ input <- input_mp(OM = "refset", n_yrs = 20, MP = "hr")
 stk_hist <- input$om@stock
 stk_hist <- list(stk_hist, stk_hist, stk_hist)
 refpts <- input_refpts(OM = "refset")
+refpts[] <- NA
 
-#debugonce(plot_worm_comparison)
 p <- plot_worm_comparison(stk = stk_list, stk_hist = stk_hist, 
                           names = names(MPs), refpts = refpts)
 p
