@@ -7,7 +7,6 @@
 library(ggplot2)
 library(FLCore)
 library(FLAssess)
-library(FLXSA)
 library(FLasher)
 library(FLfse)
 library(ggplotFL)

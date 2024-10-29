@@ -109,24 +109,6 @@
       ],
       "Hash": "211971c4754f2954079d06c6965dfb18"
     },
-    "FLXSA": {
-      "Package": "FLXSA",
-      "Version": "2.6.6",
-      "Source": "GitHub",
-      "RemoteType": "github",
-      "RemoteHost": "api.github.com",
-      "RemoteRepo": "FLXSA",
-      "RemoteUsername": "flr",
-      "RemoteRef": "d5cfce1cfdb0b1471a9035460be31091949b3148",
-      "RemoteSha": "d5cfce1cfdb0b1471a9035460be31091949b3148",
-      "Requirements": [
-        "FLAssess",
-        "FLCore",
-        "R",
-        "methods"
-      ],
-      "Hash": "590f807f6139ea22349737df249cd0c5"
-    },
     "FLasher": {
       "Package": "FLasher",
       "Version": "0.7.1.9221",

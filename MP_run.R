@@ -75,7 +75,7 @@ if (length(args) > 0) {
 ### ------------------------------------------------------------------------ ###
 
 ### load packages
-req_pckgs <- c("FLCore", "FLasher", "FLBRP", "mse", "FLfse", "FLXSA",
+req_pckgs <- c("FLCore", "FLasher", "FLBRP", "mse", "FLfse",
                "GA", "doParallel", "doRNG",
                "tidyr", "dplyr", "stockassessment")
 for (i in req_pckgs) 

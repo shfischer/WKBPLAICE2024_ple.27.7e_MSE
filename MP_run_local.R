@@ -6,7 +6,6 @@ suppressMessages(library(FLasher))
 suppressMessages(library(FLBRP))
 suppressMessages(library(mse))
 suppressMessages(library(FLfse))
-suppressMessages(library(FLXSA))
 suppressMessages(library(GA))
 suppressMessages(library(doParallel))
 suppressMessages(library(doRNG))
@@ -15,7 +14,7 @@ suppressMessages(library(dplyr))
 suppressMessages(library(stockassessment))
 suppressMessages(library(doParallel))
 
-req_pckgs <- c("FLCore", "FLasher", "FLBRP", "mse", "FLfse", "FLXSA",
+req_pckgs <- c("FLCore", "FLasher", "FLBRP", "mse", "FLfse", 
                "GA", "doParallel", "doRNG",
                "tidyr", "dplyr", "stockassessment")
 for (i in req_pckgs) 
