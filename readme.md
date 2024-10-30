@@ -66,9 +66,6 @@ file.
   - [`OM_MSY.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/OM_MSY.R):
     script for estimating MSY
 
-  - [`OM_MSY.pbs`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/OM_MSY.pbs):
-    job script, calling `OM_MSY.R`
-
 - `MP_*`: Script for running and analysing the MSE
 
   - [`MP_analysis.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/MP_analysis.R):
@@ -83,18 +80,37 @@ file.
     e.g. [`MP_run_rfb_mult.pbs`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/MP_run_rfb_mult.pbs)
     for optimising the rfb rule with a multiplier
 
+  - `MP_run_local.R`: Script for running some MPs locally
+    (e.g. optimised solutions)
+
 [`input/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/master/input):
 This directory contains all files required for generating the OMs for
 the three stocks (`OM_*.R`)
 
 - [`input/ple.27.7e/preparation/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/master/input/ple.27.7e/preparation):
-  for plaice
+  data required to set up plaice OMs
+
+- [`input/ple.27.7e/baseline/1000_100/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/master/input/ple.27.7e/baseline/1000_100/):
+  example OM input files for baseline OM
 
 - [`input/OM_refpts.csv`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/input/OM_refpts.csv):
   summarised OM reference points
 
+- [`input/OM_refpts_Blim.csv`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/input/OM_refpts_Blim.csv):
+  alternative calculations for Blim
+
 [`output/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/master/output):
 This directory contains some summarised results
+
+## Working documents
+
+There are two working documents included in this repository:
+
+- [`WKBPLAICE2024_ple.27.7e_OM.pdf`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/WKBPLAICE2024_ple.27.7e_OM.pdf):
+  description of the operating models
+
+- [`WKBPLAICE2024_ple.27.7e_MP.pdf`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/WKBPLAICE2024_ple.27.7e_MP.pdf):
+  description of the results
 
 ## R, R packages and version info
 
@@ -133,7 +149,6 @@ uses the [FLR packages](https://flr-project.org/)
 [`FLasher`](https://github.com/flr/FLasher),
 [`FLBRP`](https://github.com/flr/FLBRP),
 [`FLAssess`](https://github.com/flr/FLAssess),
-[`FLXSA`](https://github.com/flr/FLXSA),
 [`ggplotFL`](https://github.com/flr/ggplotFL),
 [`mse`](https://github.com/flr/mse), and
 [`FLfse`](https://github.com/shfischer/FLfse). See
@@ -142,8 +157,3 @@ for version details and sources.
 
 Also, the R package
 [`stockassessment`](https://github.com/fishfollower/SAM)is used.
-
-For running the optimisations on a high-performance computing cluster, a
-suitable MPI back-end and the R package
-[`Rmpi`](https://cran.r-project.org/web/packages/Rmpi/index.html) are
-required.
