@@ -27,6 +27,65 @@ source("funs_OM.R")
 cl1 <- FALSE
 
 ### ------------------------------------------------------------------------ ###
+### parallelisation (optional) ####
+### ------------------------------------------------------------------------ ###
+
+if (FALSE) {
+  req_pckgs <- c("FLCore", "FLasher", "FLBRP", "mse", "FLfse", 
+                 "GA", "doParallel", "doRNG",
+                 "tidyr", "dplyr", "stockassessment")
+  req_scripts <- c("funs.R", "funs_GA.R", "funs_WKNSMSE.R", "funs_OM.R")
+  
+  n_workers2 <- 10
+  cl2 <- makeCluster(n_workers2)
+  registerDoParallel(cl2)
+  print(cl2)
+  cl2_length <- length(cl2)
+  . <- foreach(i = seq(n_workers2)) %dopar% {
+    for (i in req_pckgs) 
+      suppressPackageStartupMessages(
+        library(package = i, character.only = TRUE, warn.conflicts = FALSE, 
+                verbose = FALSE, quietly = TRUE))
+    for (i in req_scripts) source(i)
+  }
+}
+
+### ------------------------------------------------------------------------ ###
+### list OMs ####
+### ------------------------------------------------------------------------ ###
+OMs <- c("refset", 
+         "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+         "M_low", "M_high", "M_Gislason", 
+         "R_no_AC", "R_higher", "R_lower", 
+         "R_failure", "overcatch", "undercatch", "Idx_higher")
+
+
+### ------------------------------------------------------------------------ ###
+### all OMs - F=Fmsy & F=0 ####
+### ------------------------------------------------------------------------ ###
+
+. <- foreach (OM = OMs) %:% foreach(Ftrgt = list("MSY", 0)) %do% {
+  #browser()
+  print(paste0("OM=", OM, " - Ftrgt=", Ftrgt))
+  
+  if (identical(OM, "refset")) {
+    n_blocks <- 10; n_workers <- 10; mp_parallel <- TRUE
+  } else {
+    n_blocks <- 1; n_workers <- 1; mp_parallel <- FALSE
+  }
+  
+  scenario <- ""
+  MP <- "constF"
+  n_yrs <- 100
+  ga_search <- FALSE
+  save_MP <- TRUE
+  
+  args_local <- c("a=1")
+  source("MP_run.R")
+  
+}
+
+### ------------------------------------------------------------------------ ###
 ### baseline - hr - x & w & v & n0 ####
 ### ------------------------------------------------------------------------ ###
 args_local <- c("n_blocks=1", "n_workers=0", 
