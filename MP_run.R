@@ -32,6 +32,10 @@ if (length(args) > 0) {
   if (!exists("OM")) OM <- "baseline"
   ### MP
   if (!exists("MP")) MP <- "hr"
+  if (identical(MP, "ICES_SAM")) {
+    if (!exists("Ftrgt")) Ftrgt <- "eqsim"
+    if (!exists("Btrigger")) Btrigger <- "eqsim"
+  }
   ### scenario definition
   if (!exists("scenario")) scenario <- "multiplier"
   if (!exists("Ftrgt")) Ftrgt <- "MSY" # only for constF MP
@@ -506,14 +510,36 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
     saveRDS(res_stats, file = paste0(path_out, "runs_", file, ".rds"))
     
     
+  } else  if (identical(MP, "ICES_SAM")) {
+  
+    ### MSY rule control parameters
+    if (!identical(Ftrgt, "eqsim")) {
+      input$ctrl$phcr@args$Ftrgt <- Ftrgt
+    }
+    
+    ### run MP
+    res_mp <- do.call(mp, input)
+    file_name <- paste0("mp_", Ftrgt)
+    if (isTRUE(save_MP))
+      saveRDS(res_mp, paste0(path_out, file_name, ".rds"))
+    stats <- mp_stats(input = input, res_mp = res_mp, refpts = refpts, 
+                      stat_yrs = stat_yrs)
+    saveRDS(stats, paste0(path_out, "stats", ".rds"))
+    
+  
   } else {
   
+    ### constant F projections
     if (identical(MP, "constF")) {
       if (identical(Ftrgt, "MSY")) {
         input$ctrl$hcr@args$ftrg <- median(c(refpts["Fmsy"]))
       } else {
         input$ctrl$hcr@args$ftrg <- Ftrgt
       }
+    ### ICES MSY advice rule
+    } else if (identical(MP, "ICES_SAM")) {
+      if (!identical(Ftrgt, "eqsim")) 
+        input$ctrl$phcr@args$Ftrgt <- Ftrgt
     }
     
     res_mp <- do.call(mp, input)
