@@ -770,6 +770,7 @@ plot_worm_comparison <- function(stk, stk_hist, refpts,
                       title = NULL,
                       scale_ssb = 1/1000, scale_catch = 1/1000, 
                       scale_rec = 1/1000,
+                      linetype_values = c("solid", "1111", "3232"),
                       history = TRUE, 
                       its = 1:5,
                       n_years = 20, yr_end = 2044, yr_start = 2010,
@@ -844,7 +845,8 @@ plot_worm_comparison <- function(stk, stk_hist, refpts,
                                      title_fbar, title_ssb)))
   
   p <- qnts_perc %>%
-    ggplot(aes(x = year, y = `50%`, colour = source, fill = source)) +
+    ggplot(aes(x = year, y = `50%`, colour = source, fill = source, 
+               linetype = source)) +
     geom_vline(xintercept = xintercept, colour = "grey", size = 0.5) +
     geom_ribbon(aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.1,
                 show.legend = FALSE, linewidth = 0) +
@@ -861,6 +863,7 @@ plot_worm_comparison <- function(stk, stk_hist, refpts,
     geom_line() +
     scale_colour_brewer("", palette = "Dark2") + 
     scale_fill_brewer("", palette = "Dark2") + 
+    scale_linetype_manual("", values = linetype_values) + 
     facet_wrap(~ qname, scales = "free_y", strip.position = "left") +
     labs(x = "Year") +
     coord_cartesian(ylim = c(0, NA), xlim = c(yr_start, NA), expand = FALSE) +
