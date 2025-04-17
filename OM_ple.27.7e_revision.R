@@ -1,8 +1,13 @@
 ### ------------------------------------------------------------------------ ###
-### create OM for western English Channel plaice ple.27.7e ####
+### create OM for western English Channel plaice ple.27.7e - REVISION ####
 ### ------------------------------------------------------------------------ ###
 ### base OM on SAM model fit
 ### follow OM routines developed for ICES WKNSMSE 2018
+
+### WGCSE 2025 - revised OMs after data revisions:
+### - UK catch data revised for 2021-2023 (revision of landings and raised discards)
+### - WKBNSCS revised migration data coming from ple.27.7d
+### - FSP index data revised for 2022-2023 (error in age reading)
 
 library(ggplot2)
 library(FLCore)
@@ -23,9 +28,9 @@ source("funs_WKNSMSE.R")
 source("funs_OM.R")
 
 ### input data, including discard estimates
-stk_data <- readRDS("input/ple.27.7e/preparation/model_input_stk.rds")
-idx_data <- readRDS("input/ple.27.7e/preparation/model_input_idx.rds")
-ALKs <- readRDS("input/ple.27.7e/preparation/ALK_MSE.rds")
+stk_data <- readRDS("input/ple.27.7e_revision/preparation/model_input_stk.rds")
+idx_data <- readRDS("input/ple.27.7e_revision/preparation/model_input_idx.rds")
+ALKs <- readRDS("input/ple.27.7e_revision/preparation/ALK_MSE.rds")
 refpts <- list(
   ### ICES style EqSim reference points (run with SAM fit)
   EqSim_Btrigger = 3265.991, EqSim_Fmsy = 0.2110553, EqSim_Fpa = 0.2436579, 
@@ -54,7 +59,7 @@ create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
           idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
           length_samples = 2000,
           PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "baseline")
+          refpts = refpts, stock_id = "ple.27.7e_revision", OM = "baseline")
 
 ### alternative OMs - discard survival ####
 ### all discards die
@@ -69,7 +74,7 @@ create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
           idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
           length_samples = 2000,
           PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "Catch_no_surv")
+          refpts = refpts, stock_id = "ple.27.7e_revision", OM = "Catch_no_surv")
 ### all discards survive
 create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
           yr_data = 2023, 
@@ -82,7 +87,7 @@ create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
           idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
           length_samples = 2000,
           PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "Catch_no_disc")
+          refpts = refpts, stock_id = "ple.27.7e_revision", OM = "Catch_no_disc")
 
 
 
@@ -101,7 +106,7 @@ create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
           idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
           length_samples = 2000,
           PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "M_high",
+          refpts = refpts, stock_id = "ple.27.7e_revision", OM = "M_high",
           M_alternative_mult = TRUE, M_alternative = 1.5)
 
 ### M_low: M -50%
@@ -117,11 +122,11 @@ create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
           idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
           length_samples = 2000,
           PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "M_low",
+          refpts = refpts, stock_id = "ple.27.7e_revision", OM = "M_low",
           M_alternative_mult = TRUE, M_alternative = 0.5)
 
 ### M_Gislason: age-dependent M according to Gislason et al. (2010)
-M_Gislason <- readRDS("input/ple.27.7e/preparation/M_Gislason.rds")
+M_Gislason <- readRDS("input/ple.27.7e_revision/preparation/M_Gislason.rds")
 create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
           yr_data = 2023, 
           disc_survival_OM = 0.5, disc_survival_MP = 0.5,
@@ -134,7 +139,7 @@ create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
           idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
           length_samples = 2000,
           PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "M_Gislason",
+          refpts = refpts, stock_id = "ple.27.7e_revision", OM = "M_Gislason",
           M_alternative_mult = FALSE, M_alternative = M_Gislason)
 
 ### alternative OMs - Recruitment ####
@@ -151,19 +156,19 @@ create_OM(stk_data = stk_data, idx_data = idx_data, n = 1000, n_years = 100,
           idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
           length_samples = 2000,
           PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "R_no_AC")
+          refpts = refpts, stock_id = "ple.27.7e_revision", OM = "R_no_AC")
 
 ### R_higher: recruitment +20%
 ### use files from baseline OM and adapt recruitment residuals
 ### instead of copying file, create a hard link (on Windows)
-path_baseline <- "input/ple.27.7e/baseline/1000_100/"
+path_baseline <- "input/ple.27.7e_revision/baseline/1000_100/"
 # list.files(path_baseline)
 files_link <- c("ALKs.rds", "catch_res.rds", "idx.rds", "idx_dev.rds", 
                 "idx_dev_raw.rds", 
                 "proc_res.rds", "SAM_conf.rds", "SAM_fit.rds",
                 "SAM_initial.rds", "SAM_uncertainty.rds", 
                 "stk.rds", "stk_oem.rds")
-path_new <- "input/ple.27.7e/R_higher/1000_100/"
+path_new <- "input/ple.27.7e_revision/R_higher/1000_100/"
 dir.create(path_new, recursive = TRUE)
 file.link(from = paste0(path_baseline, files_link), 
           to = paste0(path_new, files_link))
@@ -178,7 +183,7 @@ saveRDS(sr_R_higher, file = paste0(path_new, "sr.rds"))
 
 
 ### R_lower: recruitment -20%
-path_new <- "input/ple.27.7e/R_lower/1000_100/"
+path_new <- "input/ple.27.7e_revision/R_lower/1000_100/"
 dir.create(path_new, recursive = TRUE)
 file.link(from = paste0(path_baseline, files_link), 
           to = paste0(path_new, files_link))
@@ -193,7 +198,7 @@ saveRDS(sr_R_lower, file = paste0(path_new, "sr.rds"))
 
 
 ### R_failure: recruitment failure 2025-2029
-path_new <- "input/ple.27.7e/R_failure/1000_100/"
+path_new <- "input/ple.27.7e_revision/R_failure/1000_100/"
 dir.create(path_new, recursive = TRUE)
 file.link(from = paste0(path_baseline, files_link), 
           to = paste0(path_new, files_link))
@@ -215,7 +220,7 @@ saveRDS(sr_R_failure, file = paste0(path_new, "sr.rds"))
 ### - landings are 7.e catches, discards are 7.d catches
 ### - both assuming 50% discard survival
 ### -> discard rate of this stock object controls migration element
-stk_migr <- readRDS("input/ple.27.7e/preparation/model_input_stk_migration_LD.rds")
+stk_migr <- readRDS("input/ple.27.7e_revision/preparation/model_input_stk_migration_LD.rds")
 ### update intermediate year catch: 
 ### -> from 2022 (biennial) advice sheet, for 2024, for area 7.e: 1104
 ### -> correct for 50% discard survival (in 7.e)
@@ -232,7 +237,7 @@ create_OM(stk_data = stk_migr, idx_data = idx_data, n = 1000, n_years = 100,
           idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
           length_samples = 2000,
           PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "migr_none")
+          refpts = refpts, stock_id = "ple.27.7e_revision", OM = "migr_none")
 
 ### baseline OM with 10,000 iterations
 create_OM(stk_data = stk_data, idx_data = idx_data, n = 10000, n_years = 100,
@@ -246,7 +251,7 @@ create_OM(stk_data = stk_data, idx_data = idx_data, n = 10000, n_years = 100,
           idxL = TRUE, ALKs = ALKs, ALK_yrs_sample = 2019:2023, 
           length_samples = 2000,
           PA_status = TRUE,
-          refpts = refpts, stock_id = "ple.27.7e", OM = "baseline")
+          refpts = refpts, stock_id = "ple.27.7e_revision", OM = "baseline")
 
 ### ------------------------------------------------------------------------ ###
 ### MSY reference points ####
@@ -272,7 +277,7 @@ if (FALSE) {
   }
   
   ### baseline OM
-  res <- est_MSY(OM = "baseline", stock_id = "ple.27.7e", yr_start = 2025, 
+  res <- est_MSY(OM = "baseline", stock_id = "ple.27.7e_revision", yr_start = 2025, 
                  n_blocks = 5, n_iter = 1000)
   res$result[which.max(res$result$catch), ]
   #        Ftrgt     catch       ssb       tsb      rec
@@ -288,17 +293,17 @@ if (FALSE) {
 ### ------------------------------------------------------------------------ ###
 
 ### definition of Blim: ICES type 5 stock, Blim = Bloss
-stk_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
+stk_baseline <- readRDS("input/ple.27.7e_revision/baseline/1000_100/stk.rds")
 Blim <- min(iterMedians(ssb(stk_baseline)), na.rm = TRUE)
 dimnames(stk_baseline)$year[which.min(iterMedians(ssb(stk_baseline)))]
 ### Blim is SSB in 2008
 
 ### reference points for baseline OM
-refpts_search <- readRDS(paste0("input/ple.27.7e/baseline/1000_100/MSY_trace.rds"))
+refpts_search <- readRDS(paste0("input/ple.27.7e_revision/baseline/1000_100/MSY_trace.rds"))
 refpts_MSY <- refpts_search[[which.max(sapply(refpts_search, function(x) x$catch))]]
 refpts_0 <- refpts_search[[which(sapply(refpts_search, "[[", "Ftrgt") == 0)]]
 
-sr_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
+sr_baseline <- readRDS("input/ple.27.7e_revision/baseline/1000_100/sr.rds")
 ### recruitment corresponding to Blim relative to R0
 RR0 <- c(((iterMedians(params(sr_baseline)["a"])*Blim) /
             (iterMedians(params(sr_baseline))["b"] + Blim)) /
@@ -327,7 +332,7 @@ rec_ecdf(rec_median[, pos_Blim + dims(stk_baseline)$min])
 refpts <- FLPar(refpts, iter = 1000, unit = "")
 update_refpts <- function(OM, refpts, RR0, BB0) {#browser()
   ### get MSY and unfished reference points
-  refpts_search <- readRDS(paste0("input/ple.27.7e/", OM,
+  refpts_search <- readRDS(paste0("input/ple.27.7e_revision/", OM,
                                "/1000_100/MSY_trace.rds"))
   refpts_MSY <- refpts_search[[which.max(sapply(refpts_search, function(x) x$catch))]]
   refpts_0 <- refpts_search[[which(sapply(refpts_search, "[[", "Ftrgt") == 0)]]
@@ -336,7 +341,7 @@ update_refpts <- function(OM, refpts, RR0, BB0) {#browser()
   refpts["Bmsy"] <- refpts_MSY$ssb
   refpts["Cmsy"] <- refpts_MSY$catch
   ### load recruitment model and to estimate Blim based on R(SSB=Blim)/R0
-  sr_mse <- readRDS(paste0("input/ple.27.7e/", OM, "/1000_100/sr.rds"))
+  sr_mse <- readRDS(paste0("input/ple.27.7e_revision/", OM, "/1000_100/sr.rds"))
   pars <- iterMedians(params(sr_mse))
   refpts["Blim_RR0"] <- c(pars["b"])*(RR0/(1 - RR0))
   ### Blim as SSB relative to B0
@@ -345,7 +350,7 @@ update_refpts <- function(OM, refpts, RR0, BB0) {#browser()
   refpts["Blim"] <- refpts["Blim_BB0"]
   print(refpts)
   ### save updated values
-  saveRDS(refpts, file = paste0("input/ple.27.7e/", OM,
+  saveRDS(refpts, file = paste0("input/ple.27.7e_revision/", OM,
                                 "/1000_100/refpts_mse.rds"))
 }
 
@@ -368,7 +373,7 @@ update_refpts(OM = "R_lower", refpts = refpts, RR0 = RR0, BB0 = BB0)
 OMs <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_failure")
 
 . <- foreach(OM = OMs) %:% foreach(n_iter = 1000) %do% {
-  file_i <- paste0("input/ple.27.7e/", OM, "/", n_iter, "_100/refpts_mse.rds")
+  file_i <- paste0("input/ple.27.7e_revision/", OM, "/", n_iter, "_100/refpts_mse.rds")
   if (!file.exists(file_i)) return(NULL)
   refpts_i <- readRDS(file_i)
   val_NA <- is.na(iter(refpts_i, 2))
@@ -382,9 +387,9 @@ OMs <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_
 ### ------------------------------------------------------------------------ ###
 ### alternative Blim values ####
 ### ------------------------------------------------------------------------ ###
-# stk_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
+# stk_baseline <- readRDS("input/ple.27.7e_revision/baseline/1000_100/stk.rds")
 # Blim <- min(iterMedians(ssb(stk_baseline)), na.rm = TRUE)
-# sr_baseline <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
+# sr_baseline <- readRDS("input/ple.27.7e_revision/baseline/1000_100/sr.rds")
 # ### find SSB at R=x
 # bh <- function(alpha, beta, B) (alpha * B)/(beta + B)
 # bh_min <- function(alpha, beta, B, R0, prop) {
@@ -414,7 +419,7 @@ OMs <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_
 #                method = "Brent", lower = 0, upper = 40000)
 #   return(tmp$par)
 # })
-# saveRDS(Blim_RR0, "input/ple.27.7e/baseline/1000_100/Blim_RR0.rds")
+# saveRDS(Blim_RR0, "input/ple.27.7e_revision/baseline/1000_100/Blim_RR0.rds")
 
 
 
@@ -422,56 +427,56 @@ OMs <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_
 ### for harvest rate: check mean catch length history ####
 ### ------------------------------------------------------------------------ ###
 
-### load stock
-stk <- readRDS("input/ple.27.7e/preparation/model_input_stk_d.RDS")
-
-### indices 
-### use observed values - equivalent to simulated plus added uncertainty
-idx <- readRDS("input/ple.27.7e/preparation/model_input_idx.RDS")
-idx$`FSP-7e`@index ### 2003-2020
-
-### aggregated biomass index
-idxB <- quantSums(idx$`FSP-7e`@index * catch.wt(stk)[ac(2:8), ac(2003:2020)])
-plot(idxB) + ylim(c(0, NA))
-### corresponding catch
-idxC <- catch(stk)[, ac(2003:2020)]
-
-### harvest rate
-plot(idxC/idxB) + ylim(c(0, NA))
-
-### get mean catch length from WGCSE 2021
-Lc <- 26
-LFeM <- 36
-lmean <- read.csv("input/ple.27.7e/preparation/lmean.csv")
-### always below LFeM
-
-### plot mean length
-ggplot() +
-  geom_hline(yintercept = LFeM, size = 0.4, colour = "red") +
-  geom_line(data = lmean, aes(x = Year, y = Lmean),
-            size = 0.3) +
-  ylim(c(0, NA)) + xlim(c(2010, 2020)) +
-  labs(y = "mean catch length [cm]") +
-  theme_bw(base_size = 8)
-ggsave(filename = "output/plots/OM/OM_ple_mean_length.png", 
-       width = 8.5, height = 5, units = "cm", dpi = 600, type = "cairo")
-ggsave(filename = "output/plots/OM/OM_ple_mean_length.pdf", 
-       width = 8.5, height = 5, units = "cm", dpi = 600)
-
-### plot harvest rate
-df_hr <- as.data.frame(idxC/idxB)
-ggplot() +
-  geom_line(data = df_hr, aes(x = year, y = data),
-            size = 0.3) +
-  geom_point(data = df_hr %>% filter(year %in% 2014), 
-             aes(x = year, y = data),
-             size = 0.5, colour = "red") +
-  ylim(c(0, NA)) + xlim(c(2010, 2020)) +
-  labs(y = "harvest rate (catch/index)") +
-  theme_bw(base_size = 8)
-ggsave(filename = "output/plots/OM/OM_ple_mean_length_hr_target.png", 
-       width = 8.5, height = 5, units = "cm", dpi = 600, type = "cairo")
-ggsave(filename = "output/plots/OM/OM_ple_mean_length_hr_target.pdf", 
-       width = 8.5, height = 5, units = "cm", dpi = 600)
+# ### load stock
+# stk <- readRDS("input/ple.27.7e_revision/preparation/model_input_stk_d.RDS")
+# 
+# ### indices 
+# ### use observed values - equivalent to simulated plus added uncertainty
+# idx <- readRDS("input/ple.27.7e_revision/preparation/model_input_idx.RDS")
+# idx$`FSP-7e`@index ### 2003-2020
+# 
+# ### aggregated biomass index
+# idxB <- quantSums(idx$`FSP-7e`@index * catch.wt(stk)[ac(2:8), ac(2003:2020)])
+# plot(idxB) + ylim(c(0, NA))
+# ### corresponding catch
+# idxC <- catch(stk)[, ac(2003:2020)]
+# 
+# ### harvest rate
+# plot(idxC/idxB) + ylim(c(0, NA))
+# 
+# ### get mean catch length from WGCSE 2021
+# Lc <- 26
+# LFeM <- 36
+# lmean <- read.csv("input/ple.27.7e_revision/preparation/lmean.csv")
+# ### always below LFeM
+# 
+# ### plot mean length
+# ggplot() +
+#   geom_hline(yintercept = LFeM, size = 0.4, colour = "red") +
+#   geom_line(data = lmean, aes(x = Year, y = Lmean),
+#             size = 0.3) +
+#   ylim(c(0, NA)) + xlim(c(2010, 2020)) +
+#   labs(y = "mean catch length [cm]") +
+#   theme_bw(base_size = 8)
+# ggsave(filename = "output/plots/OM/OM_ple_mean_length.png", 
+#        width = 8.5, height = 5, units = "cm", dpi = 600, type = "cairo")
+# ggsave(filename = "output/plots/OM/OM_ple_mean_length.pdf", 
+#        width = 8.5, height = 5, units = "cm", dpi = 600)
+# 
+# ### plot harvest rate
+# df_hr <- as.data.frame(idxC/idxB)
+# ggplot() +
+#   geom_line(data = df_hr, aes(x = year, y = data),
+#             size = 0.3) +
+#   geom_point(data = df_hr %>% filter(year %in% 2014), 
+#              aes(x = year, y = data),
+#              size = 0.5, colour = "red") +
+#   ylim(c(0, NA)) + xlim(c(2010, 2020)) +
+#   labs(y = "harvest rate (catch/index)") +
+#   theme_bw(base_size = 8)
+# ggsave(filename = "output/plots/OM/OM_ple_mean_length_hr_target.png", 
+#        width = 8.5, height = 5, units = "cm", dpi = 600, type = "cairo")
+# ggsave(filename = "output/plots/OM/OM_ple_mean_length_hr_target.pdf", 
+#        width = 8.5, height = 5, units = "cm", dpi = 600)
 
 

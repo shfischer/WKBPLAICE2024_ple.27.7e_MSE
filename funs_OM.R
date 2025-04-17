@@ -969,7 +969,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
   
   ### ---------------------------------------------------------------------- ###
   ### Observation (error) model OEM ####
-  if (identical(stock_id, "ple.27.7e")) {
+  if (isTRUE(stock_id %in% c("ple.27.7e", "ple.27.7e_revision"))) {
     if (is.null(use_age_idcs)) use_age_idcs <- c("UK-FSP", "Q1SWBeam")
     if (is.null(biomass_index)) biomass_index <- "UK-FSP"
     if (is.null(idx_timing)) idx_timing <- c(-1, -1)
@@ -1097,7 +1097,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     ### define target harvest rate through reference years
     hr_values <- idxC[, ac(idxB_yrs)]/idxB[, ac(idxB_yrs)]
     if (is.null(hr_years)) {
-      if (identical(stock_id, "ple.27.7e")) {
+      if (isTRUE(stock_id %in% c("ple.27.7e", "ple.27.7e_revision"))) {
         ### use all historical years (excl. intermediate)
         hr_years <- setdiff(idxB_yrs, 2024) 
       } else {
