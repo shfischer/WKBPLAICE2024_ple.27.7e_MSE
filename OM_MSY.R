@@ -20,7 +20,7 @@ if (!exists("yr_start")) yr_start <- 2025
 if (!exists("n_iter")) n_iter <- 1000
 if (!exists("vals_ini")) vals_ini <- seq(0, 1, 0.1)
 if (!exists("lower")) lower <- 0
-if (!exists("upper")) upper <- 0.4
+if (!exists("upper")) upper <- 0.5
 if (!exists("tol")) tol <- 0.001
 if (!exists("plot")) plot <- TRUE
 if (!exists("x_label")) x_label <- "F (ages 3-6)"
@@ -32,7 +32,7 @@ if (!exists("save_res")) save_res <- TRUE
 ### prepare R session ####
 ### ------------------------------------------------------------------------ ###
 req_pckgs <- c("FLCore", "FLasher", "FLBRP", "mse", "FLfse", 
-               "tidyr", "dplyr", "ggplot2")
+               "tidyr", "dplyr", "ggplot2", "doParallel")
 for (i in req_pckgs) library(package = i, character.only = TRUE)
 
 ### load additional functions
@@ -41,16 +41,17 @@ for (i in req_scripts) source(i)
 
 ### parallelisation
 if (isTRUE(n_workers > 1)) {
-  ### use doFuture
-  plan(multisession, workers = n_workers)
-  ### load packages and functions into parallel workers
-  . <- foreach(i = seq(n_workers)) %dofuture% {
-    for (i in req_pckgs) library(package = i, character.only = TRUE,
-                                 warn.conflicts = FALSE, verbose = FALSE,
-                                 quietly = TRUE)
+  cl <- makeCluster(n_workers)
+  registerDoParallel(cl)
+  print(cl)
+  cl_length <- length(cl)
+  . <- foreach(i = seq(n_workers)) %dopar% {
+    for (i in req_pckgs) 
+      suppressPackageStartupMessages(
+        library(package = i, character.only = TRUE, warn.conflicts = FALSE, 
+                verbose = FALSE, quietly = TRUE))
     for (i in req_scripts) source(i)
   }
-  
 }
 
 ### ------------------------------------------------------------------------ ###
@@ -78,6 +79,6 @@ for (i in OM) {
 }
 
 ### shut down parallel workers
-plan(sequential)
+# plan(sequential)
 
 
