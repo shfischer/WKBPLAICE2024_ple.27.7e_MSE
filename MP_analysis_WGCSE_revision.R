@@ -470,3 +470,66 @@ ggsave(filename = "output/plots_revision/wormplots/refset_MP5_by_OM_100_risk.png
 ggsave(filename = "output/plots_revision/wormplots/refset_MP5_by_OM_100_risk.pdf",
        plot = p, width = 10, height = 5, units = "cm")
   
+
+
+### ------------------------------------------------------------------------ ###
+### Exceptional circumstances - biomass index range ####
+### ------------------------------------------------------------------------ ###
+### use MP5
+
+### load mp results
+mp <- readRDS("output/ple.27.7e_revision/refset/1000_20/multiplier/hr/mp_1_2_1_3.7_2_0.618657390447733_1.2_0.7-1_UK-FSP.rds")
+### input data
+input <- input_mp(OM = "refset", n_yrs = 20, stock_id = "ple.27.7e_revision")
+
+### historical index data
+### @index slot does not include weight at age
+idxB_hist <- quantSums(input$oem@observations$idx$`UK-FSP`@index *
+                         input$oem@observations$idx$`UK-FSP`@catch.wt *
+                         input$oem@deviances$idx$`UK-FSP`)
+
+### projected index
+### @index slot includes weight at age
+idxB_proj <- quantSums(mp@oem@observations$idx$`UK-FSP`@index *
+                         window(input$oem@deviances$idx$`UK-FSP`, start = 2024))
+
+### combine history and projection
+idxB <- idxB_hist
+idxB[, ac(2024:2044)] <- idxB_proj
+
+#plot(idxB) + ylim(c(0, NA))
+
+### get percentiles
+idxB_qnt <- quantile(idxB, 
+                     probs = c(0.025, 0.25, 0.5, 0.75, 0.975),
+                     na.rm = TRUE)
+df <- as.data.frame(idxB_qnt) %>%
+  select(year, iter, data) %>%
+  pivot_wider(names_from = iter, values_from = data) %>%
+  mutate(period = ifelse(year < 2024, "Data", "Projection"))
+
+### plot
+p <- df %>%
+  ggplot() +
+  geom_ribbon(aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.1,
+              show.legend = FALSE) +
+  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.1,
+              show.legend = FALSE) +
+  geom_line(aes(x = year, y = `50%`), linewidth = 0.4) +
+  facet_grid(1 ~ period, shrink = TRUE, space = "free_x", scales = "free_x") +
+  coord_cartesian(ylim = c(0, 3.5), expand = FALSE) + 
+  labs(x = "Year", y = "UK-FSP biomass index (kg/hr m beam)") + 
+  theme_bw(base_size = 8) +
+  theme(strip.text.y = element_blank())
+ggsave(filename = "output/plots_revision/EC/MP4_idx_hist_proj.png",
+       width = 16, height = 8, units = "cm", dpi = 600,
+       type = "cairo")
+ggsave(filename = "output/plots_revision/EC/MP4_idx_hist_proj.pdf",
+       width = 16, height = 8, units = "cm")
+
+
+### save percentiles to check EC during WGCSE
+df_perc <- as.data.frame(window(idxB_qnt, start = 2024)) %>%
+  select(year, iter, data)
+write.csv(df_perc, file = "output/plots_revision/EC/idxB_percentiles.csv", 
+          row.names = FALSE)
