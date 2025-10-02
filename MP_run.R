@@ -532,7 +532,7 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
     ### constant F projections
     if (identical(MP, "constF")) {
       if (identical(Ftrgt, "MSY")) {
-        input$ctrl$hcr@args$ftrg <- median(c(refpts["Fmsy"]))
+        input$ctrl$hcr@args$ftrg <- c(refpts["Fmsy"])
       } else {
         input$ctrl$hcr@args$ftrg <- Ftrgt
       }
