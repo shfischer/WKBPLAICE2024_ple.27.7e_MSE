@@ -3,8 +3,8 @@ ICES WKBPLAICE 2024 – MSE for ple.27.7e
 
 ## Introduction
 
-This repository contains the data code for a stock-specific MSE for the
-ICES category 3 data-limited stock
+This repository contains the data and code for a stock-specific MSE for
+the ICES category 3 data-limited stock
 
 - plaice (*Pleuronectes platessa*) in Division 7.e (western English
   Channel)
@@ -34,7 +34,7 @@ The simulation is based on the Fisheries Library in R
 
 For exact reproducibility, R packages versions are recorded with
 [renv](https://rstudio.github.io/renv/) in a
-[renv.lock](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/renv.lock)
+[renv.lock](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/renv.lock)
 file.
 
 ## Repository structure
@@ -42,74 +42,74 @@ file.
 - `funs_*`: Function libraries, defining the functions used in the other
   scripts
 
-  - [`funs.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/funs.R):
+  - [`funs.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/funs.R):
     generic function library, including definition of data-limited
     management procedures (MPs)
 
-  - [`funs_analysis.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/funs_analysis.R):
+  - [`funs_analysis.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/funs_analysis.R):
     for analysis of results
 
-  - [`funs_GA.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/funs_GA.R):
+  - [`funs_GA.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/funs_GA.R):
     functions used in the optimisation with the genetic algorithm (GA)
 
-  - [`funs_OM.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/funs_OM.R):
+  - [`funs_OM.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/funs_OM.R):
     functions for generating the operating models
 
-  - [`funs_WKNSMSE.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/funs_WKNSMSE.R):
+  - [`funs_WKNSMSE.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/funs_WKNSMSE.R):
     functions required for the ICES MSY rule
 
 - `OM_*`: Scripts for operating models (OMs, including alternative OMs)
 
-  - [`OM_ple.27.7e.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/OM_ple.27.7e.R)
+  - [`OM_ple.27.7e.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/OM_ple.27.7e.R)
     for plaice
 
-  - [`OM_MSY.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/OM_MSY.R):
+  - [`OM_MSY.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/OM_MSY.R):
     script for estimating MSY
 
 - `MP_*`: Script for running and analysing the MSE
 
-  - [`MP_analysis.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/MP_analysis.R):
+  - [`MP_analysis.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/MP_analysis.R):
     script for analysing MSE results (summarising, exporting,
     visualisation, …)
 
-  - [`MP_run.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/MP_run.R):
+  - [`MP_run.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/MP_run.R):
     script for running any MP in the MSE and optimising MPs
 
   - `MP_*.pbs`: job submission scripts, used for running MP_run.R on a
     high-performance computing cluster,
-    e.g. [`MP_run_rfb_mult.pbs`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/MP_run_rfb_mult.pbs)
+    e.g. [`MP_run_rfb_mult.pbs`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/MP_run_rfb_mult.pbs)
     for optimising the rfb rule with a multiplier
 
   - `MP_run_local.R`: Script for running some MPs locally
     (e.g. optimised solutions)
 
-[`input/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/master/input):
+[`input/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/paper/input):
 This directory contains all files required for generating the OMs for
 the three stocks (`OM_*.R`)
 
-- [`input/ple.27.7e/preparation/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/master/input/ple.27.7e/preparation):
+- [`input/ple.27.7e/preparation/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/paper/input/ple.27.7e/preparation):
   data required to set up plaice OMs
 
-- [`input/ple.27.7e/baseline/1000_100/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/master/input/ple.27.7e/baseline/1000_100/):
+- [`input/ple.27.7e/baseline/1000_100/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/paper/input/ple.27.7e/baseline/1000_100/):
   example OM input files for baseline OM
 
-- [`input/OM_refpts.csv`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/input/OM_refpts.csv):
+- [`input/OM_refpts.csv`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/input/OM_refpts.csv):
   summarised OM reference points
 
-- [`input/OM_refpts_Blim.csv`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/input/OM_refpts_Blim.csv):
+- [`input/OM_refpts_Blim.csv`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/input/OM_refpts_Blim.csv):
   alternative calculations for Blim
 
-[`output/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/master/output):
+[`output/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/paper/output):
 This directory contains some summarised results
 
 ## Working documents
 
 There are two working documents included in this repository:
 
-- [`WKBPLAICE2024_ple.27.7e_OM.pdf`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/WKBPLAICE2024_ple.27.7e_OM.pdf):
+- [`WKBPLAICE2024_ple.27.7e_OM.pdf`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/WKBPLAICE2024_ple.27.7e_OM.pdf):
   description of the operating models
 
-- [`WKBPLAICE2024_ple.27.7e_MP.pdf`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/WKBPLAICE2024_ple.27.7e_MP.pdf):
+- [`WKBPLAICE2024_ple.27.7e_MP.pdf`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/WKBPLAICE2024_ple.27.7e_MP.pdf):
   description of the results
 
 ## R, R packages and version info
@@ -125,7 +125,7 @@ Running under: Windows 10 x64 (build 19045)
 
 The package versions and their dependencies are recorded with the R
 package [renv](https://rstudio.github.io/renv/) and stored in the file
-[renv.lock](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/renv.lock).
+[renv.lock](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/renv.lock).
 The exact package version can be restored by cloning this repository,
 navigating into this folder in R (or setting up a project), installing
 the renv package
@@ -152,7 +152,7 @@ uses the [FLR packages](https://flr-project.org/)
 [`ggplotFL`](https://github.com/flr/ggplotFL),
 [`mse`](https://github.com/flr/mse), and
 [`FLfse`](https://github.com/shfischer/FLfse). See
-[renv.lock](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/master/renv.lock)
+[renv.lock](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/renv.lock)
 for version details and sources.
 
 Also, the R package
