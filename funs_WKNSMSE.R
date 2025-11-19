@@ -259,6 +259,56 @@ SAM_wrapper <- function(stk, idx, tracking,
   
 }
 
+
+### ------------------------------------------------------------------------ ###
+### estimator emulator: SAM shortcut ####
+### ------------------------------------------------------------------------ ###
+SAM_emulator <- function(stk, idx, tracking,
+                         args, ### contains ay (assessment year)
+                         forecast = FALSE,
+                         fwd_trgt = "fsq", ### what to target in forecast
+                         fwd_yrs = 2, ### number of years to add
+                         fwd_yrs_average = 5, ### years used for averages
+                         fwd_yrs_rec_start = NULL, ### recruitment 
+                        ...){
+  
+  ### get additional arguments
+  args <- c(args, list(...))
+  
+  ### get current (assessment) year
+  ay <- args$ay
+  
+  ### no assessment
+  stk0 <- stk
+  
+  ### perform forecast to get SSB ay+1
+  if (isTRUE(forecast)) {
+    
+    ### extend stock
+    stk_stf <- stf(stk0, nyears = fwd_yrs, wts.nyears = fwd_yrs_average)
+    
+    ### recruitment: median to mimick average of SAM resampling
+    rec_fc <- yearMedians(rec(stk0))
+    
+    ### define stf target
+    Fsq <- fbar(stk_stf)[, ac(c(ay, ay + 1))]
+    Fsq[, ac(ay)] <- fbar(stk0)[, ac(ay - 1)] ### use last F as target
+    Fsq[, ac(ay + 1)] <- fbar(stk0)[, ac(ay - 1)]
+    ctrl_stf <- fwdControl(Fsq, quant = "f")
+    stk_stf[] <- fwd(stk_stf, control = ctrl_stf, 
+                     sr = FLSR(model = "geomean",
+                               params = FLPar(a = c(rec_fc),
+                                              iter = dims(stk_stf)$iter)))
+    stk0 <- stk_stf
+  
+  }
+  
+  ### return assessed stock
+  return(list(stk = stk0, tracking = tracking))
+  
+}
+
+
 ### ------------------------------------------------------------------------ ###
 ### phcr: parameterize HCR ####
 ### ------------------------------------------------------------------------ ###
@@ -776,6 +826,40 @@ is_WKNSMSE <- function(stk, tracking, ctrl,
     ### insert previous OM catch as target to keep simulation going
     catch_target[pos_failed] <- tracking[[1]]["C.om", ac(ay),,,, pos_failed]
   }
+  
+  ### create ctrl object
+  advice <- FLQuant(c(catch_target), 
+                    dimnames = list(year = ctrl@target$year,
+                                    iter = seq(it)))
+  ctrl <- fwdControl(target = advice, quant = "catch")
+  
+  ### return catch target and tracking
+  return(list(ctrl = ctrl, tracking = tracking))
+  
+}
+
+### ------------------------------------------------------------------------ ###
+### management implementation: SAM shortcut forecast ####
+### ------------------------------------------------------------------------ ###
+is_shortcut <- function(stk, tracking, ctrl,
+                        args, 
+                        ...) {
+  
+  ### get current (assessment) year
+  ay <- args$ay
+  ### number of iterations
+  it <- dim(stk)[6]
+  
+  ### forecast with FLasher
+  ### define recruitment model
+  sr_stf <- FLSR(model = "geomean", params = FLPar(1))
+  ### keep recruitment values defined in estimator
+  residuals(sr_stf) <- rec(stk)
+  ### forecast observed stock
+  stk <- fwd(stk, control = ctrl, sr = sr_stf, 
+             deviances = residuals(sr_stf))
+  ### extract catch
+  catch_target <- c(catch(stk)[, ac(ay + 1)])
   
   ### create ctrl object
   advice <- FLQuant(c(catch_target), 

@@ -173,6 +173,8 @@ obs_generic <- function(stk, observations, deviances, args, tracking,
                         PA_status_dev = FALSE,
                         PA_Bmsy = FALSE, PA_Fmsy = FALSE,
                         use_stk_oem = FALSE, ### biological parameters, wts etc
+                        use_n_residuals = FALSE,
+                        shortcut = FALSE, ### pass on N and F as observations
                         use_catch_residuals = FALSE,
                         use_catch_residuals_disc = FALSE, ### discard survival
                         use_idx_residuals = FALSE,
@@ -211,6 +213,15 @@ obs_generic <- function(stk, observations, deviances, args, tracking,
     landings.n(stk0) <- landings.n(stk)
     landings(stk0) <- landings(stk)
     
+    ### shortcut - pass on N and F as observations
+    if (isTRUE(shortcut)) {
+      
+      stock.n(stk0) <- stock.n(stk)
+      stock(stk0) <- stock(stk)
+      harvest(stk0) <- harvest(stk)
+      
+    }
+    
   }
   
   ### add uncertainty to catch
@@ -248,6 +259,17 @@ obs_generic <- function(stk, observations, deviances, args, tracking,
     discards(stk0) <- computeDiscards(stk0)
     
   } 
+  
+  ### add uncertainty to stock numbers (for SAM shortcut)
+  if (isTRUE(use_n_residuals)) {
+    
+    ### implement for N at age
+    stock.n(stk0) <- stock.n(stk) * deviances$stk$n_res
+    
+    ### update total stock
+    stock(stk0) <- computeStock(stk0)
+    
+  }
   
   ### calculate age indices
   if (is.null(use_age_idcs)) use_age_idcs <- names(observations$idx)
