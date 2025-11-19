@@ -811,6 +811,13 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     refpts_mse <- readRDS(paste0(path_input, "refpts_mse.rds"))
     sam_uncertainty <- readRDS(paste0(path_input, "SAM_uncertainty.rds"))
     
+    ### shortcut: estimation error
+    if (identical(MP, "ICES_SAM_shortcut")) {
+      n_res <- readRDS(paste0(path_input, "shortcut_n_res.rds"))
+    } else {
+      n_res <- catch_res$catch_res %=% NA_real_
+    }
+    
     ### change index uncertainty?
     ### replicate process from create_OM() with full dimensions
     if (!is.null(idx_unc)) {
@@ -842,6 +849,8 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
       idx_dev <- window(idx_dev, end = yr_end)
       catch_res <- window(catch_res, end = yr_end)
       proc_res <- window(proc_res, end = yr_end)
+      ### shortcut error
+      n_res <- window(n_res, end = yr_end)
     }
     if (isTRUE(n_iter < n_iter_file)) {
       ### OM stock
@@ -859,6 +868,8 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
       ### reference points
       if (isTRUE(n_iter < dims(refpts_mse)$iter))
         refpts_mse <- iter(refpts_mse, seq(n_iter))
+      ### shortcut error
+      n_res <- FLCore::iter(n_res, seq(n_iter))
     }
     
     return(list(stk_fwd = stk_fwd, sr = sr, idx = idx, idx_dev = idx_dev,
@@ -929,7 +940,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                nsqy = 3, ### not used, but has to provided
                seed = seed ### random number seed before starting MSE
   )
-  if (identical(MP, "ICES_SAM")) {
+  if (isTRUE(MP %in% c("ICES_SAM", "ICES_SAM_shortcut"))) {
     args$data_lag <- 1
     args$managment_lag <- 1
   }
@@ -1026,6 +1037,17 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     oem@args <- list(cut_idx = TRUE, idx_timing = idx_timing,
                      catch_timing = catch_timing, use_catch_residuals = TRUE,
                      use_idx_residuals = TRUE, use_stk_oem = TRUE)
+  ### ICES category 1 with SAM - shortcut
+  } else if (isTRUE(MP == "ICES_SAM_shortcut")) {
+    oem@observations$idx <- oem@observations$idx[use_age_idcs] ### age indices only
+    oem@deviances$idx <- oem@deviances$idx[use_age_idcs]
+    oem@deviances$stk <- FLQuants(catch_res = catch_res$catch_res,
+                                  disc_res = catch_res$disc_res,
+                                  n_res = n_res)
+    oem@args <- list(cut_idx = TRUE, idx_timing = idx_timing,
+                     catch_timing = catch_timing, use_catch_residuals = TRUE,
+                     use_idx_residuals = TRUE, use_stk_oem = TRUE,
+                     use_n_residuals = TRUE, shortcut = TRUE)
   ### harvest rate based on biomass index
   } else if (isTRUE(MP == "hr")) {
     ### remove redundant indices and arguments
@@ -1214,6 +1236,27 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                          Blim = c(refpts_mse["EqSim_Blim"])[1],
                          fwd_trgt = list(fwd_trgt), 
                          fwd_yrs = fwd_yrs + 1, SAM_stf_def
+                       ))))
+    } 
+  } else if (isTRUE(MP == "ICES_SAM_shortcut")) {
+    if (stock_id %in% c("ple.27.7e")) {
+      ctrl <- mpCtrl(list(
+        est = mseCtrl(method = SAM_emulator,
+                      args = list(### short term forecast specifications
+                        forecast = TRUE, 
+                        fwd_yrs = 2, fwd_yrs_average = 5
+                      )),
+        phcr = mseCtrl(method = phcr_WKNSMSE,
+                       args = list(
+                         Btrigger = c(refpts_mse["EqSim_Btrigger"])[1], 
+                         Ftrgt = c(refpts_mse["EqSim_Fmsy"])[1], 
+                         Blim = c(refpts_mse["EqSim_Blim"])[1])),
+        hcr = mseCtrl(method = hcr_WKNSME, args = list(option = "A")),
+        isys = mseCtrl(method = is_shortcut, 
+                       args = list(
+                         Btrigger = c(refpts_mse["EqSim_Btrigger"])[1], 
+                         Ftrgt = c(refpts_mse["EqSim_Fmsy"])[1], 
+                         Blim = c(refpts_mse["EqSim_Blim"])[1]
                        ))))
     } 
   } else if (isTRUE(MP == "constF")) {
