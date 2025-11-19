@@ -345,3 +345,46 @@ OMs <- c("refset", "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none",
     if (isTRUE(is(cl, "cluster"))) stopCluster(cl)
 }
 
+### ------------------------------------------------------------------------ ###
+### SAM - shortcut all OMs ####
+### ------------------------------------------------------------------------ ###
+
+### parallelisation - parallelise over OMs
+req_pckgs <- c("FLCore", "FLasher", "FLBRP", "mse", "FLfse", 
+               "GA", "doParallel", "doRNG",
+               "tidyr", "dplyr", "stockassessment")
+req_scripts <- c("funs.R", "funs_GA.R", "funs_WKNSMSE.R", "funs_OM.R")
+n_workers2 <- 14
+cl2 <- makeCluster(n_workers2)
+registerDoParallel(cl2)
+print(cl2)
+cl2_length <- length(cl2)
+. <- foreach(i = seq(n_workers2)) %dopar% {
+  for (i in req_pckgs) 
+    suppressPackageStartupMessages(
+      library(package = i, character.only = TRUE, warn.conflicts = FALSE, 
+              verbose = FALSE, quietly = TRUE))
+  for (i in req_scripts) source(i)
+}
+
+### all OMs
+OMs <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_failure", "overcatch", "undercatch", "Idx_higher")
+
+for (Ftrgt in seq(0, 0.5, 0.025)) {
+  paste0("Ftrgt=", Ftrgt); flush.console()
+  . <- foreach(OM = OMs) %dopar% {
+    
+    rm(args_local)
+    OM <<- OM
+    Ftrgt <<- Ftrgt
+    args_local <<- c("n_blocks=1", "n_workers=1", "mp_parallel=FALSE",
+                    "scenario=''", "MP='ICES_SAM_shortcut'",
+                    "n_yrs=20", "check_file=FALSE",
+                    "ga_search=FALSE", "save_MP=TRUE",
+                    "collate=FALSE", "stat_yrs='multiple'")
+    source("MP_run.R")
+    
+  }
+}
+
+
