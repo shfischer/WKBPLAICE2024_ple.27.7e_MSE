@@ -6,8 +6,11 @@
 ### arguments ####
 ### ------------------------------------------------------------------------ ###
 
-args <- commandArgs(TRUE)
-if (exists(x = "args_local")) args <- append(args, args_local)
+if (exists(x = "args_local")) {
+  args <- args_local
+} else {
+  args <- commandArgs(TRUE)
+}
 print("arguments passed on to this script:")
 print(args)
 
@@ -32,7 +35,7 @@ if (length(args) > 0) {
   if (!exists("OM")) OM <- "baseline"
   ### MP
   if (!exists("MP")) MP <- "hr"
-  if (identical(MP, "ICES_SAM")) {
+  if (isTRUE(MP %in% c("ICES_SAM", "ICES_SAM_shortcut"))) {
     if (!exists("Ftrgt")) Ftrgt <- "eqsim"
     if (!exists("Btrigger")) Btrigger <- "eqsim"
   }
@@ -510,7 +513,7 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
     saveRDS(res_stats, file = paste0(path_out, "runs_", file, ".rds"))
     
     
-  } else  if (identical(MP, "ICES_SAM")) {
+  } else  if (isTRUE(MP %in% c("ICES_SAM", "ICES_SAM_shortcut"))) {
   
     ### MSY rule control parameters
     if (!identical(Ftrgt, "eqsim")) {
