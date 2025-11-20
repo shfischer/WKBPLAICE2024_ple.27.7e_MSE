@@ -63,7 +63,7 @@ retro_SSB <- do.call(rbind, retro_SSB)
 
 ### plot SSB retro
 df <- rbind(retro_SSB, ssb_table(fit))
-p <- df %>% filter(assessment < 2023) %>%
+p_ssb <- df %>% filter(assessment < 2023) %>%
   ggplot(aes(x = year, y = SSB/1000, colour = as.factor(assessment))) +
   geom_line(data = df %>% filter(assessment == 2023),
             colour = "black") +
@@ -71,10 +71,10 @@ p <- df %>% filter(assessment < 2023) %>%
   theme_bw(base_size = 8) +
   coord_cartesian(ylim = c(0, NA)) +
   labs(x = "Year", y = "SSB (1000 t)")
-p
+p_ssb
 ggsave(filename = "output/plots/shortcut/preparation/SAM_retro_SSB.png", 
        width = 8.5, height = 4, units = "cm", dpi = 600)
-p + xlim(c(2000, NA))
+p_ssb + xlim(c(2000, NA))
 ggsave(filename = "output/plots/shortcut/preparation/SAM_retro_SSB_zoom.png", 
        width = 8.5, height = 4, units = "cm", dpi = 600)
 
@@ -127,7 +127,35 @@ p_acf <- data.frame(acf = SSB_err_acf$acf, lag = seq(SSB_err_acf$n.used) - 1) %>
 p_acf
 ggsave(filename = "output/plots/shortcut/preparation/SSB_retro_acf.png", 
        width = 8.5, height = 4, units = "cm", dpi = 600)
- 
+
+### combine plots
+p1 <- p_ssb +
+  scale_x_continuous(breaks = seq(2012, 2022, 2)) +
+  coord_cartesian(xlim = c(2010, 2024), ylim = c(0, 9.9), expand = FALSE) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+p2 <- SSB_error %>%
+  select(year, SSB_ratio) %>%
+  ggplot(aes(x = year, y = SSB_ratio)) +
+  annotate(geom = "rect", xmin = 2000, xmax = 2030, 
+           ymin = 1 - sd(SSB_error$SSB_ratio), 
+           ymax = 1 + sd(SSB_error$SSB_ratio),
+           fill = "red", alpha = 0.1) +
+  geom_linerange(aes(ymin = 1, ymax = SSB_ratio)) +
+  geom_point(aes(colour = as.factor(year)), shape = 19, show.legend = FALSE) +
+  theme_bw(base_size = 8) +
+  labs(x = "Year", y = "Terminal SSB / SSB") +
+  geom_hline(yintercept = 1) +
+  scale_y_continuous(trans = trans_from(),
+                     breaks = c(0.8, 0.9, 1, 1.1, 1.2, 1.3)) +
+  scale_x_continuous(breaks = seq(2012, 2022, 2)) +
+  coord_cartesian(xlim = c(2010, 2024), ylim = c(0.74, 1.35), expand = FALSE)
+
+p1/p2
+ggsave(filename = "output/plots/shortcut/preparation/retro_smry.png", 
+       width = 8.5, height = 6, units = "cm", dpi = 600)
+
 ### ------------------------------------------------------------------------ ###
 ### prepare residuals ####
 ### ------------------------------------------------------------------------ ###
