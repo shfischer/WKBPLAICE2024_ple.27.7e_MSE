@@ -76,7 +76,7 @@ df_runs <- df_runs %>%
                                    "UK-FSP (biennial)", "Q1SWBeam (biennial)")))
 
 ### save results
-saveRDS(df_runs, file = "output/paper_refset_x_w_grid.rds")
+saveRDS(df_runs, file = "output/paper/refset_x_w_grid.rds")
 # df_runs <- readRDS("output/paper/refset_x_w_grid.rds")
 
 ### find optima
