@@ -515,11 +515,12 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
     ### MSY rule control parameters
     if (!identical(Ftrgt, "eqsim")) {
       input$ctrl$phcr@args$Ftrgt <- Ftrgt
+      input$ctrl$phcr@args$Btrigger <- Btrigger
     }
     
     ### run MP
     res_mp <- do.call(mp, input)
-    file_name <- paste0("mp_", Ftrgt)
+    file_name <- paste0("mp_", Ftrgt, "_", Btrigger)
     if (isTRUE(save_MP))
       saveRDS(res_mp, paste0(path_out, file_name, ".rds"))
     stats <- mp_stats(input = input, res_mp = res_mp, refpts = refpts, 
