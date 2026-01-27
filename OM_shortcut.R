@@ -155,6 +155,8 @@ p2 <- SSB_error %>%
 p1/p2
 ggsave(filename = "output/plots/shortcut/preparation/retro_smry.png", 
        width = 8.5, height = 6, units = "cm", dpi = 600)
+ggsave(filename = "output/plots/shortcut/preparation/retro_smry.pdf", 
+       width = 8.5, height = 6, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
 ### prepare residuals ####
