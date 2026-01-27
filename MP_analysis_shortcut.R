@@ -90,7 +90,6 @@ stats_shortcut <- foreach(MP = c("ICES_SAM_shortcut"),
 }
 saveRDS(stats_shortcut, file = "output/shortcut/shortcut_stats.rds")
 
-
 stats_shortcut %>%
   filter(OM == "refset") %>%
   select(catch, risk, Ftrgt) %>%
@@ -121,7 +120,7 @@ stats_shortcut %>%
                                    "Individual OM" = "1111")) +
   facet_wrap(~ name, scales = "free_y", strip.position = "left", 
              labeller = label_parsed) +
-  labs(x = "Target F") +
+  labs(x = expression(F[target])) +
   theme_bw(base_size = 8) +
   theme(axis.title.y = element_blank(),
         strip.background = element_blank(),
@@ -203,6 +202,8 @@ stats_SAM %>%
 ### ------------------------------------------------------------------------ ###
 ### plot shortcut and full SAM together ####
 ### ------------------------------------------------------------------------ ###
+stats_shortcut <- readRDS("output/shortcut/shortcut_stats.rds")
+stats_SAM <- readRDS("output/shortcut/SAM_stats.rds")
 
 df_plot <- bind_rows(
   stats_shortcut %>% mutate(source = "Shortcut"),
@@ -240,7 +241,7 @@ df_plot %>%
   scale_alpha_manual("", values = c(1)) +
   facet_wrap(~ name, scales = "free_y", strip.position = "left", 
              labeller = label_parsed) +
-  labs(x = "Target F") +
+  labs(x = expression(F[target])) +
   theme_bw(base_size = 8) +
   theme(axis.title.y = element_blank(),
         strip.background = element_blank(),
@@ -262,19 +263,23 @@ p1 <- df_plot %>%
                                              levels = c("B[lim]~risk", "Catch~(t)"))),
              aes(yintercept = y, alpha = "5% risk limit"), 
              colour = "red", linetype = "2121", linewidth = 0.3) +
+  geom_vline(xintercept = 0.229, colour = "blue", linetype = "solid", 
+             linewidth = 0.2, alpha = 0.3) +
+  geom_vline(xintercept = 0.199, colour = "black", linetype = "solid", 
+             linewidth = 0.2, alpha = 0.3) +
   scale_linewidth_manual("Operating model",
                          values = c("Reference set" = 0.5,
                                     "Individual OM" = 0.1)) +
   scale_linetype_manual("Operating model",
                         values = c("Reference set" = "solid",
-                                   "Individual OM" = "1111")) +
+                                   "Individual OM" = "1212")) +
   scale_colour_manual("MSE type",
                       values = c("Full" = "black",
                                  "Shortcut" = "blue")) +
   scale_alpha_manual("", values = c(1)) +
   facet_wrap(~ name, scales = "free_y", strip.position = "left", 
              labeller = label_parsed) +
-  labs(x = "Target F") +
+  labs(x = expression(F[target])) +
   coord_cartesian(xlim = c(0, 0.5), ylim = c(0, 1), expand = FALSE) +
   scale_y_continuous(breaks = seq(0, 0.8, 0.2)) +
   theme_bw(base_size = 8) +
@@ -290,20 +295,24 @@ p2 <- df_plot %>%
   )) +
   annotate(geom = "rect", xmin = 0.199, xmax = 1, ymin = -1, ymax = 1e+4,
            fill = "red", alpha = 0.1) +
+  geom_vline(xintercept = 0.229, colour = "blue", linetype = "solid", 
+             linewidth = 0.2, alpha = 0.3) +
+  geom_vline(xintercept = 0.199, colour = "black", linetype = "solid", 
+             linewidth = 0.2, alpha = 0.3) +
   geom_line() +
   scale_linewidth_manual("Operating model",
                          values = c("Reference set" = 0.5,
                                     "Individual OM" = 0.1)) +
   scale_linetype_manual("Operating model",
                         values = c("Reference set" = "solid",
-                                   "Individual OM" = "1111")) +
+                                   "Individual OM" = "1212")) +
   scale_colour_manual("MSE type",
                       values = c("Full" = "black",
                                  "Shortcut" = "blue")) +
   scale_alpha_manual("", values = c(1)) +
   facet_wrap(~ name, scales = "free_y", strip.position = "left", 
              labeller = label_parsed) +
-  labs(x = "Target F") +
+  labs(x = expression(F[target])) +
   coord_cartesian(xlim = c(0, 0.5), ylim = c(0, 1650), expand = FALSE) +
   scale_y_continuous(breaks = seq(0, 1500, 500)) +
   theme_bw(base_size = 8) +
@@ -319,6 +328,14 @@ ggsave(filename = "output/plots/shortcut/SAM_shortcut_stats_comparison.png",
        width = 16, height = 6, units = "cm", dpi = 600)
 ggsave(filename = "output/plots/shortcut/SAM_shortcut_stats_comparison.pdf", 
        width = 16, height = 6, units = "cm")
+
+### vertical plot
+p1 + theme(axis.text.x = element_blank(),
+           axis.title.x = element_blank(),
+           axis.ticks.x = element_blank()) +
+  p2 + plot_layout(guides = "collect", ncol = 1)
+ggsave(filename = "output/plots/shortcut/SAM_shortcut_stats_comparison_long.png", 
+       width = 10, height = 12, units = "cm", dpi = 600)
 
 ### compare OMs with high risk at F=0.5
 stats_shortcut %>%
