@@ -780,12 +780,13 @@ plot_worm_comparison <- function(stk, stk_hist, refpts,
                       title_ssb = "SSB (1000t)",
                       title_fbar = paste0("Mean F (ages ", 
                                           range(stk[[1]])[["minfbar"]], "-", 
-                                          range(stk[[1]])[["maxfbar"]], ")")
+                                          range(stk[[1]])[["maxfbar"]], ")"),
+                      qnts_show = c("catch", "rec", "fbar", "ssb")
 ) {
   #browser()
   
+  stk_list <- FLStocks(stk)
   stk <- FLStocks(stk_hist)
-  stk_list <- FLStocks(stk_list)
   yrs_res <- dimnames(stk_list[[1]])$year
   
   for (i in seq_along(stk_list))
@@ -844,10 +845,23 @@ plot_worm_comparison <- function(stk, stk_hist, refpts,
                           labels = c(title_catch, title_rec, 
                                      title_fbar, title_ssb)))
   
+  ### keep only requested quants
+  keep <- factor(qnts_show, 
+                 levels = c("catch", "rec", "fbar", "ssb"),
+                 labels = c(title_catch, title_rec, 
+                            title_fbar, title_ssb))
+  keep <- as.character(keep)
+  qnts_perc <- qnts_perc %>%
+    filter(qname %in% keep)
+  df_MSY <- df_MSY %>%
+    filter(qname %in% keep)
+  df_Blim <- df_Blim %>%
+    filter(qname %in% keep)
+  
   p <- qnts_perc %>%
     ggplot(aes(x = year, y = `50%`, colour = source, fill = source, 
                linetype = source)) +
-    geom_vline(xintercept = xintercept, colour = "grey", size = 0.5) +
+    geom_vline(xintercept = xintercept, colour = "grey", linewidth = 0.5) +
     geom_ribbon(aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.1,
                 show.legend = FALSE, linewidth = 0) +
     geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.1,
