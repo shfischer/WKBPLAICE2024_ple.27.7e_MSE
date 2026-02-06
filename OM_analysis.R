@@ -486,6 +486,45 @@ ggsave(filename = "output/plots/OM/OM_biol_sel.png", plot = p,
 ggsave(filename = "output/plots/OM/OM_biol_sel.pdf", plot = p, 
        width = 16, height = 9.5, units = "cm")
 
+### discard rates by age
+### use OM with 100% discards
+stkD <- readRDS(paste0("input/ple.27.7e/Catch_no_surv/1000_100/stk.rds"))
+stkD_median <- iterMedians(stkD)
+
+disc <- discards.n(stkD_median)/catch.n(stkD_median)
+disc <- propagate(disc, (dim(stkD)[6] + 1))
+disc[,,,,, -1] <- discards.n(stkD)/catch.n(stkD) ### iterations
+disc <- window(disc, start = 2019, end = 2024)
+
+df_disc <- as.data.frame(disc)
+df_disc <- df_disc %>%
+  group_by(year, iter) %>%
+  mutate(source = ifelse(iter == 1, "Median", "Simulation\nreplicates")) %>%
+  mutate(year = as.character(year)) %>%
+  mutate(year = ifelse(year <= 2023, year, "Projection"))
+
+p <- df_disc %>%
+  filter(source == "Median") %>%
+  ggplot(aes(x = age, y = data, group = iter, 
+             colour = source, linewidth = source, alpha = source)) +
+  geom_line() +
+  geom_line(data = . %>% filter(source == "Median")) +
+  scale_colour_manual("", values = c("Median" = "red")) +
+  scale_alpha_manual("", values = c("Median" = 1)) +
+  scale_linewidth_manual("", values = c("Median" = 0.5)) +
+  facet_wrap(~ year, nrow = 1) +
+  ylim(c(0, NA)) +
+  labs(x = "Age (years)", y = "Discard rate") +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.6, "lines"))
+p
+ggsave(filename = "output/plots/OM/OM_biol_disc_rate.png", plot = p, 
+       width = 16, height = 4, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_biol_disc_rate.pdf", plot = p, 
+       width = 16, height = 4, units = "cm")
+
+
 
 ### ------------------------------------------------------------------------ ###
 ### plot OM trajectories vs. ICES assessment - alternative OMs ####
