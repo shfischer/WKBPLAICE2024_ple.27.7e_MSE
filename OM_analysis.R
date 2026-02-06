@@ -16,6 +16,7 @@ library(FLfse)
 source("funs.R")
 source("funs_GA.R")
 source("funs_analysis.R")
+source("funs_OM.R")
 
 ### ------------------------------------------------------------------------ ###
 ### plot OM trajectories vs. SAM assessment - baseline OM ####
@@ -164,6 +165,183 @@ ggsave(filename = "output/plots/OM/OM_vs_SAM_iters.png", plot = p,
        width = 16, height = 8, units = "cm", dpi = 600, type = "cairo")
 ggsave(filename = "output/plots/OM/OM_vs_SAM_iters.pdf", plot = p, 
        width = 16, height = 8, units = "cm")
+
+### ------------------------------------------------------------------------ ###
+### plot OM trajectories vs. SAM assessment - reference set OMs ####
+### ------------------------------------------------------------------------ ###
+
+### reference set OMs
+OMs <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+         "M_low", "M_high", "M_Gislason")
+OMs_label <- c("Baseline", "Catch: no discards", "Catch: 100% discards", 
+               "Catch: no migration", 
+               "M: -50%", "M: +50%", "M: Gislason")
+
+### SAM fits
+fit_list <- readRDS("input/ple.27.7e/preparation/SAM_all_fits.rds")
+
+res <- foreach(OM_no = seq_along(OMs), OM = OMs, OM_label = OMs_label, 
+               .combine = bind_rows) %do% {
+  #browser()
+  ### OM stk
+  stk <- readRDS(paste0("input/ple.27.7e/", OM, "/1000_100/stk.rds"))
+  ### SAM model fit
+  fit_i <- fit_list[[OM_no]]
+  
+  ### OM metrics
+  qnts <- FLQuants(catch = catch(stk)/1000, rec = rec(stk)/1e+03,
+                   ssb = ssb(stk)/1000, fbar = fbar(stk))
+  qnts <- window(qnts, end = 2023)
+  ### percentiles
+  qnts_perc <- lapply(qnts, quantile, probs = c(0.025, 0.25, 0.5, 0.75, 0.975),
+                      na.rm = TRUE)
+  qnts_perc <- FLQuants(qnts_perc)
+  qnts_perc <- as.data.frame(qnts_perc)
+  qnts_perc <- qnts_perc %>% select(year, iter, data, qname) %>%
+    pivot_wider(names_from = iter, values_from = data) %>%
+    mutate(source = "OM")
+  
+  df_SAM <- bind_rows(list(
+    as.data.frame(catchtable(fit_i)/1000) %>%
+      mutate(qname = "catch") %>% 
+      rownames_to_column(var = "year"),
+    as.data.frame(rectable(fit_i)/1e+03) %>%
+      mutate(qname = "rec") %>% 
+      rownames_to_column(var = "year"),
+    as.data.frame(ssbtable(fit_i)/1000) %>%
+      mutate(qname = "ssb") %>% 
+      rownames_to_column(var = "year"),
+    as.data.frame(fbartable(fit_i)) %>%
+      mutate(qname = "fbar") %>% 
+      rownames_to_column(var = "year")
+  )) %>%
+    select(year = year, qname = qname, `2.5%` = Low, `50%` = Estimate, 
+           `97.5%` = High) %>%
+    mutate(source = "SAM",
+           year = as.numeric(year))
+  
+  ### combine and format
+  df <- bind_rows(qnts_perc, df_SAM) %>%
+    filter(year <= 2024) %>%
+    mutate(source = factor(source, levels = c("OM", "SAM"),
+                           labels = c("Operating model", "SAM assessment"))) %>%
+    mutate(qname = factor(qname,
+                          levels = c("catch", "rec", "fbar", "ssb"),
+                          labels = c("Catch (1000t)", "Recruitment (1000s)",
+                                     "F (ages 3-6)", "SSB (1000t)")))
+  
+  df$OM <- OM
+  df$OM_label <- OM_label
+  
+  return(df)
+  
+}
+
+p_catch <- res %>%
+  filter(qname == "Catch (1000t)" & source == "Operating model") %>%
+  ggplot(aes(x = year)) +
+  geom_ribbon(aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_line(aes(y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) + 
+  geom_line(data = res %>%
+              filter(qname == "Catch (1000t)" & source == "SAM assessment"),
+            aes(x = year, y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) +
+  facet_wrap(~ OM_label, ncol = 1, strip.position = "right") + 
+  scale_y_continuous(limits = c(0, NA), breaks = scales::pretty_breaks()) +
+  scale_colour_manual("", values = c("Operating model" = "black",
+                                     "SAM assessment" = "red")) + 
+  scale_linetype_manual("", values = c("Operating model" = "solid",
+                                       "SAM assessment" = "2121")) +
+  labs(y = "Catch (1000t)", x = "Year") +
+  theme_bw(base_size = 8) +
+  theme(legend.position = "none",
+        strip.text.y = element_blank())
+p_R <- res %>%
+  filter(qname == "Recruitment (1000s)" & source == "Operating model") %>%
+  ggplot(aes(x = year)) +
+  geom_ribbon(aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_line(aes(y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) + 
+  geom_line(data = res %>%
+              filter(qname == "Recruitment (1000s)" & source == "SAM assessment"),
+            aes(x = year, y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) +
+  facet_wrap(~ OM_label, ncol = 1, strip.position = "right") + 
+  scale_y_continuous(limits = c(0, NA), breaks = scales::pretty_breaks()) +
+  scale_colour_manual("", values = c("Operating model" = "black",
+                                     "SAM assessment" = "red")) + 
+  scale_linetype_manual("", values = c("Operating model" = "solid",
+                                       "SAM assessment" = "2121")) +
+  labs(y = "Recruitment (1000)", x = "Year") +
+  theme_bw(base_size = 8) +
+  theme(legend.position.inside = c(0.5, 0.985),
+        legend.position = "inside",
+        legend.key = element_blank(),
+        legend.key.height = unit(0.5, "lines"),
+        legend.key.width = unit(0.8, "lines"),
+        legend.background = element_blank(),
+        strip.text.y = element_blank())
+p_ssb <- res %>%
+  filter(qname == "SSB (1000t)" & source == "Operating model") %>%
+  ggplot(aes(x = year)) +
+  geom_ribbon(aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_line(aes(y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) + 
+  geom_line(data = res %>%
+              filter(qname == "SSB (1000t)" & source == "SAM assessment"),
+            aes(x = year, y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) +
+  facet_wrap(~ OM_label, ncol = 1, strip.position = "right") + 
+  scale_y_continuous(limits = c(0, NA), breaks = scales::pretty_breaks()) +
+  scale_colour_manual("", values = c("Operating model" = "black",
+                                     "SAM assessment" = "red")) + 
+  scale_linetype_manual("", values = c("Operating model" = "solid",
+                                       "SAM assessment" = "2121")) +
+  labs(y = "SSB (1000t)", x = "Year") +
+  theme_bw(base_size = 8) +
+  theme(legend.position = "none",
+        strip.text.y = element_blank())
+p_fbar <- res %>%
+  filter(qname == "F (ages 3-6)" & source == "Operating model") %>%
+  ggplot(aes(x = year)) +
+  geom_ribbon(aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.15,
+              show.legend = FALSE) +
+  geom_line(aes(y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) + 
+  geom_line(data = res %>%
+              filter(qname == "F (ages 3-6)" & source == "SAM assessment"),
+            aes(x = year, y = `50%`, colour = source, linetype = source),
+            linewidth = 0.4) +
+  facet_wrap(~ OM_label, ncol = 1, strip.position = "right") + 
+  scale_y_continuous(limits = c(0, NA), breaks = scales::pretty_breaks()) +
+  scale_colour_manual("", values = c("Operating model" = "black",
+                                     "SAM assessment" = "red")) + 
+  scale_linetype_manual("", values = c("Operating model" = "solid",
+                                       "SAM assessment" = "2121")) +
+  labs(y = "Mean F (ages 3-6)", x = "Year") +
+  theme_bw(base_size = 8) +
+  theme(legend.position = "none")
+
+p <- p_catch + p_R + p_ssb + p_fbar + plot_layout(nrow = 1)
+p
+
+ggsave(filename = "output/plots/OM/OM_vs_SAM_all_fit.png", plot = p, 
+       width = 16, height = 18, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_vs_SAM_all_fit.pdf", plot = p, 
+       width = 16, height = 18, units = "cm")
+
 
 ### ------------------------------------------------------------------------ ###
 ### biological data - baseline OM ####
