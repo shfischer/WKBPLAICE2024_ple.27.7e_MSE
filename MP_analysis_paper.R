@@ -5,6 +5,7 @@ library(mse)
 library(GA)
 library(tidyr)
 library(dplyr)
+library(stringr)
 library(cowplot)
 library(patchwork)
 library(ggplot2)
@@ -1129,704 +1130,434 @@ ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_rfb_MSY.pdf",
        width = 14, height = 8, units = "cm")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### ------------------------------------------------------------------------ ###
-### not used yet ####
-### ------------------------------------------------------------------------ ###
-
-
-### ------------------------------------------------------------------------ ###
-### refset - x & w - violin plots - compare MPs ####
-### ------------------------------------------------------------------------ ###
-
-stats_plot_MP <- stats_plot %>%
-  mutate(MP_label = paste0("MP", MP, " - ", index, " - ",
-                        case_when(v == 1 ~ "annual",
-                                  v == 2 ~ "biennial"),
-                        " - ",
-                        case_when(w == 1.4 ~ "x",
-                                  w != 1.4 ~ "x & w"),
-                        "\n", 
-                        case_when(optimum == "local" ~ "(local optimum)",
-                                  optimum == "global" ~ "(global optimum)"))) %>%
-  mutate(MP_label = factor(MP_label,
-    levels = sort(unique(MP_label))[c(1, 3:10, 2)])) %>%
-  mutate(period_label = factor(period, 
-                               levels = c("long-term", "short-term", "all"),
-                               labels = c("long term", "short term",
-                                          "all years")))
-
-p_risk <- stats_plot_MP %>%
-  filter(metric == "risk" & OM == "Reference set\n(combined)") %>%
-  ggplot() +
-  geom_col(data = . %>%
-             group_by(MP_label, period_label) %>%
-             summarise(val = max(val)),
-           aes(x = MP_label, y = val), fill = "#F8766D",
-           show.legend = FALSE, width = 0.8, colour = "black", size = 0.2,
-           position = position_dodge(width = 0.8)) +
-  geom_boxplot(aes(x = MP_label, y = val),
-               position = position_dodge(width = 0.8),
-               fill = "white", width = 0.1, size = 0.2,
-               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
-               outlier.fill = "transparent") +
-  geom_hline(yintercept = 0.05, colour = "red", linewidth = 0.4,
-             linetype = "1111") +
-  stat_summary(aes(x = MP_label, y = val),
-               fun = "mean", geom = "point", shape = 4, size = 1,
-               stroke = 0.25) +
-  scale_fill_manual("", values = cols) +
-  facet_wrap(~ period_label) +
-  labs(y = expression(max.~B[lim]~risk)) +
-  coord_cartesian(ylim = c(0, NA)) +
-  theme_bw(base_size = 8) +
-  theme(panel.spacing.x = unit(0, "lines"),
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.title.x = element_blank())
-#p_risk
-p_catch <- stats_plot_MP %>%
-  filter(metric == "catch" & OM == "Reference set\n(combined)") %>%
-  ggplot(aes(x = MP_label, y = val)) +
-  geom_violin(fill = "#F8766D",, size = 0.2, show.legend = FALSE,
-              position = position_dodge(width = 0.8), scale = "width") +
-  geom_boxplot(aes(group = MP_label), 
-               position = position_dodge(width = 0.8),
-               fill = "white", width = 0.1, size = 0.2,
-               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
-               outlier.fill = "transparent") +
-  stat_summary(aes(x = MP_label, y = val),
-               fun = "mean", geom = "point", shape = 4, size = 1,
-               stroke = 0.25) +
-  geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
-             linetype = "1111") +
-  facet_wrap(~ period_label) +
-  labs(y = expression(Catch/MSY)) +
-  coord_cartesian(ylim = c(0, 2.5)) +
-  theme_bw(base_size = 8) +
-  theme(panel.spacing.x = unit(0, "lines"),
-        axis.title.x = element_blank(), 
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        strip.text.x = element_blank())
-#p_catch
-p_ssb <- stats_plot_MP %>%
-  filter(metric == "SSB" & OM == "Reference set\n(combined)") %>%
-  ggplot(aes(x = MP_label, y = val)) +
-  geom_violin(fill = "#F8766D", size = 0.2, show.legend = FALSE,
-              position = position_dodge(width = 0.8), scale = "width") +
-  geom_boxplot(aes(group = MP_label), 
-               position = position_dodge(width = 0.8),
-               fill = "white", width = 0.1, size = 0.2,
-               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
-               outlier.fill = "transparent") +
-  stat_summary(aes(x = MP_label, y = val),
-               fun = "mean", geom = "point", shape = 4, size = 1,
-               stroke = 0.25) +
-  geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
-             linetype = "1111") +
-  facet_wrap(~ period_label) +
-  labs(y = expression(SSB/B[MSY])) +
-  coord_cartesian(ylim = c(0, 2.5)) +
-  theme_bw(base_size = 8) +
-  theme(panel.spacing.x = unit(0, "lines"),
-        axis.title.x = element_blank(), 
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        strip.text.x = element_blank())
-#p_ssb
-p_icv <- stats_plot_MP %>%
-  filter(metric == "ICV" & OM == "Reference set\n(combined)") %>%
-  ggplot(aes(x = MP_label, y = val)) +
-  geom_violin(fill = "#F8766D", size = 0.2, show.legend = FALSE,
-              position = position_dodge(width = 0.8), scale = "width") +
-  geom_boxplot(aes(group = MP_label),
-               position = position_dodge(width = 0.8),
-               fill = "white", width = 0.1, size = 0.2,
-               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
-               outlier.fill = "transparent") +
-  stat_summary(aes(x = MP_label, y = val),
-               fun = "mean", geom = "point", shape = 4, size = 1,
-               stroke = 0.25) +
-  facet_wrap(~ period_label) +
-  labs(y = "ICV") +
-  coord_cartesian(ylim = c(0, 0.5)) +
-  theme_bw(base_size = 8) +
-  theme(panel.spacing.x = unit(0, "lines"),
-        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-        axis.title.x = element_blank(),
-        strip.text.x = element_blank())
-#p_icv
-p <- p_risk / p_catch / p_ssb / p_icv
+### chr and ICES MSY only
+p <- plot_worm_comparison(stk = stk_list[c(1, 3)], stk_hist = stk_hist[c(1, 3)], 
+                          names = names(MPs)[c(1, 3)], refpts = refpts) +
+  theme(legend.position = "bottom")
 p
-ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.png"), 
-       plot = p, width = 16, height = 13, units = "cm", dpi = 600, 
-       type = "cairo", bg = "white")
-ggsave(filename = paste0("output/plots/MP/refset_stats_comparison.pdf"), 
-       plot = p, width = 16, height = 13, units = "cm", bg = "white")
 
+ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_MSY.png",
+       width = 14, height = 8, units = "cm", dpi = 600,
+       type = "cairo")
+ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_MSY.pdf",
+       width = 14, height = 8, units = "cm")
 
-### ICV only - default (annual/biennial) and annual - long term
-p_icv <- stats_plot_MP %>%
-  filter(metric == "ICV" & OM == "Reference set\n(combined)" &
-           period == "long-term") %>%
-  ggplot(aes(x = MP_label, y = val)) +
-  geom_violin(fill = "#F8766D", size = 0.2, show.legend = FALSE,
-              position = position_dodge(width = 0.8), scale = "width") +
-  geom_boxplot(aes(group = MP_label),
-               position = position_dodge(width = 0.8),
-               fill = "white", width = 0.1, size = 0.2,
-               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
-               outlier.fill = "transparent") +
-  stat_summary(aes(x = MP_label, y = val),
-               fun = "mean", geom = "point", shape = 4, size = 1,
-               stroke = 0.25) +
-  facet_wrap(~ period_label) +
-  labs(y = "ICV") +
-  coord_cartesian(ylim = c(0, 0.5)) +
-  theme_bw(base_size = 8) +
-  theme(panel.spacing.x = unit(0, "lines"),
-        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-        axis.title.x = element_blank(),
-        strip.text.x = element_blank())
-p_icv_annual <- stats_plot_MP %>%
-  filter(metric == "ICV_annual" & OM == "Reference set\n(combined)" &
-           period == "long-term") %>%
-  ggplot(aes(x = MP_label, y = val)) +
-  geom_violin(fill = "#F8766D", size = 0.2, show.legend = FALSE,
-              position = position_dodge(width = 0.8), scale = "width") +
-  geom_boxplot(aes(group = MP_label),
-               position = position_dodge(width = 0.8),
-               fill = "white", width = 0.1, size = 0.2,
-               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
-               outlier.fill = "transparent") +
-  stat_summary(aes(x = MP_label, y = val),
-               fun = "mean", geom = "point", shape = 4, size = 1,
-               stroke = 0.25) +
-  facet_wrap(~ period_label) +
-  labs(y = "ICV (annual)") +
-  coord_cartesian(ylim = c(0, 0.5)) +
-  theme_bw(base_size = 8) +
-  theme(panel.spacing.x = unit(0, "lines"),
-        axis.title.x = element_blank(), 
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
-p <- p_icv_annual / p_icv
+### chr and ICES MSY only - catch and SSB
+p <- plot_worm_comparison(stk = stk_list[c(1, 3)], stk_hist = stk_hist[c(1, 3)], 
+                          names = names(MPs)[c(1, 3)], refpts = refpts,
+                          qnts_show = c("catch", "ssb")) +
+  theme(legend.position = "bottom")
 p
-ggsave(filename = paste0("output/plots/MP/refset_stats_comparison_ICV.png"), 
-       plot = p, width = 8, height = 12, units = "cm", dpi = 600, 
-       type = "cairo", bg = "white")
-ggsave(filename = paste0("output/plots/MP/refset_stats_comparison_ICV.pdf"), 
-       plot = p, width = 8, height = 12, units = "cm", bg = "white")
 
+ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_MSY_catch_ssb.png",
+       width = 14, height = 5, units = "cm", dpi = 600,
+       type = "cairo")
+ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_MSY_catch_ssb.pdf",
+       width = 14, height = 5, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
-### refset - x & w - wormplots ####
+### compare trajectories - CHR1/2 ####
 ### ------------------------------------------------------------------------ ###
 
-### get optimised solutions
-df_x <- readRDS("output/refset_x_runs_opt.rds")
-df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
-df_x_w <- bind_rows(
-  df_x %>% mutate(optimum = "global"), 
-  df_x_w)
-df_x_w <- df_x_w %>%
+### get optimised solutions for chr rule
+df_chr <- readRDS("output/paper/refset_x_w_grid_opt.rds")
+df_chr <- df_chr %>%
   mutate(file = paste0(paste("mp", idxB_lag, idxB_range_3, exp_b, 
                              comp_b_multiplier, interval, multiplier, 
                              upper_constraint, lower_constraint, 
                              sep = "_"),
                        ".rds"))
-df_x_w <- df_x_w %>%
-  mutate(group = paste0(index, " - ",
-                        case_when(interval == 1 ~ "annual",
-                                  interval == 2 ~ "biennial"),
-                        " - ",
-                        case_when(comp_b_multiplier == 1.4 ~ "x",
-                                  comp_b_multiplier != 1.4 ~ "x & w"),
-                        case_when(optimum == "local" ~ " (local optimum)",
-                                  optimum == "global" ~ " (global optimum)"))) %>%
-  mutate(group_label = paste0(index, "_",
-                              case_when(interval == 1 ~ "annual",
-                                        interval == 2 ~ "biennial"),
-                              "_",
-                              case_when(comp_b_multiplier == 1.4 ~ "x",
-                                        comp_b_multiplier != 1.4 ~ "x_w"),
-                              "_", optimum))
 
 
+stk_list <- lapply(df_chr$file[1:2], function(x) {#browser()
+  readRDS(paste0("output/ple.27.7e/refset/1000_20/multiplier/hr/",
+                 x))@om@stock
+})
 
-. <- foreach(x = split(df_x_w, seq(nrow(df_x_w)))) %:%
-  foreach(OM = OMs[-1], OM_label = OMs_label[-1])  %do% {
-    #browser()
-    ### get projection
-    path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/", 
-                     ifelse(identical(x$index, "Q1SWBeam"),
-                            "multiplier_Q1SWBeam", "multiplier"),
-                     "/hr/")
-    mp_i <- readRDS(paste0(path_i, x$file))
-    stk <- mp_i@om@stock
-    
-    ### historical stock
-    input <- input_mp(OM = OM, n_yrs = 20, MP = "hr")
-    stk_hist <- input$om@stock
-    
-    ### get reference points
-    refpts <- input_refpts(OM = OM)
-    
-    ### plot
-    # p <- plot_worm(stk = stk, stk_hist = stk_hist, refpts = refpts,
-    #                title = paste0(MP_label, " - ", OM_label))
-    p <- plot_worm_distr(stk = stk, stk_hist = stk_hist, refpts = refpts,
-                         title = paste0("MP", x$MP, " - ", x$group, " - ",
-                                        OM_label))
-    
-    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
-                             "_", OM, ".png"),
-           plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
-           type = "cairo")
-    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
-                             "_", OM, ".pdf"), 
-           plot = p, width = 16, height = 7.5, units = "cm")
-    
-}
-
-### plot refset
-OMs_refset <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
-                "M_low", "M_high", "M_Gislason")
-OMs_refset_label <- c("Baseline", "Catch:\nno discards", 
-                      "Catch:\n100% discards", 
-                      "Catch:\nno migration", 
-                      "M: -50%", "M: +50%", "M: Gislason")
-. <- foreach(x = split(df_x_w, seq(nrow(df_x_w)))) %:%
-  foreach(OM = OMs[1], OM_label = OMs_label[1])  %do% {
-    #browser()
-    ### get projection
-    path_i <- paste0("output/ple.27.7e/", OMs_refset, "/1000_20/", 
-                     ifelse(identical(x$index, "Q1SWBeam"),
-                            "multiplier_Q1SWBeam", "multiplier"),
-                     "/hr/")
-    stk <- lapply(path_i, function(y) {
-      readRDS(paste0(y, x$file))@om@stock
-    })
-    
-    ### historical stock
-    stk_hist <- lapply(OMs_refset, function(y) {
-      input_mp(OM = y, n_yrs = 20, MP = "hr")$om@stock
-    })
-    
-    ### get reference points
-    refpts <- lapply(OMs_refset, function(y) {
-      input_refpts(OM = y)
-    })
-    
-    ### plot
-    p <- plot_worm_distr_mult(stk = stk, stk_hist = stk_hist, refpts = refpts,
-                              stk_labels = OMs_refset_label,
-                              title = paste0("MP", x$MP, " - ", x$group, " - ",
-                                             OM_label))
-    
-    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
-                             "_", OM, ".png"),
-           plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
-           type = "cairo")
-    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
-                             "_", OM, ".pdf"), 
-           plot = p, width = 16, height = 7.5, units = "cm")
-    
-}
-
-### 100-year projection (for MP5)
-df_MP5 <- df_x_w[df_x_w$MP == 5, ]
-. <- foreach(x = list(df_MP5)) %:%
-  foreach(OM = OMs[1], OM_label = OMs_label[1])  %do% {
-    #browser()
-    ### get projection
-    path_i <- paste0("output/ple.27.7e/", OM, "/1000_100/", 
-                     ifelse(identical(x$index, "Q1SWBeam"),
-                            "multiplier_Q1SWBeam", "multiplier"),
-                     "/hr/")
-    stk <- readRDS(paste0(path_i, x$file))@om@stock
-    stk <- lapply(seq_along(OMs_refset), function(x) {
-      iter(stk, seq(from = (x - 1) * 1000 + 1, to = (x - 1) * 1000 + 1000))
-    })
-    
-    ### historical stock
-    stk_hist <- lapply(OMs_refset, function(y) {
-      input_mp(OM = y, n_yrs = 100, MP = "hr")$om@stock
-    })
-    
-    ### get reference points
-    refpts <- lapply(OMs_refset, function(y) {
-      input_refpts(OM = y)
-    })
-    
-    ### plot
-    p <- plot_worm_distr_mult(stk = stk, stk_hist = stk_hist, refpts = refpts,
-                              stk_labels = OMs_refset_label,
-                              title = paste0("MP", x$MP, " - ", x$group, " - ",
-                                             OM_label),
-                              yr_end = 2124, xintercept = c(2024, 2044.5))
-    
-    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
-                             "_", OM, "_100.png"),
-           plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
-           type = "cairo")
-    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
-                             "_", OM, "_100.pdf"), 
-           plot = p, width = 16, height = 7.5, units = "cm")
-    
-    ### Blim risk over time
-    stk_combined <- readRDS(paste0(path_i, x$file))@om@stock
-    refpts_combined <- Reduce(refpts, f = FLCore::combine)
-    SSBs <- FLCore::window(ssb(stk_combined), start = 2025)
-    yrs <- dim(SSBs)[2]
-    its <- dim(SSBs)[6]
-    ### collapse correction - not needed, all above threshold
-    Blim <- c(refpts_combined["Blim"])
-    Blim_ts <- SSBs %=% rep(c(Blim), each = dim(SSBs)[2])
-    risk <- iterMeans(SSBs/Blim_ts < 1)
-    
-    p <- as.data.frame(risk) %>%
-      ggplot(aes(x = year, y = data)) +
-      geom_vline(xintercept = c(2034.5, 2044.5), colour = "grey") +
-      geom_line() +
-      geom_hline(yintercept = 0.05, colour = "red", linetype = "1111") + 
-      labs(x = "Year", y = expression(B[lim]~risk),
-           title = paste0("MP", x$MP, " - ", x$group, " - ",
-                          OM_label)) + 
-      coord_cartesian(xlim = c(2025, 2124), ylim = c(0, 0.15), expand = FALSE) + 
-      theme_bw(base_size = 8) +
-      theme(plot.title = element_text(hjust = 1, size = 8))
-    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
-                             "_", OM, "_100_risk.png"),
-           plot = p, width = 10, height = 5, units = "cm", dpi = 600, 
-           type = "cairo")
-    ggsave(filename = paste0("output/plots/wormplots/hr_", x$group_label, 
-                             "_", OM, "_100_risk.pdf"), 
-           plot = p, width = 10, height = 5, units = "cm")
-    
-}
-
-### ------------------------------------------------------------------------ ###
-### refset - x & w - proportion below Itrigger ####
-### ------------------------------------------------------------------------ ###
-### get optimised solutions
-df_x <- readRDS("output/refset_x_runs_opt.rds")
-df_x_w <- readRDS("output/refset_x_w_grid_opt.rds")
-df_x_w <- bind_rows(
-  df_x %>% mutate(optimum = "global"), 
-  df_x_w)
-df_x_w <- df_x_w %>%
-  mutate(file = paste0(paste("mp", idxB_lag, idxB_range_3, exp_b, 
-                             comp_b_multiplier, interval, multiplier, 
-                             upper_constraint, lower_constraint, 
-                             sep = "_"),
-                       ".rds"))
-df_x_w <- df_x_w %>%
-  mutate(group = paste0(index, " - ",
-                        case_when(interval == 1 ~ "annual",
-                                  interval == 2 ~ "biennial"),
-                        " - ",
-                        case_when(comp_b_multiplier == 1.4 ~ "x",
-                                  comp_b_multiplier != 1.4 ~ "x & w"),
-                        case_when(optimum == "local" ~ " (local optimum)",
-                                  optimum == "global" ~ " (global optimum)"))) %>%
-  mutate(group_label = paste0(index, "_",
-                              case_when(interval == 1 ~ "annual",
-                                        interval == 2 ~ "biennial"),
-                              "_",
-                              case_when(comp_b_multiplier == 1.4 ~ "x",
-                                        comp_b_multiplier != 1.4 ~ "x_w"),
-                              "_", optimum))
-
-res_b <- foreach(x = split(df_x_w, seq(nrow(df_x_w))),
-                 .combine = bind_rows) %:%
-  foreach(OM = "refset", OM_label = "Reference set (combined)",
-          .combine = bind_rows)  %do% {
-    #browser()
-    ### get projection
-    path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/", 
-                     ifelse(identical(x$index, "Q1SWBeam"),
-                            "multiplier_Q1SWBeam", "multiplier"),
-                     "/hr/")
-    tracking <- readRDS(paste0(path_i, x$file))@tracking[[1]]
-    
-    b_tmp <- tracking["comp_b", ]
-    b_tmp <- iterMeans(b_tmp)
-    df_tmp <- as.data.frame(b_tmp) %>%
-      select(year, b = data) %>%
-      mutate(MP = x$MP)
-    
-    return(df_tmp)
-    
-}
-
-p <- res_b %>%
-  mutate(prop = 1 - b) %>%
-  mutate(MP_label = paste0("MP", MP)) %>%
-  mutate(MP_label = factor(MP_label,
-                           levels = paste0("MP", 1:10))) %>%
-  ggplot(aes(x = year, y = prop)) +
-  geom_line() +
-  facet_wrap(~ MP_label, nrow = 2) +
-  labs(x = "Year", y = expression("Proportion below "*I[trigger])) +
-  coord_cartesian(xlim = c(2024.5, NA), ylim = c(-0.01, 0.5), expand = FALSE) +
-  theme_bw(base_size = 8)
-p
-
-ggsave(filename = paste0("output/plots/MP/refset_prop_b.png"),
-       plot = p, width = 16, height = 6, units = "cm", dpi = 600, 
-       type = "cairo")
-ggsave(filename = paste0("output/plots/MP/refset_prop_b.pdf"), 
-       plot = p, width = 16, height = 6, units = "cm")
-
-### ------------------------------------------------------------------------ ###
-### rfb & SAM - wormplots ####
-### ------------------------------------------------------------------------ ###
-. <- foreach(MP = c("rfb", "ICES_SAM"), 
-             MP_label = c("rfb", "ICES MSY (with SAM)")) %:%
-  foreach(OM = OMs[-1], OM_label = OMs_label[-1])  %do% {
-  #browser()
-  ### get projection
-  path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/", MP, "/")
-  mp_i <- readRDS(paste0(path_i, "mp.rds"))
-  stk <- mp_i@om@stock
-  
-  ### historical stock
-  input <- input_mp(OM = OM, n_yrs = 20, MP = "hr")
-  stk_hist <- input$om@stock
-  
-  ### get reference points
-  refpts <- input_refpts(OM = OM)
-  
-  ### plot
-  # p <- plot_worm(stk = stk, stk_hist = stk_hist, refpts = refpts,
-  #                title = paste0(MP_label, " - ", OM_label))
-  p <- plot_worm_distr(stk = stk, stk_hist = stk_hist, refpts = refpts,
-                       title = paste0(MP_label, " - ", OM_label))
-
-  ggsave(filename = paste0("output/plots/wormplots/", MP, "_", OM, ".png"),
-         plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
-         type = "cairo")
-  ggsave(filename = paste0("output/plots/wormplots/", MP, "_", OM, ".pdf"), 
-         plot = p, width = 16, height = 7.5, units = "cm")
-
-}
-
-### plot refset
-OMs_refset <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
-                "M_low", "M_high", "M_Gislason")
-OMs_refset_label <- c("Baseline", "Catch:\nno discards", 
-                      "Catch:\n100% discards", 
-                      "Catch:\nno migration", 
-                      "M: -50%", "M: +50%", "M: Gislason")
-. <- foreach(MP = c("rfb", "ICES_SAM"), 
-             MP_label = c("rfb", "ICES MSY (with SAM)")) %:%
-  foreach(OM = OMs[1], OM_label = OMs_label[1])  %do% {
-    #browser()
-    ### get projection
-    path_i <- paste0("output/ple.27.7e/", OMs_refset, "/1000_20/", MP, "/")
-    stk <- lapply(path_i, function(y) {
-      readRDS(paste0(y, "mp.rds"))@om@stock
-    })
-    
-    ### historical stock
-    stk_hist <- lapply(OMs_refset, function(y) {
-      input_mp(OM = y, n_yrs = 20, MP = "hr")$om@stock
-    })
-    
-    ### get reference points
-    refpts <- lapply(OMs_refset, function(y) {
-      input_refpts(OM = y)
-    })
-    
-    ### plot
-    p <- plot_worm_distr_mult(stk = stk, stk_hist = stk_hist, refpts = refpts,
-                              stk_labels = OMs_refset_label,
-                              title = paste0(MP_label, " - ", OM_label))
-    
-    ggsave(filename = paste0("output/plots/wormplots/", MP, "_", OM, ".png"),
-           plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
-           type = "cairo")
-    ggsave(filename = paste0("output/plots/wormplots/", MP, "_", OM, ".pdf"), 
-           plot = p, width = 16, height = 7.5, units = "cm")
-    
-}
-
-
-
-
-### ------------------------------------------------------------------------ ###
-### HR hockey-stick principle visualisation ####
-### ------------------------------------------------------------------------ ###
-
-data.frame(x = c(0, 1, 2),
-           y = c(0, 1, 1)) %>%
-  ggplot(aes(x = x, y = y)) +
-  geom_line() +
-  scale_x_continuous("Biomass index I", expand = c(0, 0),
-                     breaks = c(0, 1), 
-                     labels = c(0, expression(italic(I)[trigger]))) +
-  scale_y_continuous("Harvest rate", limits = c(0, 1.2), expand = c(0, 0),
-                     breaks = c(0, 1), 
-                     labels = c(0, expression(italic(H)))) +
-  annotate(geom = "segment", x = 1, xend = 1, y = 0, yend = 1,
-           linetype = "dotted") +
-  annotate(geom = "segment", x = 0, xend = 1, y = 1, yend = 1,
-           linetype = "dotted") +
-  theme_classic()
-ggsave(filename = "output/plots/HR_principle.png",
-       width = 8.5, height = 5, units = "cm", dpi = 600,
-       type = "cairo")
-ggsave(filename = "output/plots/HR_principle.pdf",
-       width = 8.5, height = 5, units = "cm")
-
-
-### ------------------------------------------------------------------------ ###
-### Exceptional circumstances - biomass index range ####
-### ------------------------------------------------------------------------ ###
-### use MP4
-
-### load mp results
-mp <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/mp_1_2_1_3.7_2_0.66_1.2_0.7.rds")
-### input data
-input <- input_mp(OM = "refset", n_yrs = 20)
-
-### historical index data
-### @index slot does not include weight at age
-idxB_hist <- quantSums(input$oem@observations$idx$`UK-FSP`@index *
-  input$oem@observations$idx$`UK-FSP`@catch.wt *
-  input$oem@deviances$idx$`UK-FSP`)
-
-### projected index
-### @index slot includes weight at age
-idxB_proj <- quantSums(mp@oem@observations$idx$`UK-FSP`@index *
-                         window(input$oem@deviances$idx$`UK-FSP`, start = 2024))
-
-### combine history and projection
-idxB <- idxB_hist
-idxB[, ac(2024:2044)] <- idxB_proj
-
-#plot(idxB) + ylim(c(0, NA))
-
-### get percentiles
-idxB_qnt <- quantile(idxB, 
-                     probs = c(0.025, 0.25, 0.5, 0.75, 0.975),
-                     na.rm = TRUE)
-df <- as.data.frame(idxB_qnt) %>%
-  select(year, iter, data) %>%
-  pivot_wider(names_from = iter, values_from = data) %>%
-  mutate(period = ifelse(year < 2024, "Data", "Projection"))
-
-### plot
-p <- df %>%
-  ggplot() +
-  geom_ribbon(aes(x = year, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.1,
-              show.legend = FALSE) +
-  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.1,
-              show.legend = FALSE) +
-  geom_line(aes(x = year, y = `50%`), linewidth = 0.4) +
-  facet_grid(1 ~ period, shrink = TRUE, space = "free_x", scales = "free_x") +
-  coord_cartesian(ylim = c(0, 3.5), expand = FALSE) + 
-  labs(x = "Year", y = "UK-FSP biomass index (kg/hr m beam)") + 
-  theme_bw(base_size = 8) +
-  theme(strip.text.y = element_blank())
-ggsave(filename = "output/plots/EC/MP4_idx_hist_proj.png",
-       width = 16, height = 8, units = "cm", dpi = 600,
-       type = "cairo")
-ggsave(filename = "output/plots/EC/MP4_idx_hist_proj.pdf",
-       width = 16, height = 8, units = "cm")
-
-
-### ------------------------------------------------------------------------ ###
-### MP5 - Itrigger ####
-### ------------------------------------------------------------------------ ###
-
-### index values at F=Fmsy
-idxB_list <- foreach(OM = OMs[-1]) %do% {
-  
-  ### load mp() results from fishing at F=Fmsy
-  mp_i <- readRDS(paste0("output/ple.27.7e/", OM, 
-                         "/1000_100/OM/constF/mp_MSY.rds"))
-  ### recreate input
-  input_i <- input_mp(OM = OM, n_yrs = 100, biomass_index = "UK-FSP")
-  
-  idx_i <- calc_survey(stk = mp_i@om@stock, 
-                       idx = input_i$oem@observations$idx$`UK-FSP`,
-                       use_wt = FALSE)
-  
-  idxB_oem_i <- quantSums(idx@index * idx@catch.wt * 
-                          input_i$oem@deviances$idx$`UK-FSP`)
-  #plot(quantSums(idx@index * idx@catch.wt * input_i$oem@deviances$idx$`UK-FSP`))
-  return(idxB_oem_i)
-  
-}
-
-### average (median) over last 10 years
-### (same as for calculating Fmsy, Bmsy, etc)
-idxB_Fmsy <- median(idxB_oem[, ac(2115:2124)])
-
-
-Iloss <- iterMedians(idxB_oem)[, ac(2007)]
-Itrigger <- Iloss * 3.7
-
-Itrigger/idxB_Fmsy
-
-
-
-
-mp_MSY <- readRDS("output/ple.27.7e/baseline/1000_100/OM/constF/mp_MSY.rds")
-
-
-mp_MP5 <- readRDS("output/ple.27.7e/refset/1000_20/multiplier/hr/mp_1_2_1_3.7_2_0.66_1.2_0.7.rds")
-
-idx_b <- mp_MP5@tracking$A["comp_b", ac(2025:2044)]
-idx_b <- idx_b < 1
-head(which(idx_b))
-
-idx_ssb <- ssb(mp_MP5@om@stock)[, ac(2025:2044)]
+MPs <- c("CHR1 (UK-FSP, annual)", "CHR2 (UK-FSP, biennial)")
+names(MPs) <- MPs
+input <- input_mp(OM = "refset", n_yrs = 20, MP = "hr")
+stk_hist <- input$om@stock
+stk_hist <- list(stk_hist, stk_hist)
 refpts <- input_refpts(OM = "refset")
-Bmsy <- idx_ssb %=% rep(c(refpts["Bmsy"]), each = dim(idx_ssb)[2])
-idx_ssb_rel <- idx_ssb/Bmsy
+refpts[] <- NA
 
-idx_trigger <- idx_trigger2 <- idx_ssb_rel
-idx_trigger[] <- ifelse(idx_b, idx_ssb_rel, NA)
-idx_trigger2[] <- ifelse(!idx_b, idx_ssb_rel, NA)
+p <- plot_worm_comparison(stk = stk_list, stk_hist = stk_hist, 
+                          names = names(MPs), refpts = refpts) +
+  theme(legend.position = "bottom")
+p
 
-histogram(c(idx_trigger))
-histogram(c(idx_trigger2))
-
-histogram(c(idx_ssb_rel))
-
-
-df <- bind_rows(
-  as.data.frame(idx_trigger) %>% mutate(source = "<=Itrigger"),
-  as.data.frame(idx_trigger2) %>% mutate(source = ">Itrigger")
-)
-df %>%
-  ggplot(aes(x = data, ..scaled.., colour = source)) +
-  geom_density() +
-  geom_vline(xintercept = 1, linetype = "2121", colour = "black") + 
-  labs(x = expression(B/B[MSY]), y = "Density") + 
-  scale_x_continuous(breaks = 1:10) +
-  coord_cartesian(xlim = c(0, 5)) + 
-  theme_bw()
+ggsave(filename = "output/paper/plots/wormplots/refset_comp_CHR1-2.png",
+       width = 14, height = 8, units = "cm", dpi = 600,
+       type = "cairo")
+ggsave(filename = "output/paper/plots/wormplots/refset_comp_CHR1-2.pdf",
+       width = 14, height = 8, units = "cm")
 
 
+### plot SSB and catch, and Blim risk trajectories
+stk_list <- window(FLStocks(stk_list), start = 1980)
+stk_list[[1]][, ac(1980:2024)] <- input$om@stock[, ac(1980:2024)]
+stk_list[[2]][, ac(1980:2024)] <- input$om@stock[, ac(1980:2024)]
+refpts <- input_refpts(OM = "refset")
+MPs <- c("CHR1 (UK-FSP, annual)", "CHR2 (UK-FSP, biennial)")
+qnts <- lapply(seq_along(stk_list), function(x) {#browser()
+  Blim_ts <- ssb(stk_list[[x]]) %=% rep(c(refpts["Blim"]), each = 65)
+  qnts_i <- FLQuants(catch = catch(stk_list[[x]])/1000, 
+                     ssb = ssb(stk_list[[x]])/1000,
+                     risk = apply((ssb(stk_list[[x]])/Blim_ts) < 1, 2, 
+                           mean, na.rm = TRUE))
+  qnts_i <- lapply(qnts_i, quantile, probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
+                   na.rm = TRUE)
+  qnts_i_perc <- as.data.frame(FLQuants(qnts_i))
+  qnts_i_perc$source <- MPs[x]
+  return(qnts_i_perc)
+})
+qnts <- do.call(rbind, qnts)
+qnts_perc <- qnts %>% select(year, iter, data, qname, source) %>%
+  filter(!(iter != "50%" & qname == "risk")) %>%
+  filter(!(qname == "risk" & year < 2024)) %>%
+  #filter(data = ifelse(iter != "50%" & qname == "risk"), NA, data) %>%
+  #mutate()
+  pivot_wider(names_from = iter, values_from = data) %>%
+  mutate(qname = factor(qname,
+                        levels = c("catch", "ssb", "risk"),
+                        labels = c("'Catch (1000t)'", "'SSB (1000t)'",
+                                   "B[lim]~risk")))
+cols <- c(scales::pal_brewer(palette = "Dark2")(1),
+          scales::pal_brewer(palette = "Set1")(4)[4])
+p <- qnts_perc %>%
+  ggplot(aes(x = year, y = `50%`, colour = source, fill = source, 
+             linetype = source)) +
+  geom_vline(xintercept = 2024, colour = "grey", size = 0.5) +
+  geom_ribbon(aes(x = year, ymin = `5%`, ymax = `95%`), alpha = 0.1,
+              show.legend = FALSE, linewidth = 0) +
+  geom_ribbon(aes(x = year, ymin = `25%`, ymax = `75%`), alpha = 0.1,
+              show.legend = FALSE, linewidth = 0) +
+  geom_line() +
+  geom_hline(data = data.frame(y = 0.05, source = NA,
+                               qname = factor("B[lim]~risk")),
+             aes(yintercept = y), colour = "red", linewidth = 0.3) +
+  scale_colour_manual("", values = cols) + 
+  scale_fill_manual("", values = cols) + 
+  scale_linetype_manual("", values = c("solid", "1111")) + 
+  facet_wrap(~ qname, scales = "free_y", strip.position = "left", 
+             labeller = label_parsed, ncol = 1) +
+  labs(x = "Year") +
+  coord_cartesian(ylim = c(0, NA), xlim = c(2010, NA), expand = FALSE) +
+  theme_bw(base_size = 8) +
+  theme(strip.placement = "outside",
+        strip.text = element_text(size = 8),
+        strip.background = element_blank(),
+        axis.title.y = element_blank(),
+        legend.position = "bottom",
+        legend.key.height = unit(0.5, "lines"),
+        legend.title = element_blank())
+p
+ggsave(filename = "output/paper/plots/wormplots/refset_comp_CHR1-2_risk.png",
+       width = 8, height = 8, units = "cm", dpi = 600,
+       type = "cairo")
+ggsave(filename = "output/paper/plots/wormplots/refset_comp_CHR1-2_risk.pdf",
+       width = 8, height = 8, units = "cm")
 
+
+
+### ------------------------------------------------------------------------ ###
+### ICES MSY - full tuning ####
+### ------------------------------------------------------------------------ ###
+### tuned with full refset
+
+input <- input_mp(OM = "refset", n_iter = 1000, MP = "ICES_SAM")
+refpts <- input_refpts(OM = "refset")
+
+stats <- readRDS("output/ICES_SAM_tuning_stats.rds")
+
+### find files
+res_files <- list.files("output/ple.27.7e/refset/1000_20/ICES_SAM/",
+                        pattern = "mp_")
+res_files <- res_files[!res_files %in% unique(stats$file)]
+res_files <- data.frame(file = res_files) %>%
+  mutate(tmp = str_remove_all(file, "mp_|\\.rds")) %>%
+  separate_wider_delim(tmp, delim = "_", names = c("Ftrgt", "Btrigger")) %>%
+  mutate(Ftrgt = as.numeric(Ftrgt), Btrigger = as.numeric(Btrigger))
+
+
+
+### go through files and get summary
+stats_add <- foreach(file = res_files$file, Ftrgt = res_files$Ftrgt, 
+                 Btrigger = res_files$Btrigger,
+                 .combine = bind_rows, .errorhandling = "remove") %:%
+  foreach(period = c("long-term", "short-term", "all"),
+          period_yrs = list(2035:2044, 2025:2034, 2025:2044),
+          .combine = bind_rows, .errorhandling = "remove") %do% {
+  #browser()
+  
+  ### get projection
+  mp_i <- readRDS(paste0("output/ple.27.7e/refset/1000_20/ICES_SAM/", file))
+  stk <- mp_i@om@stock
+  rm(mp_i)
+  
+  ### refpts
+  Bmsy <- c(refpts["Bmsy"])
+  Fmsy <- c(refpts["Fmsy"])
+  Cmsy <- c(refpts["Cmsy"])
+  Blim <- c(refpts["Blim"])
+  
+  ### extract metrics
+  yr_min <- min(period_yrs)
+  yr_max <- max(period_yrs)
+  stk_icv <- window(stk, start = yr_min - 1, end = yr_max)
+  stk <- window(stk, start = yr_min, end = yr_max)
+  
+  SSBs <- ssb(stk)
+  Fs <- fbar(stk)
+  Cs <- catch(stk)
+  Cs_long <- catch(stk_icv)
+  
+  ### account for OM/iteration-specific values
+  Bmsy_ts <- SSBs %=% rep(c(Bmsy), each = dim(SSBs)[2])
+  Fmsy_ts <- Fs %=% rep(c(Fmsy), each = dim(Fs)[2])
+  Cmsy_ts <- Cs %=% rep(c(Cmsy), each = dim(Cs)[2])
+  Blim_ts <- SSBs %=% rep(c(Blim), each = dim(SSBs)[2])
+  
+  data.frame(file = file,
+             MP = "ICES_SAM",
+             Ftrgt = Ftrgt, Btrigger = Btrigger,
+             period = period,
+             risk = max(apply((SSBs/Blim_ts) < 1, 2, mean, na.rm = TRUE), 
+                        na.rm = TRUE),
+             SSB = median(c(SSBs), na.rm = TRUE), Fbar = median(c(Fs), 
+                                                                na.rm = TRUE),
+             Catch = median(c(Cs), na.rm = TRUE),
+             Fbar = median(c(Fs), na.rm = TRUE),
+             SSB_rel = median(c(SSBs/Bmsy_ts), na.rm = TRUE),
+             Catch_rel = median(c(Cs/Cmsy_ts), na.rm = TRUE),
+             Fbar_rel = median(c(Fs/Fmsy_ts), na.rm = TRUE),
+             ICV = iav(Cs_long, period = 1, summary_all = median)
+  )
+}
+stats <- unique(bind_rows(stats, stats_add))
+stats <- stats %>% arrange(Ftrgt, Btrigger)
+saveRDS(stats, file = "output/ICES_SAM_tuning_stats.rds")
+View(stats %>% filter(period == "long-term"))
+
+### duplicate Ftarget=0 values (Btrigger doesn't matter if no fishing)
+# stats <- stats <- stats %>%
+#   bind_rows(stats %>%
+#               filter(Ftrgt == 0 & Btrigger == 0) %>% mutate(Btrigger = 1500),
+#             stats %>%
+#               filter(Ftrgt == 0 & Btrigger == 0) %>% mutate(Btrigger = 2500),
+#             stats %>%
+#               filter(Ftrgt == 0 & Btrigger == 0) %>% mutate(Btrigger = 3500),
+#             stats %>%
+#               filter(Ftrgt == 0 & Btrigger == 0) %>% mutate(Btrigger = 4500),
+#             stats %>%
+#               filter(Ftrgt == 0 & Btrigger == 0) %>% mutate(Btrigger = 5500),
+#             stats %>%
+#               filter(Ftrgt == 0 & Btrigger == 0) %>% mutate(Btrigger = 500)
+#               )
+
+
+### find optimum
+df_optimum <- stats %>%
+  group_by(period) %>%
+  filter(risk <= 0.05) %>%
+  filter(Catch_rel == max(Catch_rel))
+df_refpts <- df_optimum %>%
+  mutate(type = "Optimum") %>%
+  bind_rows(data.frame(type = "ICES",
+                       Ftrgt = 0.21106, Btrigger = 3265.99)) %>%
+  mutate(type = factor(type, levels = c("Optimum", "ICES"))) %>%
+  select(type, Ftrgt, Btrigger)
+
+### plot raw data
+p_raw <- stats %>%
+  filter(period == "long-term") %>%
+  mutate(catch = Catch_rel,
+         catch_col = ifelse(risk <= 0.05, 
+                            Catch_rel, NA)) %>%
+  ggplot(aes(x = Btrigger, y = Ftrgt, label = catch,
+             fill = catch_col)) +
+  geom_point(alpha = 0.8, shape = 21, stroke = NA, size = 2) +
+  geom_tile(alpha = 0.8) +
+  scale_fill_gradientn(paste0("Catch/MSY"),
+                       colours = hcl.colors(10),
+                       values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
+                                  1), 
+                       breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  geom_hline(data = df_refpts,
+             aes(yintercept = Ftrgt, colour = type, linetype = type),
+             linewidth = 0.2) +
+  geom_vline(data = df_refpts,
+             aes(xintercept = Btrigger, colour = type, linetype = type),
+             linewidth = 0.2) +
+  scale_colour_manual("", values = c(Optimum = "red", ICES = "black")) +
+  scale_linetype_manual("", values = c(Optimum = "1111", ICES = "solid")) +
+  labs(x = expression(B[trigger]), y = expression(F[trgt])) +
+  coord_cartesian(#expand = TRUE, 
+    xlim = c(0, NA), ylim = c(0, NA)) +
+  theme_bw(base_size = 8)
+p_raw
+
+### interpolation to find area where to focus on
+
+### manual linear interpolation to get surface
+### format into wide data.frame
+x <- seq(0, 7000, 100)
+y <- seq(0, 0.3, 0.01)
+stats_catch <- stats %>%
+  filter(period == "long-term") %>%
+  select(Btrigger, Ftrgt, Catch_rel) %>%
+  full_join(expand.grid(Btrigger = x,
+                        Ftrgt = y)) %>%
+  arrange(Btrigger, Ftrgt) %>%
+  pivot_wider(names_from = Btrigger, values_from = Catch_rel) %>%
+  #arrange(rev(Ftrgt)) %>%
+  tibble::column_to_rownames("Ftrgt") %>%
+  as.matrix()
+stats_risk <- stats %>%
+  filter(period == "long-term") %>%
+  select(Btrigger, Ftrgt, risk) %>%
+  full_join(expand.grid(Btrigger = x,
+                        Ftrgt = y)) %>%
+  arrange(Btrigger, Ftrgt) %>%
+  pivot_wider(names_from = Btrigger, values_from = risk) %>%
+  #arrange(rev(Ftrgt)) %>%
+  tibble::column_to_rownames("Ftrgt") %>%
+  as.matrix()
+### 1st - outside edges
+stats_catch[y == 0] <- approx(x = x, y = stats_catch[y == 0], xout = x, na.rm = TRUE)$y
+stats_catch[y == 0.3] <- approx(x = x, y = stats_catch[y == 0.3], xout = x, na.rm = TRUE)$y
+stats_catch[, x == 0] <- approx(x = y, y = stats_catch[, x == 0], xout = y, na.rm = TRUE)$y
+stats_catch[, x == 7000] <- approx(x = y, y = stats_catch[, x == 7000], xout = y, na.rm = TRUE)$y
+stats_risk[y == 0] <- approx(x = x, y = stats_risk[y == 0], xout = x, na.rm = TRUE)$y
+stats_risk[y == 0.3] <- approx(x = x, y = stats_risk[y == 0.3], xout = x, na.rm = TRUE)$y
+stats_risk[, x == 0] <- approx(x = y, y = stats_risk[, x == 0], xout = y, na.rm = TRUE)$y
+stats_risk[, x == 7000] <- approx(x = y, y = stats_risk[, x == 7000], xout = y, na.rm = TRUE)$y
+### inner horizontal lines
+for (i in y) {
+  if (isTRUE(i %in% c(0, 0.3))) next()
+  if (isTRUE(sum(!is.na(stats_catch[y == i])) > 2)) {
+    stats_catch[y == i] <- approx(x = x, y = stats_catch[y == i], xout = x, na.rm = TRUE)$y
+    stats_risk[y == i] <- approx(x = x, y = stats_risk[y == i], xout = x, na.rm = TRUE)$y
+  }
+}
+### vertical lines
+for (i in x) {
+  if (isTRUE(i %in% c(0, 7000))) next()
+  if (isTRUE(sum(!is.na(stats_catch[, x == i])) > 2)) {
+    stats_catch[, x == i] <- approx(x = y, y = stats_catch[, x == i], xout = y, na.rm = TRUE)$y
+    stats_risk[, x == i] <- approx(x = y, y = stats_risk[, x == i], xout = y, na.rm = TRUE)$y
+  }
+}
+### try plotting
+image(t(stats_catch))
+image(t(stats_risk))
+### convert back into data.frame
+stats_int <- full_join(as.data.frame(stats_catch) %>% 
+            tibble::rownames_to_column("Ftrgt") %>%
+            pivot_longer(-Ftrgt, names_to = "Btrigger", values_to = "Catch_rel"),
+          as.data.frame(stats_risk) %>% 
+            tibble::rownames_to_column("Ftrgt") %>%
+            pivot_longer(-Ftrgt, names_to = "Btrigger", values_to = "risk")) %>%
+  mutate(Ftrgt = as.numeric(Ftrgt),
+         Btrigger = as.numeric(Btrigger))
+### plot
+p_int <- stats_int %>%
+  mutate(catch = Catch_rel,
+         catch_col = ifelse(risk <= 0.05, 
+                            Catch_rel, NA)) %>%
+  ggplot(aes(x = Btrigger, y = Ftrgt, label = catch,
+             fill = catch_col)) +
+  geom_tile(alpha = 0.8) +
+  # geom_raster(#data = . %>% filter(risk <= 0.05), 
+  #             alpha = 0.8, interpolate = TRUE) +
+  # geom_tile(data = . %>% filter(risk > 0.05), alpha = 0.8) +
+  scale_fill_gradientn(paste0("Catch/MSY"),
+                       colours = hcl.colors(10),
+                       values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
+                                  1), 
+                       breaks = c(0.0, 0.25, 0.5, 0.75, 1),
+                       limits = c(0, 1)) +
+  geom_hline(data = df_refpts,
+             aes(yintercept = Ftrgt, colour = type, linetype = type),
+             linewidth = 0.2) +
+  geom_vline(data = df_refpts,
+             aes(xintercept = Btrigger, colour = type, linetype = type),
+             linewidth = 0.2) +
+  scale_colour_manual("", values = c(Optimum = "red", ICES = "black")) +
+  scale_linetype_manual("", values = c(Optimum = "1111", ICES = "solid")) +
+  labs(x = expression(B[trigger]), y = expression(F[target])) +
+  coord_cartesian(#expand = TRUE, 
+    xlim = c(0, NA), ylim = c(0, NA)) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.5, "lines"))
+p_int
+ggsave(filename = "output/paper/plots/MP/SAM_grid_tuning.png", plot = p_int,
+       width = 8.5, height = 5, units = "cm", dpi = 600, type = "cairo",
+       bg = "white")
+ggsave(filename = "output/paper/plots/MP/SAM_grid_tuning.pdf", plot = p_int,
+       width = 8.5, height = 5, units = "cm",
+       bg = "white")
+
+
+### interpolate with akima - doesn't work well...
+df_int <- stats %>%
+  filter(period == "long-term") %>%
+  dplyr::select(Btrigger, Ftrgt, risk, Catch_rel)
+x_val <- seq(min(df_int$Btrigger), max(df_int$Btrigger), 100)
+y_val <- seq(min(df_int$Ftrgt), max(df_int$Ftrgt), 0.01)
+n_x <- length(x_val)
+n_y <- length(y_val)
+
+out_catch <- akima::interp(x = df_int$Btrigger/1000, y = df_int$Ftrgt,
+                           z = df_int$Catch_rel, 
+                           xo = x_val/1000, yo = y_val,
+                           #nx = n_x, ny = n_w,
+                           linear = TRUE, extrap = TRUE)
+out_risk <- akima::interp(x = df_int$Btrigger/1000, y = df_int$Ftrgt,
+                          z = df_int$risk, 
+                          xo = x_val/1000, yo = y_val,,
+                          #nx = n_x, ny = n_w,
+                          linear = TRUE, extrap = TRUE)
+
+### format
+df_int <- expand.grid(Btrigger = out_catch$x * 1000, Ftrgt = out_catch$y)
+df_int <- data.frame(df_int)
+df_int$catch <- as.vector((out_catch$z))
+df_int$risk <- as.vector((out_risk$z))
+
+df_int %>%
+  mutate(catch = catch,
+         catch_col = ifelse(risk <= 0.05, 
+                            catch, NA)) %>%
+  ggplot(aes(x = Btrigger, y = Ftrgt, label = catch,
+             fill = catch_col)) +
+  geom_point(alpha = 0.8, shape = 21, stroke = NA, size = 2) +
+  geom_raster(alpha = 0.8) +
+  scale_fill_gradientn(paste0("Catch/MSY"),
+                       colours = hcl.colors(10),
+                       values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
+                                  1), 
+                       breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  labs(x = expression(B[trigger]), y = expression(F[trgt])) +
+  coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
+  theme_bw(base_size = 8)
+df_int %>%
+  mutate(catch = catch,
+         catch_col = catch) %>%
+  ggplot(aes(x = Btrigger, y = Ftrgt, label = catch,
+             fill = catch_col)) +
+  geom_point(alpha = 0.8, shape = 21, stroke = NA, size = 2) +
+  geom_raster(alpha = 0.8) +
+  scale_fill_gradientn(paste0("Catch/MSY"),
+                       colours = hcl.colors(10),
+                       values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
+                                  1), 
+                       breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  labs(x = expression(B[trigger]), y = expression(F[trgt])) +
+  coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
+  theme_bw(base_size = 8)
+df_int %>%
+  filter(risk <= 0.05) %>%
+  filter(catch == max(catch, na.rm = TRUE))
 
