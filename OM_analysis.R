@@ -1709,6 +1709,35 @@ ggsave(filename = "output/plots/OM/OM_idx_wts.png", plot = p,
 ggsave(filename = "output/plots/OM/OM_idx_wts.pdf", plot = p, 
        width = 16, height = 6, units = "cm")
 
+### survey weights at age in projection
+df_idx_wts_sim <- FLQuants(Q1SWBeam = FLQuant(iterMedians(catch.wt(idx$Q1SWBeam))),
+                       "UK-FSP" = FLQuant(iterMedians(catch.wt(idx$`UK-FSP`))))
+df_idx_wts_sim <- as.data.frame(df_idx_wts_sim) %>% 
+  filter(year == 2024)
+p_age <- df_idx_wts_sim %>%
+  ggplot(aes(x = age, y = data, colour = qname, linetype = qname)) +
+  geom_line(linewidth = 0.4) +
+  facet_wrap(~ "Projection") +
+  scale_colour_brewer("", palette = "Dark2") + 
+  scale_linetype("") +
+  labs(x = "Age (years)", y = "Index catch weight (kg)") +
+  scale_x_continuous(breaks = seq(2, 9, 2), limits = c(0, NA)) +
+  ylim(c(0, 1.587459)) + 
+  theme_bw(base_size = 8) +
+  theme(legend.position = "inside",
+        legend.position.inside = c(0.3, 0.8),
+        legend.background = element_blank(),
+        legend.key.height = unit(0.5, "lines"),
+        legend.key = element_blank())
+p_age
+
+p_new <- p + p_age + plot_layout(widths = c(1, 0.5))
+p_new
+ggsave(filename = "output/plots/OM/OM_idx_wts_age.png", plot = p_new, 
+       width = 16, height = 6, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_idx_wts_age.pdf", plot = p_new, 
+       width = 16, height = 6, units = "cm")
+
 ### ------------------------------------------------------------------------ ###
 ### surveys - simulated historical values ####
 ### ------------------------------------------------------------------------ ###
@@ -2421,6 +2450,7 @@ ggsave(filename = "output/plots/paper/OM_refset.png", plot = p,
        width = 8, height = 10, units = "cm", dpi = 600, type = "cairo")
 ggsave(filename = "output/plots/paper/OM_refset.pdf", plot = p, 
        width = 8, height = 10, units = "cm")
+
 
 
 ### ------------------------------------------------------------------------ ###
