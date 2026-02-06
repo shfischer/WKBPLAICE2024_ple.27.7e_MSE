@@ -1366,7 +1366,7 @@ yrs_res <- 1982:2023
 
 ### create simulated residuals for historical period
 ### same approach as used in create_OM()
-res_new <- foreach(iter_i = seq(dim(sr)[6])) %do% {
+res_new <- foreach(iter_i = seq(dim(sr)[6])) %do% {#browser()
   set.seed(iter_i)
   ### get residuals for current iteration
   ### log residuals here - create_OM() used exp() to get multiplicative values
@@ -1417,6 +1417,8 @@ df <- bind_rows(df %>%
                          labels = c("Modelled",
                                     "Modelled (with\nauto-correlation)",
                                     "Data")))
+# df <- df %>%
+#   mutate(source = factor(source, levels = rev(levels(source))))
 
 ### plot SR pairs
 p_pairs <- df %>%
@@ -1434,6 +1436,7 @@ p_pairs <- df %>%
 p_pairs
 ### rasterised version for PDF
 p_pairs_raster <- df %>%
+  #filter(source == "Data") %>%
   ggplot(aes(x = SSB/1000, y = R/1000, colour = source, alpha = iter_group)) +
   ggrastr::rasterise(geom_point(shape = 19, size = 0.4), dpi = 600) + 
   scale_alpha_manual(values = c("iter" = 0.5, "all" = 0.05), 
@@ -1467,7 +1470,58 @@ ggsave(filename = "output/plots/OM/OM_rec_data_vs_model.png", plot = p,
 p <- p_pairs_raster / p_ecdf
 ggsave(filename = "output/plots/OM/OM_rec_data_vs_model.pdf", plot = p,
        width = 16, height = 8, units = "cm", dpi = 600)
-  
+
+### average by SSB blocks
+p <- df %>%
+  filter(iter == "all") %>%
+  mutate(SSB = SSB/1000,
+         R = R/1000) %>%
+  filter(SSB <= 9) %>%
+  mutate(SSB_group = ceiling(SSB)) %>%
+  group_by(source, SSB_group) %>%
+  summarise(R = median(R)) %>%
+  #filter(SSB_group <= 9) %>%
+  ggplot(aes(x = SSB_group, y = R, colour = source, linetype = source)) +
+  geom_step() +
+  scale_colour_manual("", values = rev(scales::hue_pal()(3))) + 
+  scale_linetype("") +
+  scale_x_continuous(breaks = seq(0, 9, 2), limits = c(0, NA)) +
+  labs(x = "SSB (1000t)", y = "Recruitment (1000s)") +
+  ylim(c(0, NA)) +
+  theme_bw(base_size = 8)
+p
+ggsave(filename = "output/plots/OM/OM_rec_data_vs_model_blocks.png", plot = p,
+       width = 10, height = 4, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_rec_data_vs_model_blocks.pdf", plot = p,
+       width = 10, height = 4, units = "cm")
+
+### average by year
+df %>%
+  filter(iter == "all") %>%
+  mutate(SSB = SSB/1000,
+         R = R/1000) %>%
+  group_by(source, year) %>%
+  summarise(R = median(R)) %>%
+  ggplot(aes(x = year, y = R, colour = source)) +
+  geom_step()# +
+
+### boxplots
+p <- df %>%
+  filter(iter == "all" & source %in% c("Data", "Modelled (with\nauto-correlation)")) %>%
+  mutate(SSB = SSB/1000,
+         R = R/1000) %>%
+  group_by(source, year) %>%
+  ggplot(aes(x = year, y = R, colour = source, group = interaction(year, source))) +
+  geom_boxplot(outliers = FALSE, linewidth = 0.1) +
+  scale_colour_brewer("", palette = "Set1") +
+  labs(x = "Year", y = "Recruitment (1000s)") +
+  theme_bw(base_size = 8)
+p
+ggsave(filename = "output/plots/OM/OM_rec_data_vs_model_ts.png", plot = p,
+       width = 10, height = 5, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_rec_data_vs_model_ts.pdf", plot = p,
+       width = 10, height = 5, units = "cm")
+
 ### ------------------------------------------------------------------------ ###
 ### Recruitment models of alternative OMs ####
 ### ------------------------------------------------------------------------ ###
