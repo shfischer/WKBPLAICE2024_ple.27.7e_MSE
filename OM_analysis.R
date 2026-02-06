@@ -1606,6 +1606,30 @@ ggsave(filename = "output/plots/OM/OM_rec_OMs.pdf", plot = p,
        width = 16, height = 6, units = "cm", dpi = 600)
 
 ### ------------------------------------------------------------------------ ###
+### Recruitment models - baseline OM - steepness ####
+### ------------------------------------------------------------------------ ###
+sr <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
+
+### get steepness
+sr_s <- c(params(sr)["s"])
+summary(sr_s)
+sd(sr_s)
+mean(sr_s > 0.95)
+
+p <- data.frame(s = sr_s) %>%
+  ggplot(aes(x = s)) +
+  geom_histogram(aes(y = (..count..)/sum(..count..)),
+                 binwidth = 0.1, fill = "grey", colour = "black", 
+                 linewidth = 0.3) +
+  labs(x = "Recruitment steepness", y = "Proportion") +
+  theme_bw(base_size = 8)
+p
+ggsave(filename = "output/plots/OM/OM_rec_steepness.png", plot = p,
+       width = 8, height = 5, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_rec_steepness.pdf", plot = p,
+       width = 8, height = 5, units = "cm")
+
+### ------------------------------------------------------------------------ ###
 ### surveys (catchability and weights at age) - baseline OM ####
 ### ------------------------------------------------------------------------ ###
 ### catchability
