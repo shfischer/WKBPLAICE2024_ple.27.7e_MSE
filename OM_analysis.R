@@ -946,11 +946,11 @@ ggsave(filename = "output/plots/OM/OM_baseline_F0_worm.pdf", plot = p,
 OM_list <- c("baseline",
              "Catch_no_disc", "Catch_no_surv", "migr_none",
              "M_low", "M_high", "M_Gislason",
-             "R_no_AC", "R_higher", "R_lower")
+             "R_no_AC", "R_higher", "R_lower", "R_h_lower")
 OM_labels <- c("Baseline",
                "Catch: no discards", "Catch: 100% discards", "Catch: no migration",
                "M: -50%", "M: +50%", "M: Gislason",
-               "R: no AC", "R: +20%", "R: -20%")
+               "R: no AC", "R: +20%", "R: -20%", "R: h -20%")
 MSY_runs <- foreach(OM = OM_list, .combine = bind_rows) %do% {#browser()
   file_i <- paste0("input/ple.27.7e/", OM, "/1000_100/MSY_trace.rds")
   if (!file.exists(file_i)) return(NULL)
@@ -975,12 +975,14 @@ MSY_runs_plot <- MSY_runs %>%
 ### dummy df to get same x-axis limit
 df_x1 <- head(MSY_runs_plot, 2) %>%
   mutate(value = c(1.7, 50))
-df_x2 <- tail(MSY_runs_plot, 2) %>%
+df_x2 <- tail(MSY_runs_plot %>% filter(OM == "M_low"), 2) %>%
+  mutate(value = c(1.7, 50))
+df_x3 <- tail(MSY_runs_plot, 2) %>%
   mutate(value = c(1.7, 50))
 
 ### plot - split into two panels
 p1 <- MSY_runs_plot %>%
-  filter(OM_label %in% OM_labels[1:5]) %>%
+  filter(OM_label %in% OM_labels[1:4]) %>%
   ggplot(aes(x = Ftrgt, y = value)) +
   geom_blank(data = df_x1) +
   geom_point(size = 0.4) +
@@ -996,9 +998,9 @@ p1 <- MSY_runs_plot %>%
   theme(strip.background.y = element_blank(),
         strip.placement = "outside",
         strip.switch.pad.grid = unit(0, "pt"),
-        axis.title.y = element_blank())
+        axis.title = element_blank())
 p2 <- MSY_runs_plot %>%
-  filter(OM_label %in% OM_labels[6:10]) %>%
+  filter(OM_label %in% OM_labels[5:8]) %>%
   ggplot(aes(x = Ftrgt, y = value)) +
   geom_blank(data = df_x2) +
   geom_point(size = 0.4) +
@@ -1014,13 +1016,36 @@ p2 <- MSY_runs_plot %>%
   theme(strip.background.y = element_blank(),
         strip.placement = "outside",
         strip.switch.pad.grid = unit(0, "pt"),
+        axis.title = element_blank())
+p3 <- MSY_runs_plot %>%
+  filter(OM_label %in% OM_labels[9:11]) %>%
+  ggplot(aes(x = Ftrgt, y = value)) +
+  geom_blank(data = df_x3) +
+  geom_point(size = 0.4) +
+  geom_smooth(span = 0.4, method = "loess",
+              se = FALSE, linewidth = 0.2, colour = "blue") +
+  geom_vline(data = . %>%
+               filter(MSY == TRUE),
+             aes(xintercept = Ftrgt), linewidth = 0.4, colour = "red") +
+  facet_grid(label ~ OM_label, scales = "free_y", switch = "y") +
+  labs(x = "mean F (ages 3-6)") +
+  scale_x_continuous(breaks = seq(0, 1, 0.2)) +
+  theme_bw(base_size = 8) +
+  theme(strip.background.y = element_blank(),
+        strip.placement = "outside",
+        strip.switch.pad.grid = unit(0, "pt"),
         axis.title.y = element_blank())
-p <- p1 / p2
+design <- "
+  11
+  22
+  3#
+"
+p <- p1 + p2 + p3 + plot_layout(design = design, widths = c(1, 0.325))
 p
 ggsave(filename = "output/plots/OM/OM_all_MSY_search.png", plot = p, 
-       width = 16, height = 9, units = "cm", dpi = 600, type = "cairo")
+       width = 16, height = 12.5, units = "cm", dpi = 600, type = "cairo")
 ggsave(filename = "output/plots/OM/OM_all_MSY_search.pdf", plot = p, 
-       width = 16, height = 9, units = "cm")
+       width = 16, height = 12.5, units = "cm")
 
 ### reference points table for working document
 ### get Blim
@@ -1529,11 +1554,11 @@ ggsave(filename = "output/plots/OM/OM_rec_data_vs_model_ts.pdf", plot = p,
 OM_list <- c("baseline",
              "Catch_no_disc", "Catch_no_surv", "migr_none",
              "M_low", "M_high", "M_Gislason",
-             "R_no_AC", "R_failure", "R_higher", "R_lower")
+             "R_no_AC", "R_failure", "R_higher", "R_lower", "R_h_lower")
 OM_labels <- c("Baseline",
                "Catch: no discards", "Catch: 100% discards", "Catch: no migration",
                "M: -50%", "M: +50%", "M: Gislason",
-               "R: no AC", "R: failure", "R: +20%", "R: -20%")
+               "R: no AC", "R: failure", "R: +20%", "R: -20%", "R: h -20%")
 
 ### load recruitment values and stock-recruit pairs - use medians
 df_OM <- foreach(OM = OM_list,
@@ -1576,6 +1601,12 @@ df_pairs <- bind_rows(lapply(df_OM, "[[", 1))
 df_pairs_add <- bind_rows(lapply(df_OM, "[[", 2))
 df_pars <- bind_rows(lapply(df_OM, "[[", 3))
 
+df_pairs <- df_pairs %>%
+  mutate(OM_label = factor(OM_label, levels = OM_labels))
+df_pairs_add <- df_pairs_add %>%
+  mutate(OM_label = factor(OM_label, levels = OM_labels))
+df_pars <- df_pars %>%
+  mutate(OM_label = factor(OM_label, levels = OM_labels))
 
 p <- ggplot() +
   geom_point(data = df_pairs,
@@ -1590,13 +1621,12 @@ p <- ggplot() +
             aes(x = ssb/1000, y = rec/1000),
             colour = "red", linetype = "2121", linewidth = 0.4) +
   facet_wrap(~ OM_label, nrow = 2) +
-  # scale_x_continuous("SSB (1000t)",
-  #                    breaks = c(0, 2000, 4000, 6000, 8000),
-  #                    labels = c(0, 2, 4, 6, 8)) +
+  scale_x_continuous("SSB (1000t)",
+                     breaks = seq(0, 10, 2)) +
   # scale_y_continuous("Recruitment (1000s)",
   #                    breaks = c(0, 10000, 20000, 30000),
   #                    labels = c(0, 10, 20, 30)) +
-  coord_cartesian(xlim = c(0, 19), ylim = c(0, 29), expand = FALSE) +
+  coord_cartesian(xlim = c(0, 11.5), ylim = c(0, 29), expand = FALSE) +
   labs(x = "SSB (1000t)", y = "Recruitment (1000s)") +
   theme_bw(base_size = 8)
 p
@@ -2466,6 +2496,38 @@ ggsave(filename = "output/plots/paper/OM_refset.png", plot = p,
 ggsave(filename = "output/plots/paper/OM_refset.pdf", plot = p, 
        width = 8, height = 10, units = "cm")
 
+### ------------------------------------------------------------------------ ###
+### recruitment - check +-20% scenarios ####
+### ------------------------------------------------------------------------ ###
+### SR model fit
+fit <- readRDS("input/ple.27.7e/baseline/1000_100/SAM_fit.rds")
+sr_om <- readRDS("input/ple.27.7e/baseline/1000_100/sr.rds")
+stk <- readRDS("input/ple.27.7e/baseline/1000_100/stk.rds")
+stk <- window(iterMedians(stk), end = 2023)
+
+fit_stk <- SAM2FLStock(object = fit, stk = stk)
+sr <- as.FLSR(fit_stk, model = "bevholtSV")
+rec(sr) <- rec(sr)/1000
+ssb(sr) <- ssb(sr)/1000
+sr <- fmle(sr, method = 'L-BFGS-B', fixed = list(), 
+           control = list(trace = 0))
+sr_params <- abPars("bevholt", s = params(sr)["s"], v = params(sr)["v"], 
+                    spr0 = params(sr)["spr0"])
+
+### try with 20% higher recruitment
+fit_stk20 <- fit_stk
+stock.n(fit_stk20)[1, ] <- stock.n(fit_stk20)[1, ] * 1.2
+stock.n(fit_stk20)[1, ]/stock.n(fit_stk)[1, ]
+sr20 <- as.FLSR(fit_stk20, model = "bevholtSV")
+rec(sr20) <- rec(sr20)/1000
+ssb(sr20) <- ssb(sr20)/1000
+sr20 <- fmle(sr20, method = 'L-BFGS-B', fixed = list(), 
+             control = list(trace = 0))
+sr_params20 <- abPars("bevholt", s = params(sr20)["s"], v = params(sr20)["v"], 
+                      spr0 = params(sr20)["spr0"])
+
+params(sr)
+params(sr20)
 
 
 ### ------------------------------------------------------------------------ ###

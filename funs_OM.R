@@ -16,7 +16,12 @@ bevholtSV_to_bevholt <- function(sr) {
   dimnames(sr_pars$a)$params <- "a"
   dimnames(sr_pars$b)$params <- "b"
   ### combine all parameters and insert them
-  sr_pars <- rbind(rbind(sr_pars$a, sr_pars$b), params(sr))
+  ### remove values if updates available
+  sr_pars_old <- params(sr)
+  if (any(c("a", "b") %in% dimnames(params(sr))$params)) {
+    sr_pars_old <- sr_pars_old[setdiff(dimnames(params(sr))$params, c("a", "b"))]
+  }
+  sr_pars <- rbind(rbind(sr_pars$a, sr_pars$b), sr_pars_old)
   params(sr_new) <- sr_pars
   ### also insert some more slots
   ssb(sr_new) <- ssb(sr)

@@ -192,6 +192,22 @@ params(sr_R_lower)["a"] <- params(sr_R_lower)["a"] * 0.8
 saveRDS(sr_R_lower, file = paste0(path_new, "sr.rds"))
 
 
+### R_h_lower: steepness -20%
+### use baseline OM recruitment model and adjust a/b parameters
+path_new <- "input/ple.27.7e/R_h_lower/1000_100/"
+dir.create(path_new, recursive = TRUE)
+file.link(from = paste0(path_baseline, files_link), 
+          to = paste0(path_new, files_link))
+### copy some other files so that they can be changed
+files_copy <- c("refpts_mse.rds")
+file.copy(from = paste0(path_baseline, files_copy), 
+          to = paste0(path_new, files_copy), overwrite = TRUE)
+### adapt recruitment model
+sr_R_h_lower <- readRDS(paste0(path_baseline, "sr.rds"))
+params(sr_R_h_lower)["s"] <- params(sr_R_h_lower)["s"] * 0.8
+sr_R_h_lower <- bevholtSV_to_bevholt(sr_R_h_lower)
+saveRDS(sr_R_h_lower, file = paste0(path_new, "sr.rds"))
+
 ### R_failure: recruitment failure 2025-2029
 path_new <- "input/ple.27.7e/R_failure/1000_100/"
 dir.create(path_new, recursive = TRUE)
@@ -363,11 +379,12 @@ update_refpts(OM = "M_Gislason", refpts = refpts, RR0 = RR0, BB0 = BB0)
 update_refpts(OM = "R_no_AC", refpts = refpts, RR0 = RR0, BB0 = BB0)
 update_refpts(OM = "R_higher", refpts = refpts, RR0 = RR0, BB0 = BB0)
 update_refpts(OM = "R_lower", refpts = refpts, RR0 = RR0, BB0 = BB0)
+update_refpts(OM = "R_h_lower", refpts = refpts, RR0 = RR0, BB0 = BB0)
 
 ### ------------------------------------------------------------------------ ###
 ### reference points - remove NAs from iters ####
 ### ------------------------------------------------------------------------ ###
-OMs <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_failure")
+OMs <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_failure", "R_h_lower")
 
 . <- foreach(OM = OMs) %:% foreach(n_iter = 1000) %do% {
   file_i <- paste0("input/ple.27.7e/", OM, "/", n_iter, "_100/refpts_mse.rds")
