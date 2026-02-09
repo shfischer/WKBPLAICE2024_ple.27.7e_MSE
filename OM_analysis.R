@@ -1946,6 +1946,21 @@ system.time(mcmc <- tmbstan(fit$obj, chains = MCMC_chains,
                             warmup = MCMC_warmup,
                             seed = 1, control = list(max_treedepth = 15)))
 saveRDS(mcmc, file = "input/ple.27.7e/baseline/1000_100/MCMC.rds")
+mcmc <- readRDS("input/ple.27.7e/baseline/1000_100/MCMC.rds")
+
+
+
+methods(class="stanfit")
+pairs(mcmc)
+traceplot(mcmc, pars = names(fit$obj$par), inc_warmup = TRUE)
+traceplot(mcmc, pars = mcmc@model_pars, inc_warmup = TRUE)
+
+traceplot(mcmc, pars = names(fit$obj$par), inc_warmup = TRUE, window = c(1, 2))
+#pairs(mcmc, pars=names(obj$par))
+#traceplot(mcmc, pars=names(obj$par), inc_warmup=TRUE)
+
+
+
 ### extract
 mc <- extract(mcmc, inc_warmup = FALSE, permuted = TRUE)
 idxF <- fit$conf$keyLogFsta[1, ] + 1
