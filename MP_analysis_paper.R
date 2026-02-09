@@ -211,10 +211,10 @@ p_int <- df_runs_int %>%
   theme_bw(base_size = 8)
 p_int
 ggsave(filename = "output/paper/plots/refset_x_w_grid_int.png", plot = p_int,
-       width = 14, height = 10, units = "cm", dpi = 600, type = "cairo",
+       width = 17, height = 10, units = "cm", dpi = 600, type = "cairo",
        bg = "white")
 ggsave(filename = "output/paper/plots/refset_x_w_grid_int.pdf", plot = p_int,
-       width = 14, height = 10, units = "cm",
+       width = 17, height = 10, units = "cm",
        bg = "white")
 
 ### summary table
@@ -1092,7 +1092,7 @@ df_chr <- df_chr %>%
 stk_MSY2 <- lapply(paste0("output/ple.27.7e/", OMs_refset, 
                               "/1000_20/ICES_SAM/"),
                        function(y) {
-                         readRDS(paste0(y, "mp_0.199.rds"))@om@stock
+                         readRDS(paste0(y, "mp_0.2_5400.rds"))@om@stock
                        })
 stk_MSY2 <- Reduce(FLCore::combine, stk_MSY2)
 
@@ -1145,15 +1145,16 @@ ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_MSY.pdf",
 ### chr and ICES MSY only - catch and SSB
 p <- plot_worm_comparison(stk = stk_list[c(1, 3)], stk_hist = stk_hist[c(1, 3)], 
                           names = names(MPs)[c(1, 3)], refpts = refpts,
-                          qnts_show = c("catch", "ssb")) +
+                          qnts_show = c("catch", "ssb"),
+                          ncol = 1) +
   theme(legend.position = "bottom")
 p
 
 ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_MSY_catch_ssb.png",
-       width = 14, height = 5, units = "cm", dpi = 600,
+       width = 8.5, height = 7, units = "cm", dpi = 600,
        type = "cairo")
 ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_MSY_catch_ssb.pdf",
-       width = 14, height = 5, units = "cm")
+       width = 8.5, height = 7, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
 ### compare trajectories - CHR1/2 ####
@@ -1392,11 +1393,19 @@ p_raw <- stats %>%
              linewidth = 0.2) +
   scale_colour_manual("", values = c(Optimum = "red", ICES = "black")) +
   scale_linetype_manual("", values = c(Optimum = "1111", ICES = "solid")) +
-  labs(x = expression(B[trigger]), y = expression(F[trgt])) +
+  labs(x = expression(B[trigger]), y = expression(F[target])) +
   coord_cartesian(#expand = TRUE, 
     xlim = c(0, NA), ylim = c(0, NA)) +
-  theme_bw(base_size = 8)
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.7, "lines"))
 p_raw
+ggsave(filename = "output/paper/plots/MSY_grid_raw.png", plot = p_raw,
+       width = 8.5, height = 5, units = "cm", dpi = 600, type = "cairo",
+       bg = "white")
+ggsave(filename = "output/paper/plots/MSY_grid_raw.pdf", plot = p_raw,
+       width = 8.5, height = 5, units = "cm",
+       bg = "white")
+
 
 ### interpolation to find area where to focus on
 
@@ -1468,7 +1477,7 @@ p_int <- stats_int %>%
                             Catch_rel, NA)) %>%
   ggplot(aes(x = Btrigger, y = Ftrgt, label = catch,
              fill = catch_col)) +
-  geom_tile(alpha = 0.8) +
+  geom_raster(alpha = 0.8, interpolate = FALSE) +
   # geom_raster(#data = . %>% filter(risk <= 0.05), 
   #             alpha = 0.8, interpolate = TRUE) +
   # geom_tile(data = . %>% filter(risk > 0.05), alpha = 0.8) +
@@ -1488,76 +1497,76 @@ p_int <- stats_int %>%
   scale_linetype_manual("", values = c(Optimum = "1111", ICES = "solid")) +
   labs(x = expression(B[trigger]), y = expression(F[target])) +
   coord_cartesian(#expand = TRUE, 
-    xlim = c(0, NA), ylim = c(0, NA)) +
+    xlim = c(0, NA), ylim = c(0, NA), expand = FALSE) +
   theme_bw(base_size = 8) +
-  theme(legend.key.height = unit(0.5, "lines"))
+  theme(legend.key.height = unit(0.7, "lines"))
 p_int
-ggsave(filename = "output/paper/plots/MP/SAM_grid_tuning.png", plot = p_int,
+ggsave(filename = "output/paper/plots/MSY_grid_int.png", plot = p_int,
        width = 8.5, height = 5, units = "cm", dpi = 600, type = "cairo",
        bg = "white")
-ggsave(filename = "output/paper/plots/MP/SAM_grid_tuning.pdf", plot = p_int,
+ggsave(filename = "output/paper/plots/MSY_grid_int.pdf", plot = p_int,
        width = 8.5, height = 5, units = "cm",
        bg = "white")
 
 
 ### interpolate with akima - doesn't work well...
-df_int <- stats %>%
-  filter(period == "long-term") %>%
-  dplyr::select(Btrigger, Ftrgt, risk, Catch_rel)
-x_val <- seq(min(df_int$Btrigger), max(df_int$Btrigger), 100)
-y_val <- seq(min(df_int$Ftrgt), max(df_int$Ftrgt), 0.01)
-n_x <- length(x_val)
-n_y <- length(y_val)
-
-out_catch <- akima::interp(x = df_int$Btrigger/1000, y = df_int$Ftrgt,
-                           z = df_int$Catch_rel, 
-                           xo = x_val/1000, yo = y_val,
-                           #nx = n_x, ny = n_w,
-                           linear = TRUE, extrap = TRUE)
-out_risk <- akima::interp(x = df_int$Btrigger/1000, y = df_int$Ftrgt,
-                          z = df_int$risk, 
-                          xo = x_val/1000, yo = y_val,,
-                          #nx = n_x, ny = n_w,
-                          linear = TRUE, extrap = TRUE)
-
-### format
-df_int <- expand.grid(Btrigger = out_catch$x * 1000, Ftrgt = out_catch$y)
-df_int <- data.frame(df_int)
-df_int$catch <- as.vector((out_catch$z))
-df_int$risk <- as.vector((out_risk$z))
-
-df_int %>%
-  mutate(catch = catch,
-         catch_col = ifelse(risk <= 0.05, 
-                            catch, NA)) %>%
-  ggplot(aes(x = Btrigger, y = Ftrgt, label = catch,
-             fill = catch_col)) +
-  geom_point(alpha = 0.8, shape = 21, stroke = NA, size = 2) +
-  geom_raster(alpha = 0.8) +
-  scale_fill_gradientn(paste0("Catch/MSY"),
-                       colours = hcl.colors(10),
-                       values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
-                                  1), 
-                       breaks = c(0, 0.25, 0.5, 0.75, 1)) +
-  labs(x = expression(B[trigger]), y = expression(F[trgt])) +
-  coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
-  theme_bw(base_size = 8)
-df_int %>%
-  mutate(catch = catch,
-         catch_col = catch) %>%
-  ggplot(aes(x = Btrigger, y = Ftrgt, label = catch,
-             fill = catch_col)) +
-  geom_point(alpha = 0.8, shape = 21, stroke = NA, size = 2) +
-  geom_raster(alpha = 0.8) +
-  scale_fill_gradientn(paste0("Catch/MSY"),
-                       colours = hcl.colors(10),
-                       values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
-                                  1), 
-                       breaks = c(0, 0.25, 0.5, 0.75, 1)) +
-  labs(x = expression(B[trigger]), y = expression(F[trgt])) +
-  coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
-  theme_bw(base_size = 8)
-df_int %>%
-  filter(risk <= 0.05) %>%
-  filter(catch == max(catch, na.rm = TRUE))
+# df_int <- stats %>%
+#   filter(period == "long-term") %>%
+#   dplyr::select(Btrigger, Ftrgt, risk, Catch_rel)
+# x_val <- seq(min(df_int$Btrigger), max(df_int$Btrigger), 100)
+# y_val <- seq(min(df_int$Ftrgt), max(df_int$Ftrgt), 0.01)
+# n_x <- length(x_val)
+# n_y <- length(y_val)
+# 
+# out_catch <- akima::interp(x = df_int$Btrigger/1000, y = df_int$Ftrgt,
+#                            z = df_int$Catch_rel, 
+#                            xo = x_val/1000, yo = y_val,
+#                            #nx = n_x, ny = n_w,
+#                            linear = TRUE, extrap = TRUE)
+# out_risk <- akima::interp(x = df_int$Btrigger/1000, y = df_int$Ftrgt,
+#                           z = df_int$risk, 
+#                           xo = x_val/1000, yo = y_val,,
+#                           #nx = n_x, ny = n_w,
+#                           linear = TRUE, extrap = TRUE)
+# 
+# ### format
+# df_int <- expand.grid(Btrigger = out_catch$x * 1000, Ftrgt = out_catch$y)
+# df_int <- data.frame(df_int)
+# df_int$catch <- as.vector((out_catch$z))
+# df_int$risk <- as.vector((out_risk$z))
+# 
+# df_int %>%
+#   mutate(catch = catch,
+#          catch_col = ifelse(risk <= 0.05, 
+#                             catch, NA)) %>%
+#   ggplot(aes(x = Btrigger, y = Ftrgt, label = catch,
+#              fill = catch_col)) +
+#   geom_point(alpha = 0.8, shape = 21, stroke = NA, size = 2) +
+#   geom_raster(alpha = 0.8) +
+#   scale_fill_gradientn(paste0("Catch/MSY"),
+#                        colours = hcl.colors(10),
+#                        values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
+#                                   1), 
+#                        breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+#   labs(x = expression(B[trigger]), y = expression(F[trgt])) +
+#   coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
+#   theme_bw(base_size = 8)
+# df_int %>%
+#   mutate(catch = catch,
+#          catch_col = catch) %>%
+#   ggplot(aes(x = Btrigger, y = Ftrgt, label = catch,
+#              fill = catch_col)) +
+#   geom_point(alpha = 0.8, shape = 21, stroke = NA, size = 2) +
+#   geom_raster(alpha = 0.8) +
+#   scale_fill_gradientn(paste0("Catch/MSY"),
+#                        colours = hcl.colors(10),
+#                        values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
+#                                   1), 
+#                        breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+#   labs(x = expression(B[trigger]), y = expression(F[trgt])) +
+#   coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) +
+#   theme_bw(base_size = 8)
+# df_int %>%
+#   filter(risk <= 0.05) %>%
+#   filter(catch == max(catch, na.rm = TRUE))
 
