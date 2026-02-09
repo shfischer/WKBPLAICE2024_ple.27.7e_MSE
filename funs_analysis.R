@@ -781,7 +781,8 @@ plot_worm_comparison <- function(stk, stk_hist, refpts,
                       title_fbar = paste0("Mean F (ages ", 
                                           range(stk[[1]])[["minfbar"]], "-", 
                                           range(stk[[1]])[["maxfbar"]], ")"),
-                      qnts_show = c("catch", "rec", "fbar", "ssb")
+                      qnts_show = c("catch", "rec", "fbar", "ssb"),
+                      ncol = NA
 ) {
   #browser()
   
@@ -891,6 +892,10 @@ plot_worm_comparison <- function(stk, stk_hist, refpts,
     p <- p +
       labs(title = title) +
       theme(plot.title = element_text(hjust = 0.5))
+  }
+  if (!is.na(ncol)) {
+    p <- p + facet_wrap(~ qname, scales = "free_y", strip.position = "left",
+                        ncol = ncol)
   }
   #p
   
