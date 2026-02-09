@@ -261,13 +261,15 @@ if (FALSE) {
   ### load additional functions
   req_scripts <- c("funs.R", "funs_GA.R", "funs_WKNSMSE.R", "funs_OM.R")
   for (i in req_scripts) source(i)
-  ### parallelisation with doFuture
-  plan(multisession, workers = 5)
-  ### load packages and functions into parallel workers
-  . <- foreach(i = seq(5)) %dofuture% {
-    for (i in req_pckgs) library(package = i, character.only = TRUE,
-                                 warn.conflicts = FALSE, verbose = FALSE,
-                                 quietly = TRUE)
+  cl <- makeCluster(n_workers)
+  registerDoParallel(cl)
+  print(cl)
+  cl_length <- length(cl)
+  . <- foreach(i = seq(n_workers)) %dopar% {
+    for (i in req_pckgs) 
+      suppressPackageStartupMessages(
+        library(package = i, character.only = TRUE, warn.conflicts = FALSE, 
+                verbose = FALSE, quietly = TRUE))
     for (i in req_scripts) source(i)
   }
   

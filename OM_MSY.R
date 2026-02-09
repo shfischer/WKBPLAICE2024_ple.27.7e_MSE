@@ -41,16 +41,17 @@ for (i in req_scripts) source(i)
 
 ### parallelisation
 if (isTRUE(n_workers > 1)) {
-  ### use doFuture
-  plan(multisession, workers = n_workers)
-  ### load packages and functions into parallel workers
-  . <- foreach(i = seq(n_workers)) %dofuture% {
-    for (i in req_pckgs) library(package = i, character.only = TRUE,
-                                 warn.conflicts = FALSE, verbose = FALSE,
-                                 quietly = TRUE)
+  cl <- makeCluster(n_workers)
+  registerDoParallel(cl)
+  print(cl)
+  cl_length <- length(cl)
+  . <- foreach(i = seq(n_workers)) %dopar% {
+    for (i in req_pckgs) 
+      suppressPackageStartupMessages(
+        library(package = i, character.only = TRUE, warn.conflicts = FALSE, 
+                verbose = FALSE, quietly = TRUE))
     for (i in req_scripts) source(i)
   }
-  
 }
 
 ### ------------------------------------------------------------------------ ###
