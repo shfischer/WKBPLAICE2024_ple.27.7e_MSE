@@ -24,17 +24,17 @@ source("funs_OM.R")
 OMs <- c("refset", 
          "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
          "M_low", "M_high", "M_Gislason", 
-         "R_no_AC", "R_higher", "R_lower", 
+         "R_no_AC", "R_higher", "R_lower", "R_h_lower",
          "R_failure", "overcatch", "undercatch", "Idx_higher")
 OMs_label <- c("Reference set\n(combined)", 
                "Baseline", "Catch:\nno discards", "Catch:\n100% discards", 
                "Catch:\nno migration", 
                "M: -50%", "M: +50%", "M: Gislason", 
-               "R: no AC", "R: +20%", "R: -20%", 
+               "R: no AC", "R: +20%", "R: -20%", "R: h -20%",
                "R: failure", "Catch: +10%", "Catch: -10%", 
                "Uncertainty:\nindex +20%")
 
-OMs_group <- c("refset (combined)", rep("refset", 7), rep("robset", 7))
+OMs_group <- c("refset (combined)", rep("refset", 7), rep("robset", 8))
 
 OMs_refset <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
                 "M_low", "M_high", "M_Gislason")
@@ -80,6 +80,9 @@ df_runs <- df_runs %>%
 saveRDS(df_runs, file = "output/paper/refset_x_w_grid.rds")
 # df_runs <- readRDS("output/paper/refset_x_w_grid.rds")
 
+### runs by chr version
+table(df_runs[, c("index", "interval")])
+
 ### find optima
 df_optima <- bind_rows(
   # df_runs %>%
@@ -94,8 +97,7 @@ df_optima <- bind_rows(
     filter(X11.20_risk_Blim_max <= 0.05) %>%
     filter(X11.20_Catch_rel == max(X11.20_Catch_rel)) %>%
     mutate(optimum = "global")
-) %>%
-  mutate(optimum = factor(optimum, levels = c("local", "global")))
+)
 
 ### number the MPs
 df_optima$MP <- c(3, 4, 1, 2)
@@ -327,7 +329,9 @@ stats <- foreach(i = split(df_x_w, f = seq(nrow(df_x_w))),
     stk_icv <- window(stk, start = yr_min - 1, end = yr_max)
     stk <- window(stk, start = yr_min, end = yr_max)
     ssb_i <- c(ssb(stk)/refpts["Bmsy"])
+    ssb_abs_i <- c(ssb(stk))
     catch_i <- c(catch(stk)/refpts["Cmsy"])
+    catch_abs_i <- c(catch(stk))
     fbar_i <- c(fbar(stk)/refpts["Fmsy"])
     risk_i <- c(apply(ssb(stk) < rep(c(refpts["Blim"]), 
                                      each = dim(ssb(stk))[2]), 2, mean))
@@ -335,7 +339,9 @@ stats <- foreach(i = split(df_x_w, f = seq(nrow(df_x_w))),
     icv_annual_i <- c(iav(catch(stk_icv), period = 1))
     ### combine
     df <- do.call(rbind, list(data.frame(val = ssb_i, metric = "SSB"),
+                              data.frame(val = ssb_abs_i, metric = "SSB_abs"),
                               data.frame(val = catch_i, metric = "catch"),
+                              data.frame(val = catch_abs_i, metric = "catch_abs"),
                               data.frame(val = fbar_i, metric = "Fbar"),
                               data.frame(val = icv_i, metric = "ICV"),
                               data.frame(val = icv_annual_i, 
@@ -366,7 +372,7 @@ stats_plot <- stats %>%
                            levels = OMs_group,
                            labels = c("", 
                                       rep("Reference set", 7), 
-                                      rep("Robustness set", 7)))) %>%
+                                      rep("Robustness set", 8)))) %>%
   mutate(group = paste0("CHR", MP, " - ", index, " - ",
                         case_when(v == 1 ~ "annual",
                                   v == 2 ~ "biennial"),
@@ -376,9 +382,10 @@ stats_plot <- stats %>%
                                   period == "all" ~ "all years")))
 
 
-cols <- scales::hue_pal()(15)
+cols <- scales::hue_pal()(16)
 
-. <- foreach(group_i = unique(stats_plot$group)) %do% {
+. <- foreach(group_i = unique(stats_plot$group)) %:%
+  foreach(scale = c("relative", "absolute")) %do% {
   #browser()
   stats_plot_i <- stats_plot %>%
     filter(group == group_i)
@@ -398,7 +405,7 @@ cols <- scales::hue_pal()(15)
                group_by(OM, OM_group) %>%
                summarise(val = max(val)),
              aes(x = OM, y = val, fill = OM),
-             show.legend = FALSE, width = 0.8, colour = "black", size = 0.2,
+             show.legend = FALSE, width = 0.8, colour = "black", linewidth = 0.2,
              position = position_dodge(width = 0.8)) +
     geom_boxplot(aes(x = OM, y = val),
                  position = position_dodge(width = 0.8),
@@ -553,14 +560,18 @@ stats <- foreach(i = split(df_altMPs, f = seq(nrow(df_altMPs))),
     stk_icv <- window(stk, start = yr_min - 1, end = yr_max)
     stk <- window(stk, start = yr_min, end = yr_max)
     ssb_i <- c(ssb(stk)/refpts["Bmsy"])
+    ssb_abs_i <- c(ssb(stk))
     catch_i <- c(catch(stk)/refpts["Cmsy"])
+    catch_abs_i <- c(catch(stk))
     fbar_i <- c(fbar(stk)/refpts["Fmsy"])
     risk_i <- c(apply(ssb(stk) < rep(c(refpts["Blim"]), 
                                      each = dim(ssb(stk))[2]), 2, mean))
     icv_i <- c(iav(catch(stk_icv), period = i$interval))
     ### combine
     df <- do.call(rbind, list(data.frame(val = ssb_i, metric = "SSB"),
+                              data.frame(val = ssb_abs_i, metric = "SSB_abs"),
                               data.frame(val = catch_i, metric = "catch"),
+                              data.frame(val = catch_abs_i, metric = "catch_abs"),
                               data.frame(val = fbar_i, metric = "Fbar"),
                               data.frame(val = icv_i, metric = "ICV"),
                               data.frame(val = risk_i, metric = "risk")
@@ -588,7 +599,7 @@ stats_plot <- stats %>%
                                   period == "short-term" ~ "short term",
                                   period == "all" ~ "all years")))
 
-cols <- scales::hue_pal()(15)
+cols <- scales::hue_pal()(16)
 
 . <- foreach(group_i = unique(stats_plot$group)) %do% {
   #browser()
@@ -763,7 +774,7 @@ stats_CHR2 <- stats_CHR2 %>%
                            levels = OMs_group,
                            labels = c("", 
                                       rep("Reference set", 7), 
-                                      rep("Robustness set", 7))))
+                                      rep("Robustness set", 8))))
 
 ### ICES MSY rule with reduced Fmsy - MSY2
 stats_MSY2 <- readRDS("output/paper/refset_altMPs_stats.rds")
@@ -775,10 +786,10 @@ stats_MSY2 <- stats_MSY2 %>%
                            levels = OMs_group,
                            labels = c("", 
                                       rep("Reference set", 7), 
-                                      rep("Robustness set", 7))))
+                                      rep("Robustness set", 8))))
 
 ### plot
-cols <- scales::hue_pal()(15)
+cols <- scales::hue_pal()(16)
 
 ### risk
 risk_max <- 0.315
@@ -789,14 +800,14 @@ p_CHR2_risk <- stats_CHR2 %>%
              group_by(OM, OM_group) %>%
              summarise(val = max(val)),
            aes(x = OM, y = val, fill = OM),
-           show.legend = FALSE, width = 0.8, colour = "black", size = 0.2,
+           show.legend = FALSE, width = 0.8, colour = "black", linewidth = 0.2,
            position = position_dodge(width = 0.8)) +
   geom_boxplot(aes(x = OM, y = val),
                position = position_dodge(width = 0.8),
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
-  geom_hline(yintercept = 0.05, colour = "red", size = 0.4, 
+  geom_hline(yintercept = 0.05, colour = "red", linewidth = 0.4, 
              linetype = "1111") +
   stat_summary(aes(x = OM, y = val),
                fun = "mean", geom = "point", shape = 4, size = 1,
@@ -804,7 +815,7 @@ p_CHR2_risk <- stats_CHR2 %>%
   scale_fill_manual("", values = cols) +
   facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
   labs(y = expression(max.~B[lim]~risk),
-       title = "(a) Tuned chr rule (CHR2)") +
+       title = "(a) Empirical: chr rule (CHR2)") +
   coord_cartesian(ylim = c(0, risk_max)) +
   theme_bw(base_size = 8) +
   theme(panel.spacing.x = unit(0, "lines"),
