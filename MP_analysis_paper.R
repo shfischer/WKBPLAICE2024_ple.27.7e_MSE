@@ -519,7 +519,7 @@ cols <- scales::hue_pal()(16)
 ### ------------------------------------------------------------------------ ###
 df_altMPs <- data.frame(MP = c("rfb", "ICES_SAM", "ICES_SAM"),
                         MP_label = c("RFB1", "MSY1", "MSY2"),
-                        file = c("mp.rds", "mp.rds", "mp_0.199.rds"),
+                        file = c("mp.rds", "mp.rds", "mp_0.2_5400.rds"),
                         interval = c(2, 1, 1))
 
 ### get stats
@@ -546,7 +546,7 @@ stats <- foreach(i = split(df_altMPs, f = seq(nrow(df_altMPs))),
     } else {
       ### get projection
       path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/", MP_i, "/")
-      #if (!file.exists(paste0(path_i, "mp.rds"))) return(NULL)
+      if (!file.exists(paste0(path_i, file_i))) return(NULL)
       mp_i <- readRDS(paste0(path_i, file_i))
       stk <- mp_i@om@stock
     }
@@ -831,14 +831,14 @@ p_MSY2_risk <- stats_MSY2 %>%
              group_by(OM, OM_group) %>%
              summarise(val = max(val)),
            aes(x = OM, y = val, fill = OM),
-           show.legend = FALSE, width = 0.8, colour = "black", size = 0.2,
+           show.legend = FALSE, width = 0.8, colour = "black", linewidth = 0.2,
            position = position_dodge(width = 0.8)) +
   geom_boxplot(aes(x = OM, y = val),
                position = position_dodge(width = 0.8),
                fill = "white", width = 0.1, size = 0.2,
                outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
                outlier.fill = "transparent") +
-  geom_hline(yintercept = 0.05, colour = "red", size = 0.4, 
+  geom_hline(yintercept = 0.05, colour = "red", linewidth = 0.4, 
              linetype = "1111") +
   stat_summary(aes(x = OM, y = val),
                fun = "mean", geom = "point", shape = 4, size = 1,
@@ -846,7 +846,7 @@ p_MSY2_risk <- stats_MSY2 %>%
   scale_fill_manual("", values = cols) +
   facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
   labs(y = expression(max.~B[lim]~risk),
-       title = "(b) ICES MSY rule (MSY2)") +
+       title = "(b) Model-based: ICES MSY rule (MSY2)") +
   coord_cartesian(ylim = c(0, risk_max)) +
   theme_bw(base_size = 8) +
   theme(panel.spacing.x = unit(0, "lines"),
@@ -911,6 +911,58 @@ p_MSY2_catch <- stats_MSY2 %>%
         strip.text.x = element_blank())
 #p_MSY2_catch
 
+### Catch - absolute
+p_CHR2_catch_abs <- stats_CHR2 %>%
+  filter(metric == "catch_abs") %>%
+  ggplot(aes(x = OM, y = val/1000)) +
+  geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = OM), 
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  stat_summary(aes(x = OM, y = val/1000),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
+  scale_fill_manual("", values = cols) +
+  facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+  labs(y = "Catch\n(1000t)") +
+  coord_cartesian(ylim = c(0, 3.5)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.title.x = element_blank(), 
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        strip.text.x = element_blank())
+#p_CHR2_catch_abs
+p_MSY2_catch_abs <- stats_MSY2 %>%
+  filter(metric == "catch_abs") %>%
+  ggplot(aes(x = OM, y = val/1000)) +
+  geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = OM), 
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  stat_summary(aes(x = OM, y = val/1000),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
+  geom_hline(yintercept = 1, colour = "#ebebeb", linewidth = 0.4,
+             linetype = "1111") +
+  scale_fill_manual("", values = cols) +
+  facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+  labs(y = expression(Catch/MSY)) +
+  coord_cartesian(ylim = c(0, 3.5)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.title = element_blank(), 
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        strip.text.x = element_blank())
+#p_MSY2_catch_abs
+
 ### SSB
 p_CHR2_ssb <- stats_CHR2 %>%
   filter(metric == "SSB") %>%
@@ -965,6 +1017,56 @@ p_MSY2_ssb <- stats_MSY2 %>%
         strip.text = element_blank())
 #p_MSY2_ssb
 
+### SSB - absolute scale
+p_CHR2_ssb_abs <- stats_CHR2 %>%
+  filter(metric == "SSB_abs") %>%
+  ggplot(aes(x = OM, y = val/1000)) +
+  geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = OM), 
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  stat_summary(aes(x = OM, y = val/1000),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
+  scale_fill_manual("", values = cols) +
+  facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+  labs(y = "SSB\n(1000t)") +
+  coord_cartesian(ylim = c(0, 24)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.title.x = element_blank(), 
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        strip.text.x = element_blank())
+#p_CHR2_ssb_abs
+p_MSY2_ssb_abs <- stats_MSY2 %>%
+  filter(metric == "SSB_abs") %>%
+  ggplot(aes(x = OM, y = val/1000)) +
+  geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = OM), 
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  stat_summary(aes(x = OM, y = val/1000),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
+  scale_fill_manual("", values = cols) +
+  facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+  labs(y = expression(SSB/B[MSY])) +
+  coord_cartesian(ylim = c(0, 24)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.title = element_blank(), 
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        strip.text = element_blank())
+#p_MSY2_ssb_abs
+
 ### ICV
 p_CHR2_icv <- stats_CHR2 %>%
   filter(metric == "ICV") %>%
@@ -991,6 +1093,57 @@ p_CHR2_icv <- stats_CHR2 %>%
         axis.title.x = element_blank(),
         strip.text.x = element_blank())
 #p_CHR2_icv
+### ICV CHR2 biennial
+p_CHR2_icv_biennial <- stats_CHR2 %>%
+  filter(metric == "ICV") %>%
+  ggplot(aes(x = OM, y = val)) +
+  geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = OM), 
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  stat_summary(aes(x = OM, y = val),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
+  scale_fill_manual("", values = cols) +
+  facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+  labs(y = "ICV\n(biennial)") +
+  coord_cartesian(ylim = c(0, 0.5)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.title.x = element_blank(), 
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        strip.text.x = element_blank())
+#p_CHR2_icv_biennial
+### ICV CHR2 annual
+p_CHR2_icv_annual <- stats_CHR2 %>%
+  filter(metric == "ICV_annual") %>%
+  ggplot(aes(x = OM, y = val)) +
+  geom_violin(aes(fill = OM), size = 0.2, show.legend = FALSE,
+              position = position_dodge(width = 0.8), scale = "width") +
+  geom_boxplot(aes(group = OM), 
+               position = position_dodge(width = 0.8),
+               fill = "white", width = 0.1, size = 0.2,
+               outlier.size = 0.35, outlier.shape = 21, outlier.stroke = 0.2,
+               outlier.fill = "transparent") +
+  stat_summary(aes(x = OM, y = val),
+               fun = "mean", geom = "point", shape = 4, size = 1,
+               stroke = 0.25) +
+  scale_fill_manual("", values = cols) +
+  facet_grid(~ OM_group, scales = "free_x", space = "free_x") +
+  labs(y = "ICV\n(annual)") +
+  coord_cartesian(ylim = c(0, 0.5)) +
+  theme_bw(base_size = 8) +
+  theme(panel.spacing.x = unit(0, "lines"),
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        #axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        strip.text.x = element_blank())
+#p_CHR2_icv_annual
 p_MSY2_icv <- stats_MSY2 %>%
   filter(metric == "ICV") %>%
   ggplot(aes(x = OM, y = val)) +
@@ -1025,13 +1178,28 @@ p <- p_CHR2_risk + p_MSY2_risk +
   p_CHR2_icv + p_MSY2_icv +
   plot_layout(ncol = 2)
 p
-
-
 ggsave(filename = "output/paper/plots/MP/stats_comp_CHR2_MSY2.png", 
        plot = p, width = 18, height = 10, units = "cm", dpi = 600, 
        type = "cairo", bg = "white")
 ggsave(filename = "output/paper/plots/MP/stats_comp_CHR2_MSY2.pdf", 
        plot = p, width = 18, height = 10, units = "cm", bg = "white")
+
+### with absolute catch and SSB
+### and annual/biennial ICV
+p <- p_CHR2_risk + p_MSY2_risk +
+  p_CHR2_ssb + p_MSY2_ssb +
+  p_CHR2_ssb_abs + p_MSY2_ssb_abs +
+  p_CHR2_catch + p_MSY2_catch +
+  p_CHR2_catch_abs + p_MSY2_catch_abs +
+  p_CHR2_icv_biennial + plot_spacer() +
+  p_CHR2_icv_annual + p_MSY2_icv +
+  plot_layout(ncol = 2)
+p
+ggsave(filename = "output/paper/plots/MP/stats_comp_CHR2_MSY2_abs.png", 
+       plot = p, width = 18, height = 16, units = "cm", dpi = 600, 
+       type = "cairo", bg = "white")
+ggsave(filename = "output/paper/plots/MP/stats_comp_CHR2_MSY2_abs.pdf", 
+       plot = p, width = 18, height = 16, units = "cm", bg = "white")
 
 ### ------------------------------------------------------------------------ ###
 ### CHR2 - sensitivity to index uncertainty ####
@@ -1378,7 +1546,8 @@ df_refpts <- df_optimum %>%
   mutate(type = "Optimum") %>%
   bind_rows(data.frame(type = "ICES",
                        Ftrgt = 0.21106, Btrigger = 3265.99)) %>%
-  mutate(type = factor(type, levels = c("Optimum", "ICES"))) %>%
+  mutate(type = factor(type, levels = c("Optimum", "ICES"),
+                       labels = c("Tuned (MSY2)", "ICES (MSY1)"))) %>%
   select(type, Ftrgt, Btrigger)
 
 ### plot raw data
@@ -1402,8 +1571,10 @@ p_raw <- stats %>%
   geom_vline(data = df_refpts,
              aes(xintercept = Btrigger, colour = type, linetype = type),
              linewidth = 0.2) +
-  scale_colour_manual("", values = c(Optimum = "red", ICES = "black")) +
-  scale_linetype_manual("", values = c(Optimum = "1111", ICES = "solid")) +
+  scale_colour_manual("", values = c("Tuned (MSY2)" = "red", 
+                                     "ICES (MSY1)" = "black")) +
+  scale_linetype_manual("", values = c("Tuned (MSY2)" = "1111", 
+                                       "ICES (MSY1)" = "solid")) +
   labs(x = expression(B[trigger]), y = expression(F[target])) +
   coord_cartesian(#expand = TRUE, 
     xlim = c(0, NA), ylim = c(0, NA)) +
@@ -1504,9 +1675,11 @@ p_int <- stats_int %>%
   geom_vline(data = df_refpts,
              aes(xintercept = Btrigger, colour = type, linetype = type),
              linewidth = 0.2) +
-  scale_colour_manual("", values = c(Optimum = "red", ICES = "black")) +
-  scale_linetype_manual("", values = c(Optimum = "1111", ICES = "solid")) +
-  labs(x = expression(B[trigger]), y = expression(F[target])) +
+  scale_colour_manual("", values = c("Tuned (MSY2)" = "red", 
+                                     "ICES (MSY1)" = "black")) +
+  scale_linetype_manual("", values = c("Tuned (MSY2)" = "1111", 
+                                       "ICES (MSY1)" = "solid")) +
+  labs(x = expression(B[trigger]^MP), y = expression(F[target]^MP)) +
   coord_cartesian(#expand = TRUE, 
     xlim = c(0, NA), ylim = c(0, NA), expand = FALSE) +
   theme_bw(base_size = 8) +
