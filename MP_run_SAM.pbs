@@ -1,20 +1,96 @@
 #!/bin/sh
 ## job name
-#PBS -N ple_SAM_single
+#PBS -N SAM_ICES_R_h
 ## maximum runtime
-#PBS -l walltime=50:00:00
+#PBS -l walltime=5:00:00
 ## select number of nodes, cpus (per node) and memory (per node)
-#PBS -l select=1:ncpus=1:mpiprocs=1:mem=20gb
+#PBS -l select=1:ncpus=16:mpiprocs=1:mem=100gb
 ## standard output standard error
 #PBS -o reports
 #PBS -e reports
 ## array job
-###PBS -J 11-29
-##PBS_ARRAY_INDEX=10
+###PBS -J 1-7
+##PBS_ARRAY_INDEX=7
 ## start job after another job finished?
 ###PBS -W depend=afterany:2521439.pbs
 ########### parameters
-OM="'"'baseline'"'"
+###OM="'"'baseline'"'"
+FTRGT="'"'eqsim'"'"
+BTRIGGER="'"'eqsim'"'"
+PBS_ARRAY_INDEX=15
+
+### extract OM from batch job
+case "$PBS_ARRAY_INDEX" in
+	1)
+		OM="'"'baseline'"'"
+		;;
+
+	2)
+		OM="'"'Catch_no_disc'"'"
+		;;
+
+	3)
+                OM="'"'Catch_no_surv'"'"
+	        ;;
+
+	4)
+                OM="'"'migr_none'"'"
+        	;;
+
+	5)
+                OM="'"'M_low'"'"
+	        ;;
+
+	6)
+                OM="'"'M_high'"'"
+	        ;;
+
+	7)
+                OM="'"'M_Gislason'"'"
+        	;;
+
+	8)
+                OM="'"'R_no_AC'"'"
+                ;;
+
+        9)
+                OM="'"'R_higher'"'"
+                ;;
+
+        10)
+                OM="'"'R_lower'"'"
+                ;;
+
+        11)
+                OM="'"'R_failure'"'"
+                ;;
+
+        12)
+                OM="'"'overcatch'"'"
+                ;;
+
+        13)
+                OM="'"'undercatch'"'"
+                ;;
+
+        14)
+                OM="'"'Idx_higher'"'"
+                ;;
+
+        15)
+                OM="'"'R_h_lower'"'"
+                ;;
+
+        16)
+                OM="'"'refset'"'"
+                ;;
+
+	*)
+		OM="'"'baseline'"'"
+		;;
+	
+esac
+
 
 ### print details about job
 echo ""
@@ -29,15 +105,16 @@ cd $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/
 ## load modules
 ## anaconda includes R and OpenMPI
 module purge
-#module load mpi/intel-2018.1.163
-module load anaconda3/personal
-### activate MPI environment
+##module load mpi/intel-2018.1.163
+##module load anaconda3/personal
+eval "$(~/anaconda3/bin/conda shell.bash hook)"
+### activate environment
 source activate R2024_R4.4.1
 
 echo "starting the simulations..."
 ### run job
 ### when running with MPI, worker count is one less than selected cores
-R CMD BATCH --no-save --no-restore "--args use_MPI=FALSE n_workers=1 n_blocks=1 mp_parallel=FALSE n_iter=1000 n_yrs=20 scenario='SAM' MP='ICES_SAM' OM=$OM rec_failure=FALSE ga_search=FALSE stat_yrs='multiple' save_MP=TRUE" $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/MP_run.R $HOME/reports/$PBS_JOBID.$PBS_ARRAY_INDEX.Rout
+R CMD BATCH --no-save --no-restore "--args use_MPI=FALSE n_workers=10 n_blocks=10 mp_parallel=TRUE n_iter=1000 n_yrs=20 scenario='' MP='ICES_SAM' OM=$OM ga_search=FALSE stat_yrs='multiple' check_file=FALSE save_MP=TRUE Ftrgt=$FTRGT Btrigger=$BTRIGGER" $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/MP_run.R $HOME/reports/$PBS_JOBID.$PBS_ARRAY_INDEX.Rout
 ## $PBS_ARRAY_INDEX
 
 echo ""

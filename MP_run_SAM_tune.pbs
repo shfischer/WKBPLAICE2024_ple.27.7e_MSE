@@ -1,0 +1,63 @@
+#!/bin/sh
+## job name
+#PBS -N SAM_0.21_refset
+## maximum runtime
+#PBS -l walltime=5:00:00
+## select number of nodes, cpus (per node) and memory (per node)
+#PBS -l select=1:ncpus=128:mpiprocs=1:mem=450gb
+## standard output standard error
+#PBS -o reports
+#PBS -e reports
+## array job
+#PBS -J 6100-6500:100
+##PBS_ARRAY_INDEX=7
+## start job after another job finished?
+###PBS -W depend=afterany:2521439.pbs
+########### parameters
+
+OM="'"'refset'"'"
+FTRGT=0.21
+BTRIGGER=$PBS_ARRAY_INDEX
+
+
+
+### print details about job
+echo ""
+echo "This is job $PBS_JOBID index $PBS_ARRAY_INDEX"
+echo "The following ressources have been allocated"
+cat $PBS_NODEFILE
+echo ""
+
+### set working directory
+cd $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/
+
+## load modules
+## anaconda includes R and OpenMPI
+module purge
+##module load mpi/intel-2018.1.163
+##module load anaconda3/personal
+eval "$(~/anaconda3/bin/conda shell.bash hook)"
+### activate environment
+source activate R2024_R4.4.1
+
+echo "starting the simulations..."
+### run job
+### when running with MPI, worker count is one less than selected cores
+R CMD BATCH --no-save --no-restore "--args use_MPI=FALSE n_workers=70 n_blocks=70 mp_parallel=TRUE n_iter=1000 n_yrs=20 scenario='' MP='ICES_SAM' OM=$OM ga_search=FALSE stat_yrs='multiple' check_file=FALSE save_MP=TRUE Ftrgt=$FTRGT Btrigger=$BTRIGGER" $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/MP_run.R $HOME/reports/$PBS_JOBID.$PBS_ARRAY_INDEX.Rout
+## $PBS_ARRAY_INDEX
+
+echo ""
+echo "R job finished!"
+echo ""
+
+## print details about job
+echo "job details from PBS:"
+echo "==============================================================================="
+qstat -f -u shf4318
+echo "==============================================================================="
+qstat -t -u shf4318
+echo "==============================================================================="
+
+
+
+

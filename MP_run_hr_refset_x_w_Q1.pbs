@@ -43,7 +43,7 @@ source activate R2024_R4.4.1
 echo "starting the simulations..."
 ### run job
 ### when running with MPI, worker count is one less than selected cores
-R CMD BATCH --no-save --no-restore --max-connections=1024 "--args use_MPI=FALSE n_workers=$N_WORKERS n_blocks=1 ga_parallel=TRUE popSize=201 maxiter=1 run=1 stock_id=$STOCK_ID n_iter=1000 n_yrs=20 scenario=$SCENARIO MP='hr' biomass_index=$BIOMASS_INDEX OM=$OM ga_search=TRUE idxB_lag=FALSE idxB_range_3=$RANGE exp_b=FALSE comp_b_multiplier=seq(2,5,0.05) interval=$INTERVAL multiplier=seq(0.7,1,0.05) upper_constraint=1.2 lower_constraint=0.7 obj_fun='ICES' obj_yrs='11:20' stat_yrs='multiple' pen_neg=FALSE pen_max=1 pen_infl=0.06 pen_steep=1000 add_suggestions=TRUE" $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/MP_run.R $HOME/reports/$PBS_JOBID.$PBS_ARRAY_INDEX.Rout
+R CMD BATCH --no-save --no-restore --max-connections=1024 "--args use_MPI=FALSE n_workers=$N_WORKERS n_blocks=1 ga_parallel=TRUE popSize=201 maxiter=1 run=1 stock_id=$STOCK_ID n_iter=1000 n_yrs=20 scenario=$SCENARIO MP='hr' biomass_index=$BIOMASS_INDEX OM=$OM ga_search=TRUE idxB_lag=FALSE idxB_range_3=$RANGE exp_b=FALSE comp_b_multiplier=seq(2,2.5,0.01) interval=$INTERVAL multiplier=seq(0.7,0.75,0.01) upper_constraint=1.2 lower_constraint=0.7 obj_fun='ICES' obj_yrs='11:20' stat_yrs='multiple' pen_neg=FALSE pen_max=1 pen_infl=0.06 pen_steep=1000 add_suggestions=TRUE" $HOME/git/WKBPLAICE2024_ple.27.7e_MSE/MP_run.R $HOME/reports/$PBS_JOBID.$PBS_ARRAY_INDEX.Rout
 ## $PBS_ARRAY_INDEX
 
 echo ""
