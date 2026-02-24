@@ -1428,7 +1428,9 @@ ggsave(filename = "output/paper/plots/wormplots/refset_comp_CHR1-2_risk.pdf",
 input <- input_mp(OM = "refset", n_iter = 1000, MP = "ICES_SAM")
 refpts <- input_refpts(OM = "refset")
 
-stats <- readRDS("output/ICES_SAM_tuning_stats.rds")
+file.copy("output/ICES_SAM_tuning_stats.rds",
+          "output/paper/ICES_SAM_tuning_stats.rds", overwrite = TRUE)
+stats <- readRDS("output/paper/ICES_SAM_tuning_stats.rds")
 
 ### find files
 res_files <- list.files("output/ple.27.7e/refset/1000_20/ICES_SAM/",
@@ -1496,7 +1498,9 @@ stats_add <- foreach(file = res_files$file, Ftrgt = res_files$Ftrgt,
 }
 stats <- unique(bind_rows(stats, stats_add))
 stats <- stats %>% arrange(Ftrgt, Btrigger)
-saveRDS(stats, file = "output/ICES_SAM_tuning_stats.rds")
+saveRDS(stats, file = "output/paper/ICES_SAM_tuning_stats.rds")
+write.csv(stats, file = "output/paper/ICES_SAM_tuning_stats.csv", 
+          row.names = FALSE)
 View(stats %>% filter(period == "long-term"))
 
 ### duplicate Ftarget=0 values (Btrigger doesn't matter if no fishing)
