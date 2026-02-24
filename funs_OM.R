@@ -878,9 +878,9 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     }
     
     return(list(stk_fwd = stk_fwd, sr = sr, idx = idx, idx_dev = idx_dev,
-                catch_res = catch_res, proc_res = proc_res, stk_oem = stk_oem,
-                SAM_pars_ini = SAM_pars_ini, SAM_conf = SAM_conf, ALKs = ALKs,
-                refpts_mse = refpts_mse))
+                catch_res = catch_res, n_res = n_res, proc_res = proc_res,
+                stk_oem = stk_oem, SAM_pars_ini = SAM_pars_ini, 
+                SAM_conf = SAM_conf, ALKs = ALKs, refpts_mse = refpts_mse))
   }
   
   ### return objects or combine them
@@ -891,6 +891,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     idx <- OM_list[[1]]$idx
     idx_dev <- OM_list[[1]]$idx_dev
     catch_res <- OM_list[[1]]$catch_res
+    n_res <- OM_list[[1]]$n_res
     proc_res <- OM_list[[1]]$proc_res
     stk_oem <- OM_list[[1]]$stk_oem
     SAM_pars_ini <- OM_list[[1]]$SAM_pars_ini
@@ -906,6 +907,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     idx <- Reduce(FLCore::combine, lapply(OM_list, "[[", "idx"))
     idx_dev <- Reduce(FLCore::combine, lapply(OM_list, "[[", "idx_dev"))
     catch_res <- Reduce(FLCore::combine, lapply(OM_list, "[[", "catch_res"))
+    n_res <- Reduce(FLCore::combine, lapply(OM_list, "[[", "n_res"))
     proc_res <- Reduce(FLCore::combine, lapply(OM_list, "[[", "proc_res"))
     stk_oem <- Reduce(FLCore::combine, lapply(OM_list, "[[", "stk_oem"))
     refpts_mse <- Reduce(FLCore::combine, lapply(OM_list, "[[", "refpts_mse"))
