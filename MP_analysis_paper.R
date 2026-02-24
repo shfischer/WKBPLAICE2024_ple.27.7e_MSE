@@ -16,6 +16,7 @@ source("funs.R")
 source("funs_GA.R")
 source("funs_analysis.R")
 source("funs_OM.R")
+source("funs_WKNSMSE.R")
 
 ### ------------------------------------------------------------------------ ###
 ### define operating model (OM) names, reference and robustness set ####
@@ -77,8 +78,9 @@ df_runs <- df_runs %>%
                                    "UK-FSP (biennial)", "Q1SWBeam (biennial)")))
 
 ### save results
-saveRDS(df_runs, file = "output/paper/refset_x_w_grid.rds")
-# df_runs <- readRDS("output/paper/refset_x_w_grid.rds")
+saveRDS(df_runs, file = "output/paper/chr_refset_grid.rds")
+write.csv(df_runs, file = "output/paper/chr_refset_grid.csv", row.names = FALSE)
+# df_runs <- readRDS("output/paper/chr_refset_grid.rds")
 
 ### runs by chr version
 table(df_runs[, c("index", "interval")])
@@ -105,8 +107,8 @@ df_optima <- df_optima %>%
   arrange(MP) %>%
   relocate(MP)
 
-saveRDS(df_optima, file = "output/paper/refset_x_w_grid_opt.rds")
-write.csv(df_optima, "output/paper/refset_x_w_grid_opt.csv", row.names = FALSE)
+saveRDS(df_optima, file = "output/paper/chr_refset_tuned.rds")
+write.csv(df_optima, "output/paper/chr_refset_tuned.csv", row.names = FALSE)
 
 ### plot raw data
 p_raw <- df_runs %>%
@@ -220,7 +222,7 @@ ggsave(filename = "output/paper/plots/refset_x_w_grid_int.pdf", plot = p_int,
        bg = "white")
 
 ### summary table
-df_x_w <- readRDS("output/paper/refset_x_w_grid_opt.rds")
+df_x_w <- readRDS("output/paper/chr_refset_tuned.rds")
 df_smry <- df_x_w %>%
   ungroup() %>%
   select(MP, index, 
@@ -232,14 +234,14 @@ df_smry <- df_x_w %>%
          icv = X11.20_ICV) %>%
   arrange(MP)
 df_smry
-write.csv(df_smry, file = "output/paper/refset_x_w_smry.csv", 
+write.csv(df_smry, file = "output/paper/chr_refset_tuned_smry.csv", 
           row.names = FALSE)
-saveRDS(df_smry, file = "output/paper/refset_x_w_smry.rds")
+saveRDS(df_smry, file = "output/paper/chr_refset_tuned_smry.rds")
 
 ### ------------------------------------------------------------------------ ###
 ### refset - visualise chr for all chr rule versions ####
 ### ------------------------------------------------------------------------ ###
-df_smry <- readRDS("output/paper/refset_x_w_smry.rds")
+df_smry <- readRDS("output/paper/chr_refset_tuned_smry.rds")
 
 df_plot <- foreach(x = split(df_smry, df_smry$MP), 
                    .combine = bind_rows) %do% {
@@ -293,7 +295,7 @@ ggsave(filename = "output/paper/plots/chr_illustration.pdf", plot = p,
 ### ------------------------------------------------------------------------ ###
 
 ### get optimised solutions
-df_x_w <- readRDS("output/paper/refset_x_w_grid_opt.rds")
+df_x_w <- readRDS("output/paper/chr_refset_tuned.rds")
 df_x_w <- df_x_w %>%
   mutate(file = paste0(paste("mp", idxB_lag, idxB_range_3, exp_b, 
                              comp_b_multiplier, interval, multiplier, 
@@ -361,8 +363,8 @@ stats <- foreach(i = split(df_x_w, f = seq(nrow(df_x_w))),
       relocate(MP)
     return(df)
 }
-saveRDS(stats, file = "output/paper/refset_stats.rds")
-# stats <- readRDS("output/paper/refset_stats.rds")
+saveRDS(stats, file = "output/paper/chr_refset_stats.rds")
+# stats <- readRDS("output/paper/chr_refset_stats.rds")
 
 ### go through all solutions and plots stats
 stats_plot <- stats %>%
@@ -515,12 +517,12 @@ cols <- scales::hue_pal()(16)
 }
 
 ### ------------------------------------------------------------------------ ###
-### rfb & SAM - violin plots ####
+### ICES MSY - violin plots ####
 ### ------------------------------------------------------------------------ ###
-df_altMPs <- data.frame(MP = c("rfb", "ICES_SAM", "ICES_SAM"),
-                        MP_label = c("RFB1", "MSY1", "MSY2"),
-                        file = c("mp.rds", "mp.rds", "mp_0.2_5400.rds"),
-                        interval = c(2, 1, 1))
+df_altMPs <- data.frame(MP = c("ICES_SAM", "ICES_SAM"),
+                        MP_label = c("MSY1", "MSY2"),
+                        file = c("mp.rds", "mp_0.2_5400.rds"),
+                        interval = c(1, 1))
 
 ### get stats
 stats <- foreach(i = split(df_altMPs, f = seq(nrow(df_altMPs))), 
@@ -580,8 +582,8 @@ stats <- foreach(i = split(df_altMPs, f = seq(nrow(df_altMPs))),
       mutate(MP = MP_label_i, OM = OM, OM_group = OM_group, period = period)
     return(df)
 }
-saveRDS(stats, file = "output/paper/refset_altMPs_stats.rds")
-# stats <- readRDS("output/paper/refset_altMPs_stats.rds")
+saveRDS(stats, file = "output/paper/ICES_MSY_refset_stats.rds")
+# stats <- readRDS("output/paper/ICES_MSY_refset_stats.rds")
 
 ### go through all solutions and plots stats
 stats_plot <- stats %>%
@@ -592,7 +594,7 @@ stats_plot <- stats %>%
                      levels = OMs_group,
                      labels = c("", 
                                 rep("Reference set", 7), 
-                                rep("Robustness set", 7)))) %>%
+                                rep("Robustness set", 8)))) %>%
   mutate(group = paste0(MP,
                         " - ",
                         case_when(period == "long-term" ~ "long term",
@@ -757,15 +759,15 @@ stats_smry <- stats_smry %>%
          OM = gsub(x = OM, pattern = "\n", replacement = " "),
          OM = gsub(x = OM, pattern = "\\(combined\\)", replacement = ""),
          OM = trimws(OM)) 
-saveRDS(stats_smry, file = "output/paper/altMPs_stats_smry.rds")
-write.csv(stats_smry, file = "output/paper/altMPs_stats_smry.csv", 
+saveRDS(stats_smry, file = "output/paper/ICES_MSY_stats_smry.rds")
+write.csv(stats_smry, file = "output/paper/ICES_MSY_stats_smry.csv", 
           row.names = FALSE)
 
 ### ------------------------------------------------------------------------ ###
 ### violin plots - CHR2 vs MSY2 - all OMs ####
 ### ------------------------------------------------------------------------ ###
 ### optimised chr rule - CHR2
-stats_CHR2 <- readRDS("output/paper/refset_stats.rds")
+stats_CHR2 <- readRDS("output/paper/chr_refset_stats.rds")
 stats_CHR2 <- stats_CHR2 %>%
   filter(MP == 2 & period == "long-term") %>%
   mutate(OM = factor(OM, levels = OMs,
@@ -777,7 +779,7 @@ stats_CHR2 <- stats_CHR2 %>%
                                       rep("Robustness set", 8))))
 
 ### ICES MSY rule with reduced Fmsy - MSY2
-stats_MSY2 <- readRDS("output/paper/refset_altMPs_stats.rds")
+stats_MSY2 <- readRDS("output/paper/ICES_MSY_refset_stats.rds")
 stats_MSY2 <- stats_MSY2 %>%
   filter(MP == "MSY2" & period == "long-term") %>%
   mutate(OM = factor(OM, levels = OMs,
@@ -1254,11 +1256,11 @@ ggsave(filename = "output/paper/plots/MP/idx_unc_CHR2.pdf",
        plot = p, width = 8, height = 6, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
-### compare trajectories - chr/rfb/ICES MSY ####
+### compare trajectories - chr/ICES MSY ####
 ### ------------------------------------------------------------------------ ###
 
 ### get optimised solutions for chr rule
-df_chr <- readRDS("output/paper/refset_x_w_grid_opt.rds")
+df_chr <- readRDS("output/paper/chr_refset_tuned.rds")
 df_chr <- df_chr %>%
   mutate(file = paste0(paste("mp", idxB_lag, idxB_range_3, exp_b, 
                              comp_b_multiplier, interval, multiplier, 
@@ -1275,25 +1277,17 @@ stk_MSY2 <- lapply(paste0("output/ple.27.7e/", OMs_refset,
                        })
 stk_MSY2 <- Reduce(FLCore::combine, stk_MSY2)
 
-### rfb rule
-stk_rfb <- lapply(paste0("output/ple.27.7e/", OMs_refset, 
-                         "/1000_20/rfb/"),
-                  function(y) {
-                    readRDS(paste0(y, "mp.rds"))@om@stock
-                  })
-stk_rfb <- Reduce(FLCore::combine, stk_rfb)
-
 ### tuned chr rule CHR2
 stk_CHR2 <- readRDS(paste0("output/ple.27.7e/refset/1000_20/multiplier/hr/",
                            df_chr$file[2]))@om@stock
 
 
-MPs <- c("chr rule (CHR2)", "rfb rule (RFB1)", "ICES MSY rule (MSY2)")
+MPs <- c("chr rule (CHR2)", "ICES MSY rule (MSY2)")
 names(MPs) <- MPs
-stk_list <- list(stk_CHR2, stk_rfb, stk_MSY2)
+stk_list <- list(stk_CHR2, stk_MSY2)
 input <- input_mp(OM = "refset", n_yrs = 20, MP = "hr")
 stk_hist <- input$om@stock
-stk_hist <- list(stk_hist, stk_hist, stk_hist)
+stk_hist <- list(stk_hist, stk_hist)
 refpts <- input_refpts(OM = "refset")
 refpts[] <- NA
 
@@ -1301,34 +1295,19 @@ p <- plot_worm_comparison(stk = stk_list, stk_hist = stk_hist,
                           names = names(MPs), refpts = refpts) +
   theme(legend.position = "bottom")
 p
-
-ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_rfb_MSY.png",
-       width = 14, height = 8, units = "cm", dpi = 600,
-       type = "cairo")
-ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_rfb_MSY.pdf",
-       width = 14, height = 8, units = "cm")
-
-
-### chr and ICES MSY only
-p <- plot_worm_comparison(stk = stk_list[c(1, 3)], stk_hist = stk_hist[c(1, 3)], 
-                          names = names(MPs)[c(1, 3)], refpts = refpts) +
-  theme(legend.position = "bottom")
-p
-
 ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_MSY.png",
        width = 14, height = 8, units = "cm", dpi = 600,
        type = "cairo")
 ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_MSY.pdf",
        width = 14, height = 8, units = "cm")
 
-### chr and ICES MSY only - catch and SSB
-p <- plot_worm_comparison(stk = stk_list[c(1, 3)], stk_hist = stk_hist[c(1, 3)], 
-                          names = names(MPs)[c(1, 3)], refpts = refpts,
+### catch and SSB
+p <- plot_worm_comparison(stk = stk_list, stk_hist = stk_hist, 
+                          names = names(MPs), refpts = refpts,
                           qnts_show = c("catch", "ssb"),
                           ncol = 1) +
   theme(legend.position = "bottom")
 p
-
 ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_MSY_catch_ssb.png",
        width = 8.5, height = 7, units = "cm", dpi = 600,
        type = "cairo")
@@ -1340,7 +1319,7 @@ ggsave(filename = "output/paper/plots/wormplots/refset_comp_chr_MSY_catch_ssb.pd
 ### ------------------------------------------------------------------------ ###
 
 ### get optimised solutions for chr rule
-df_chr <- readRDS("output/paper/refset_x_w_grid_opt.rds")
+df_chr <- readRDS("output/paper/chr_refset_tuned.rds")
 df_chr <- df_chr %>%
   mutate(file = paste0(paste("mp", idxB_lag, idxB_range_3, exp_b, 
                              comp_b_multiplier, interval, multiplier, 
@@ -1753,4 +1732,155 @@ ggsave(filename = "output/paper/plots/MSY_grid_int.pdf", plot = p_int,
 # df_int %>%
 #   filter(risk <= 0.05) %>%
 #   filter(catch == max(catch, na.rm = TRUE))
+
+### ------------------------------------------------------------------------ ###
+### wormplots - chr and ICES MSY rule ####
+### ------------------------------------------------------------------------ ###
+smry_chr <- readRDS("output/paper/chr_refset_tuned.rds")
+
+### chr by OM
+. <- foreach(x = split(smry_chr, seq(nrow(smry_chr)))) %:%
+  foreach(OM = OMs[-1], OM_label = OMs_label[-1])  %do% {
+    #browser()
+    ### get projection
+    path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/", 
+                     ifelse(identical(x$index, "Q1SWBeam"),
+                            "multiplier_Q1SWBeam", "multiplier"),
+                     "/hr/")
+    file_i <- paste("mp", x$idxB_lag, x$idxB_range_3, x$exp_b,
+                    x$comp_b_multiplier, x$interval, x$multiplier,
+                    x$upper_constraint, x$lower_constraint, sep = "_", 
+                    collapse = "")
+    mp_i <- readRDS(paste0(path_i, file_i, ".rds"))
+    stk <- mp_i@om@stock
+    
+    ### historical stock
+    input <- input_mp(OM = OM, n_yrs = 20, MP = "hr")
+    stk_hist <- input$om@stock
+    
+    ### get reference points
+    refpts <- input_refpts(OM = OM)
+    
+    ### plot
+    p <- plot_worm_distr(stk = stk, stk_hist = stk_hist, refpts = refpts,
+                         title = paste0("CHR", x$MP, " - ", x$group, " - ",
+                                        OM_label))
+    ggsave(filename = paste0("output/paper/plots/wormplots/all/CHR", x$MP,
+                             "_", OM, ".png"),
+           plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
+           type = "cairo")
+    ggsave(filename = paste0("output/paper/plots/wormplots/all/CHR", x$MP,
+                             "_", OM, ".pdf"),
+           plot = p, width = 16, height = 7.5, units = "cm")
+}
+### ICES MSY by OM
+. <- foreach(MP = c("MSY1", "MSY2"), file = c("mp.rds", "mp_0.2_5400.rds")) %:%
+  foreach(OM = OMs[-1], OM_label = OMs_label[-1])  %do% {
+    #browser()
+    ### get projection
+    path_i <- paste0("output/ple.27.7e/", OM, "/1000_20/ICES_SAM/")
+    file_i <- file
+    mp_i <- readRDS(paste0(path_i, file_i))
+    stk <- mp_i@om@stock
+    
+    ### historical stock
+    input <- input_mp(OM = OM, n_yrs = 20, MP = "ICES_SAM")
+    stk_hist <- input$om@stock
+    
+    ### get reference points
+    refpts <- input_refpts(OM = OM)
+    
+    ### plot
+    p <- plot_worm_distr(stk = stk, stk_hist = stk_hist, refpts = refpts,
+                         title = paste0(MP, " - ", OM_label))
+    ggsave(filename = paste0("output/paper/plots/wormplots/all/", MP,
+                             "_", OM, ".png"),
+           plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
+           type = "cairo")
+    ggsave(filename = paste0("output/paper/plots/wormplots/all/", MP,
+                             "_", OM, ".pdf"),
+           plot = p, width = 16, height = 7.5, units = "cm")
+}
+
+### plot refset
+OMs_refset <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
+                "M_low", "M_high", "M_Gislason")
+OMs_refset_label <- c("Baseline", "Catch:\nno discards", 
+                      "Catch:\n100% discards", 
+                      "Catch:\nno migration", 
+                      "M: -50%", "M: +50%", "M: Gislason")
+### chr refset
+. <- foreach(x = split(smry_chr, seq(nrow(smry_chr)))) %:%
+  foreach(OM = "refset", OM_label = "Reference set (combined)")  %do% {
+    #browser()
+    ### get projection
+    path_i <- paste0("output/ple.27.7e/", OMs_refset, "/1000_20/", 
+                     ifelse(identical(x$index, "Q1SWBeam"),
+                            "multiplier_Q1SWBeam", "multiplier"),
+                     "/hr/")
+    file_i <- paste("mp", x$idxB_lag, x$idxB_range_3, x$exp_b,
+                    x$comp_b_multiplier, x$interval, x$multiplier,
+                    x$upper_constraint, x$lower_constraint, sep = "_", 
+                    collapse = "")
+    stk <- lapply(path_i, function(y) {
+      readRDS(paste0(y, file_i, ".rds"))@om@stock
+    })
+    
+    ### historical stock
+    stk_hist <- lapply(OMs_refset, function(y) {
+      input_mp(OM = y, n_yrs = 20, MP = "hr")$om@stock
+    })
+    
+    ### get reference points
+    refpts <- lapply(OMs_refset, function(y) {
+      input_refpts(OM = y)
+    })
+    
+    ### plot
+    p <- plot_worm_distr_mult(stk = stk, stk_hist = stk_hist, refpts = refpts,
+                              stk_labels = OMs_refset_label,
+                              title = paste0("CHR", x$MP, " - ", x$group, " - ",
+                                             OM_label))
+
+    ggsave(filename = paste0("output/paper/plots/wormplots/all/CHR", x$MP,
+                             "_", OM, ".png"),
+           plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
+           type = "cairo")
+    ggsave(filename = paste0("output/paper/plots/wormplots/all/CHR", x$MP,
+                             "_", OM, ".pdf"), 
+           plot = p, width = 16, height = 7.5, units = "cm")
+}
+### ICES MSY refset
+. <- foreach(MP = c("MSY1", "MSY2"), file = c("mp.rds", "mp_0.2_5400.rds")) %:%
+  foreach(OM = "refset", OM_label = "Reference set (combined)")  %do% {
+    #browser()
+    ### get projection
+    path_i <- paste0("output/ple.27.7e/", OMs_refset, "/1000_20/ICES_SAM/")
+    file_i <- file
+    stk <- lapply(path_i, function(y) {
+      readRDS(paste0(y, file_i))@om@stock
+    })
+    
+    ### historical stock
+    stk_hist <- lapply(OMs_refset, function(y) {
+      input_mp(OM = y, n_yrs = 20, MP = "hr")$om@stock
+    })
+    
+    ### get reference points
+    refpts <- lapply(OMs_refset, function(y) {
+      input_refpts(OM = y)
+    })
+    
+    ### plot
+    p <- plot_worm_distr_mult(stk = stk, stk_hist = stk_hist, refpts = refpts,
+                              stk_labels = OMs_refset_label,
+                              title = paste0(MP, " - ", OM_label))
+    ggsave(filename = paste0("output/paper/plots/wormplots/all/", MP,
+                             "_", OM, ".png"),
+           plot = p, width = 16, height = 7.5, units = "cm", dpi = 600, 
+           type = "cairo")
+    ggsave(filename = paste0("output/paper/plots/wormplots/all/", MP,
+                             "_", OM, ".pdf"), 
+           plot = p, width = 16, height = 7.5, units = "cm")
+}
 

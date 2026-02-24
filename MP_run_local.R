@@ -108,30 +108,11 @@ for (OM in alt_OMs) {
 }
 
 ### ------------------------------------------------------------------------ ###
-### rfb (default: multiplier=0.95) - all OMs ####
-### ------------------------------------------------------------------------ ###
-args_local <- c("scenario=''", "MP='rfb'",
-                "n_yrs=20", "check_file=FALSE",
-                "ga_search=FALSE", "OM='baseline'", "save_MP=TRUE", 
-                "collate=FALSE", "stat_yrs='multiple'"
-)
-source("MP_run.R")
-rm(args_local)
-### other OMs
-alt_OMs <- c("Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_failure", "overcatch",
-             "undercatch", "Idx_higher")
-for (OM in alt_OMs) {
-  print(paste0("OM=", OM))
-  args_local <- c(paste0("OM='", OM, "'"))
-  source("MP_run.R")
-}
-
-### ------------------------------------------------------------------------ ###
-### refset x & w -> all OMs ####
+### chr refset x & w -> all OMs ####
 ### ------------------------------------------------------------------------ ###
 
 ### get optimised solutions
-df_optima <- readRDS("output/paper/refset_x_w_grid_opt.rds")
+df_optima <- readRDS("output/paper/chr_refset_tuned.rds")
 
 OMs <- c("refset", "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
          "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower",
@@ -180,7 +161,7 @@ OMs <- c("refset", "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none",
 ### ------------------------------------------------------------------------ ###
 
 ### get optimised solutions
-df_optima <- readRDS("output/paper/refset_x_w_grid_opt.rds")
+df_optima <- readRDS("output/paper/chr_refset_tuned.rds")
 pars <- df_optima[df_optima$MP == 2, ]
 
 n_blocks <- 7 
@@ -214,7 +195,7 @@ source("MP_run.R")
 ### sensitivity - index uncertainty ####
 ### ------------------------------------------------------------------------ ###
 
-df_optima <- readRDS("output/paper/refset_x_w_grid_opt.rds")
+df_optima <- readRDS("output/paper/chr_refset_tuned.rds")
 
 OMs <- c("refset", "baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", 
          "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_h_lower",
