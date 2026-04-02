@@ -258,23 +258,33 @@ cl2_length <- length(cl2)
 }
 
 ### all OMs
-OMs <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_failure", "overcatch", "undercatch", "Idx_higher")
+OMs <- c("baseline", "Catch_no_disc", "Catch_no_surv", "migr_none", "M_low", "M_high", "M_Gislason", "R_no_AC", "R_higher", "R_lower", "R_h_lower", "R_failure", "overcatch", "undercatch", "Idx_higher")
 
-for (Ftrgt in seq(0, 0.5, 0.025)) {
-  paste0("Ftrgt=", Ftrgt); flush.console()
-  . <- foreach(OM = OMs) %dopar% {
-    
-    rm(args_local)
-    OM <<- OM
-    Ftrgt <<- Ftrgt
-    args_local <<- c("n_blocks=1", "n_workers=1", "mp_parallel=FALSE",
-                    "scenario=''", "MP='ICES_SAM_shortcut'",
-                    "n_yrs=20", "check_file=FALSE",
-                    "ga_search=FALSE", "save_MP=TRUE",
-                    "collate=FALSE", "stat_yrs='multiple'")
-    source("MP_run.R")
-    
-  }
+### full MSE optimum
+. <- foreach(OM = OMs) %dopar% {
+  rm(args_local)
+  OM <<- OM
+  Ftrgt <<- 0.2
+  Btrigger <<- 5400
+  args_local <<- c("n_blocks=1", "n_workers=1", "mp_parallel=FALSE",
+                  "scenario=''", "MP='ICES_SAM_shortcut'",
+                  "n_yrs=20", "check_file=FALSE",
+                  "ga_search=FALSE", "save_MP=TRUE",
+                  "collate=FALSE", "stat_yrs='multiple'")
+  source("MP_run.R")
 }
 
+### shortcut MSE optimum
+. <- foreach(OM = OMs) %dopar% {
+  rm(args_local)
+  OM <<- OM
+  Ftrgt <<- 0.23
+  Btrigger <<- 5100
+  args_local <<- c("n_blocks=1", "n_workers=1", "mp_parallel=FALSE",
+                   "scenario=''", "MP='ICES_SAM_shortcut'",
+                   "n_yrs=20", "check_file=FALSE",
+                   "ga_search=FALSE", "save_MP=TRUE",
+                   "collate=FALSE", "stat_yrs='multiple'")
+  source("MP_run.R")
+}
 
