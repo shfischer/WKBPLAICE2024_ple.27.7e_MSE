@@ -1635,6 +1635,7 @@ stats_int <- full_join(as.data.frame(stats_catch) %>%
             pivot_longer(-Ftrgt, names_to = "Btrigger", values_to = "risk")) %>%
   mutate(Ftrgt = as.numeric(Ftrgt),
          Btrigger = as.numeric(Btrigger))
+saveRDS(stats_int, file = "output/paper/grid_int_cells.rds")
 ### plot
 p_int <- stats_int %>%
   mutate(catch = Catch_rel,
