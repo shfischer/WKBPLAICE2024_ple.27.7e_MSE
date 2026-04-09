@@ -16,22 +16,23 @@ library(doParallel)
 library(mse)
 library(patchwork)
 
+### ------------------------------------------------------------------------ ###
+### get data and fit SAM ####
+### ------------------------------------------------------------------------ ###
 
 ### input data, including discard estimates
-stk_data <- readRDS("input/ple.27.7e/preparation/model_input_stk.rds")
-idx_data <- readRDS("input/ple.27.7e/preparation/model_input_idx.rds")
+stk_data <- readRDS("input/ple.27.7d/SAM_2025/ple.27.7e_stk_data_2025.rds")
+idx_data <- readFLIndices("input/ple.27.7d/SAM_2025/survey_for_FLR.dat")
+SAM_conf <- readRDS("input/ple.27.7d/SAM_2025/SAM_conf.rds")
 
-### apply discard survival
-disc_survival_OM <- 0.5
-discards.n(stk_data)[is.na(discards.n(stk_data))] <- 0
-discards.wt(stk_data)[is.na(discards.wt(stk_data))] <- 0
-discards.n(stk_data)[] <- discards.n(stk_data) * (1 - disc_survival_OM)
-discards(stk_data) <- computeDiscards(stk_data)
-catch(stk_data) <- computeCatch(stk_data, slot = "all")
+### test SAM
+fit <- FLR_SAM(stk = stk_data, idx = idx_data, conf = SAM_conf)
 
-### fit SAM
-fit <- FLR_SAM(stk_data, idx_data, conf = NULL, conf_full = FALSE,
-               idx_weight = FALSE, NA_rm = TRUE)
+### ------------------------------------------------------------------------ ###
+### get OM ####
+### ------------------------------------------------------------------------ ###
+stk_mse <- readRDS("input/ple.27.7d/baseline/1000_100/stk.rds")
+
 
 ### ------------------------------------------------------------------------ ###
 ### SAM retro - define estimator error ####
@@ -45,7 +46,7 @@ opar <- par()
 par(mar = c(2, 4.5, 0.5, 0.5))
 plot(retro)
 par(opar)
-png(filename = "output/plots/shortcut/preparation/SAM_retro.png", 
+png(filename = "output/plots/preparation/SAM_retro.png", 
     width = 20, height = 12, units = "cm", res = 300)
 par(mar = c(2, 4.5, 0.5, 0.5))
 plot(retro)
@@ -72,10 +73,10 @@ p_ssb <- df %>% filter(assessment < 2023) %>%
   coord_cartesian(ylim = c(0, NA)) +
   labs(x = "Year", y = "SSB (1000 t)")
 p_ssb
-ggsave(filename = "output/plots/shortcut/preparation/SAM_retro_SSB.png", 
+ggsave(filename = "output/plots/preparation/SAM_retro_SSB.png", 
        width = 8.5, height = 4, units = "cm", dpi = 600)
 p_ssb + xlim(c(2000, NA))
-ggsave(filename = "output/plots/shortcut/preparation/SAM_retro_SSB_zoom.png", 
+ggsave(filename = "output/plots/preparation/SAM_retro_SSB_zoom.png", 
        width = 8.5, height = 4, units = "cm", dpi = 600)
 
 ### SSB error
@@ -87,8 +88,12 @@ SSB_error <- retro_SSB %>%
   left_join(ssb_table(fit) %>% 
               mutate(assessment = NULL)) %>%
   mutate(SSB_ratio = SSB_retro/SSB)
+mean(SSB_error$SSB_ratio)
+# 1.03498
+median(SSB_error$SSB_ratio)
+# 1.004194
 sd(SSB_error$SSB_ratio)
-# 0.1400751
+# 0.1140321
 ### plot
 trans_from <- function(from = 1) {
   trans <- function(x) x - from
@@ -104,17 +109,17 @@ p_SSB_error <- SSB_error %>%
   labs(x = "Year", y = "Terminal SSB / SSB") +
   geom_hline(yintercept = 1) +
   scale_y_continuous(trans = trans_from(),
-                     limits = c(NA, NA), breaks = c(0.8, 0.9, 1, 1.1, 1.2, 1.3)) +
+                     limits = c(NA, NA), breaks = c(0.9, 1, 1.1, 1.2)) +
   scale_x_continuous(breaks = seq(2014, 2022, 2))
 p_SSB_error
-ggsave(filename = "output/plots/shortcut/preparation/SSB_retro_res.png", 
+ggsave(filename = "output/plots/preparation/SSB_retro_res.png", 
        width = 8.5, height = 4, units = "cm", dpi = 600)
 
 ### auto-correlation
 SSB_err_acf <- acf(SSB_error$SSB_ratio)
 plot(SSB_err_acf)
 c(SSB_err_acf$acf)[2]
-# 0.1041058
+# 0.6596292
 ### plot
 p_acf <- data.frame(acf = SSB_err_acf$acf, lag = seq(SSB_err_acf$n.used) - 1) %>%
   filter(lag != 0) %>%
@@ -125,13 +130,13 @@ p_acf <- data.frame(acf = SSB_err_acf$acf, lag = seq(SSB_err_acf$n.used) - 1) %>
   geom_hline(yintercept = 0) +
   scale_x_continuous(breaks = 1:9)
 p_acf
-ggsave(filename = "output/plots/shortcut/preparation/SSB_retro_acf.png", 
+ggsave(filename = "output/plots/preparation/SSB_retro_acf.png", 
        width = 8.5, height = 4, units = "cm", dpi = 600)
 
 ### combine plots
 p1 <- p_ssb +
   scale_x_continuous(breaks = seq(2012, 2022, 2)) +
-  coord_cartesian(xlim = c(2010, 2024), ylim = c(0, 9.9), expand = FALSE) +
+  coord_cartesian(xlim = c(2010, 2024), ylim = c(0, 70), expand = FALSE) +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank())
@@ -153,10 +158,99 @@ p2 <- SSB_error %>%
   coord_cartesian(xlim = c(2010, 2024), ylim = c(0.74, 1.35), expand = FALSE)
 
 p1/p2
-ggsave(filename = "output/plots/shortcut/preparation/retro_smry.png", 
+ggsave(filename = "output/plots/preparation/retro_smry.png", 
        width = 8.5, height = 6, units = "cm", dpi = 600)
-ggsave(filename = "output/plots/shortcut/preparation/retro_smry.pdf", 
+ggsave(filename = "output/plots/preparation/retro_smry.pdf", 
        width = 8.5, height = 6, units = "cm")
+
+### ------------------------------------------------------------------------ ###
+### kernel density smoother ####
+### ------------------------------------------------------------------------ ###
+### use same approach as for recruitment residuals
+ssb_res <- ssb(stk_mse) %=% NA_real_
+ssb_res_ar <- ssb(stk_mse) %=% NA_real_
+n_res <- length(dimnames(ssb_res)$year)
+
+SSB_res_log <- log(SSB_error$SSB_ratio)
+rho <- acf(SSB_res_log, lag.max = 1, plot = FALSE)$acf[2]
+
+res <- log(SSB_error$SSB_ratio) ### use log scale
+### calculate kernel density of residuals
+density <- density(x = res, bw = 0.05)
+
+
+res_SSB <- foreach (iter_i = seq(dim(stk_mse)[6])) %do% {
+  set.seed(iter_i)
+  ### sample residuals
+  mu <- sample(x = res, size = n_res, replace = TRUE)
+  ### "smooth", i.e. sample from density distribution
+  res_new <- rnorm(n = n_res, mean = mu, sd = density$bw)
+  return(res_new)
+}
+res_SSB_ar <- foreach (res_i = res_SSB) %do% {
+  res_i_ar <- res_i
+  ### "add" autocorrelation
+  for (r in 2:n_res) {
+    res_i_ar[r] <- rho * res_i_ar[r - 1] + sqrt(1 - rho^2) * res_i[r]
+  }
+  return(res_i_ar)
+}
+
+ssb_res[] <- unlist(res_SSB)
+ssb_res_ar[] <- unlist(res_SSB_ar)
+plot(FLQuants(without_AR = ssb_res,
+              with_AR = ssb_res_ar)) + theme_bw()
+
+### create (auto-correlated) residuals
+for (iter_i in seq(dim(stk_mse)[6])) {
+  set.seed(iter_i)
+  ### sample residuals
+  mu <- sample(x = res, size = n_res, replace = TRUE)
+  ### "smooth", i.e. sample from density distribution
+  res_new <- rnorm(n = n_res, mean = mu, sd = density$bw)
+  ssb_res[,,,,, iter_i] <- res_new
+  ### "add" autocorrelation
+  ssb_res_ar[, 1,,,, iter_i] <- res_new[1]
+  for (r in 2:n_res) {
+    ssb_res_ar[, r,,,, iter_i] <- rho * ssb_res_ar[, r - 1,,,, iter_i] + 
+      sqrt(1 - rho^2) * ssb_res[, r,,,, iter_i]
+  }
+}
+
+
+### testing
+res <- SSB_error$SSB_ratio
+ar1fit <- ar(res, order.max=1, method="burg")
+
+set.seed(1)
+res_ar <- arima.sim(
+  model = list(order = c(1,0,0), 
+               ar = ar1fit[["ar"]]),
+  sd = sqrt(ar1fit[["var.pred"]]),
+  #ar1fit, 
+  n = 100)
+plot(res_ar)
+
+
+### convert to normal scale
+#ssb_res <- exp(ssb_res)
+#ssb_res_ar <- exp(ssb_res_ar)
+
+
+plot(ssb_res)
+plot(ssb_res_ar)
+
+sd(ssb_res)
+sd(ssb_res_ar)
+
+mean(exp(ssb_res))
+mean(exp(ssb_res_ar))
+
+acf(ssb_res[,,,,, 1])$acf[2]
+acf(ssb_res_ar[,,,,, 1])$acf[2]
+
+plot(exp(ssb_res), iter = 1:5)
+plot(exp(ssb_res_ar), iter = 1:5)
 
 ### ------------------------------------------------------------------------ ###
 ### prepare residuals ####

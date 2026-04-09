@@ -698,7 +698,8 @@ create_OM <- function(stk_data, idx_data,
     ### reference values
     saveRDS(refpts, file = paste0(input_path, "refpts_mse.rds"))
     ### age-length keys
-    saveRDS(ALKs, file = paste0(input_path, "ALKs.rds"))
+    if (exists("ALK")) 
+      saveRDS(ALKs, file = paste0(input_path, "ALKs.rds"))
     ### SAM uncertainty
     saveRDS(uncertainty, file = paste0(input_path, "SAM_uncertainty.rds"))
   }
