@@ -521,6 +521,8 @@ if (isTRUE(MP %in% c("rfb", "hr")) & isTRUE(ga_search)) {
     ### run MP
     res_mp <- do.call(mp, input)
     file_name <- paste0("mp_", Ftrgt, "_", Btrigger)
+    if (identical(scenario, "sensitivity_idx")) 
+      file_name <- paste0("mp_", Ftrgt, "_", Btrigger, "_", idx_unc)
     if (isTRUE(save_MP))
       saveRDS(res_mp, paste0(path_out, file_name, ".rds"))
     stats <- mp_stats(input = input, res_mp = res_mp, refpts = refpts, 
