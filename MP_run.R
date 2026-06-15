@@ -181,7 +181,7 @@ if (isTRUE(ga_parallel)) ga_parallel <- cl
 
 input <- input_mp(stock_id = stock_id, OM = OM, n_iter = n_iter,
                   n_yrs = n_yrs, yr_start = yr_start, n_blocks = n_blocks,
-                  MP = MP, biomass_index = biomass_index)
+                  MP = MP, biomass_index = biomass_index, idx_unc = idx_unc)
 refpts <- input_refpts(stock_id = stock_id, OM = OM, n_iter = n_iter)
 
 

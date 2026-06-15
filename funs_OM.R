@@ -740,7 +740,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
                      overcatch = FALSE,
                      use_age_idcs = NULL, biomass_index = NULL,
                      idx_timing = NULL, catch_timing = NULL,
-                     idx_unc = NULL,
+                     idx_unc = 1,
                      ### implementation error
                      use_iem = FALSE, iem_bias = NULL,
                      ### SAM forecast options
@@ -818,7 +818,7 @@ input_mp <- function(stock_id = "ple.27.7e", OM = "baseline", n_iter = 1000,
     
     ### change index uncertainty?
     ### replicate process from create_OM() with full dimensions
-    if (!is.null(idx_unc)) {
+    if (isFALSE(idx_unc == 1)) {
       set.seed(4)
       idx_dev_new <- idx_dev
       for (idx_i in 1:2) {
