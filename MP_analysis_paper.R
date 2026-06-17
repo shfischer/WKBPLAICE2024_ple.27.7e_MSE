@@ -1204,7 +1204,7 @@ ggsave(filename = "output/paper/plots/MP/stats_comp_CHR2_MSY2_abs.pdf",
        plot = p, width = 18, height = 16, units = "cm", bg = "white")
 
 ### ------------------------------------------------------------------------ ###
-### CHR2 - sensitivity to index uncertainty ####
+### sensitivity to index uncertainty - CHR2 ####
 ### ------------------------------------------------------------------------ ###
 
 ### get runs
@@ -1254,6 +1254,133 @@ ggsave(filename = "output/paper/plots/MP/idx_unc_CHR2.png",
        type = "cairo")
 ggsave(filename = "output/paper/plots/MP/idx_unc_CHR2.pdf", 
        plot = p, width = 8, height = 6, units = "cm")
+
+### ------------------------------------------------------------------------ ###
+### sensitivity to index uncertainty - MSY2 ####
+### ------------------------------------------------------------------------ ###
+
+input <- input_mp(OM = "refset", n_iter = 1000, MP = "ICES_SAM")
+refpts <- input_refpts(OM = "refset")
+
+### find files
+res_files <- list.files("output/ple.27.7e/refset/1000_20/sensitivity_idx/ICES_SAM/",
+                        pattern = "mp_")
+res_files <- data.frame(file = res_files) %>%
+  mutate(tmp = str_remove_all(file, "mp_|\\.rds")) %>%
+  separate_wider_delim(tmp, delim = "_", 
+                       names = c("Ftrgt", "Btrigger", "idx_unc")) %>%
+  mutate(Ftrgt = as.numeric(Ftrgt), 
+         Btrigger = as.numeric(Btrigger),
+         idx_unc = as.numeric(idx_unc))
+
+
+
+### go through files and get summary
+stats_idx_unc <- foreach(file = res_files$file, Ftrgt = res_files$Ftrgt, 
+                         Btrigger = res_files$Btrigger, 
+                         idx_unc = res_files$idx_unc,
+                        .combine = bind_rows, .errorhandling = "remove") %:%
+  foreach(period = c("long-term", "short-term", "all"),
+          period_yrs = list(2035:2044, 2025:2034, 2025:2044),
+          .combine = bind_rows, .errorhandling = "remove") %do% {
+    #browser()
+    
+    ### get projection
+    mp_i <- readRDS(paste0("output/ple.27.7e/refset/1000_20/sensitivity_idx/ICES_SAM/",
+                           file))
+    stk <- mp_i@om@stock
+    rm(mp_i)
+    
+    ### refpts
+    Bmsy <- c(refpts["Bmsy"])
+    Fmsy <- c(refpts["Fmsy"])
+    Cmsy <- c(refpts["Cmsy"])
+    Blim <- c(refpts["Blim"])
+    
+    ### extract metrics
+    yr_min <- min(period_yrs)
+    yr_max <- max(period_yrs)
+    stk_icv <- window(stk, start = yr_min - 1, end = yr_max)
+    stk <- window(stk, start = yr_min, end = yr_max)
+    
+    SSBs <- ssb(stk)
+    Fs <- fbar(stk)
+    Cs <- catch(stk)
+    Cs_long <- catch(stk_icv)
+    
+    ### account for OM/iteration-specific values
+    Bmsy_ts <- SSBs %=% rep(c(Bmsy), each = dim(SSBs)[2])
+    Fmsy_ts <- Fs %=% rep(c(Fmsy), each = dim(Fs)[2])
+    Cmsy_ts <- Cs %=% rep(c(Cmsy), each = dim(Cs)[2])
+    Blim_ts <- SSBs %=% rep(c(Blim), each = dim(SSBs)[2])
+    
+    data.frame(file = file,
+               MP = "ICES_SAM",
+               Ftrgt = Ftrgt, Btrigger = Btrigger,
+               idx_unc = idx_unc,
+               period = period,
+               risk = max(apply((SSBs/Blim_ts) < 1, 2, mean, na.rm = TRUE), 
+                          na.rm = TRUE),
+               SSB = median(c(SSBs), na.rm = TRUE), 
+               Catch = median(c(Cs), na.rm = TRUE),
+               Fbar = median(c(Fs), na.rm = TRUE),
+               SSB_rel = median(c(SSBs/Bmsy_ts), na.rm = TRUE),
+               Catch_rel = median(c(Cs/Cmsy_ts), na.rm = TRUE),
+               Fbar_rel = median(c(Fs/Fmsy_ts), na.rm = TRUE),
+               ICV = iav(Cs_long, period = 1, summary_all = median)
+    )
+}
+
+### results for CHR2
+stats_idx_unc_CHR2 <- readRDS("output/ple.27.7e/refset/1000_20/sensitivity_idx/hr/runs.rds")
+
+df_plot <- bind_rows(stats_idx_unc_CHR2 %>%
+                       filter(MP == 5) %>%
+                       mutate(MP = "CHR2") %>%
+                       select(MP, idx_unc, risk = `11:20_risk_Blim_max`,
+                              SSB_rel = `11:20_SSB_rel`, 
+                              Catch_rel = `11:20_Catch_rel`),
+                     stats_idx_unc %>%
+                       filter(period == "long-term") %>%
+                       select(idx_unc, risk, Catch_rel, SSB_rel) %>%
+                       mutate(MP = "MSY2")) %>%
+  pivot_longer(-1:-2) %>%
+  mutate(MP = factor(MP, levels = c("CHR2", "MSY2"))) %>%
+  mutate(name = factor(name, levels = c("risk", "Catch_rel", "SSB_rel"),
+                       labels = c("B[lim]~risk", "Catch/MSY", 
+                                  "SSB/B[MSY]"
+                       )))
+df_risk <- data.frame(value = 0.05,
+                      name = "B[lim]~risk") %>%
+  mutate(name = factor(name, levels = c("B[lim]~risk", "Catch/MSY", 
+                                        "SSB/B[MSY]"
+  )))
+
+p <- df_plot %>%
+  ggplot(aes(x = idx_unc, y = value)) +
+  geom_vline(xintercept = 1, linewidth = 0.3, colour = "black") +
+  geom_hline(data = df_risk,
+             aes(yintercept = value),
+             colour = "red", linewidth = 0.3) +
+  geom_point(size = 0.1) + 
+  geom_smooth(span = 0.4, linewidth = 0.3) +
+  facet_grid(name ~ MP, scales = "free_y", switch = "y", 
+             labeller = label_parsed) + 
+  labs(x = "Change to index uncertainty (%)") +
+  scale_x_continuous(breaks = seq(0, 2, 0.25),
+                     labels = sprintf(fmt = "%+3d", seq(-100, 100, 25))) +
+  ylim(c(0, NA)) + 
+  theme_bw(base_size = 8) +
+  theme(axis.title.y = element_blank(),
+        strip.placement = "outside",
+        strip.background.y = element_blank(),
+        strip.text.y = element_text(size = 8))
+p
+ggsave(filename = "output/paper/plots/MP/idx_unc_CHR2_MSY2.png",
+       plot = p, width = 17, height = 8, units = "cm", dpi = 600,
+       type = "cairo")
+ggsave(filename = "output/paper/plots/MP/idx_unc_CHR2_MSY2.pdf",
+       plot = p, width = 17, height = 8, units = "cm")
 
 ### ------------------------------------------------------------------------ ###
 ### compare trajectories - chr/ICES MSY ####
