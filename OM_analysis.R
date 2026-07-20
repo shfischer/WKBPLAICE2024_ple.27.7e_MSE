@@ -1317,7 +1317,7 @@ p <- ggplot() +
 geom_line(data = sr_df %>% filter(type == "replicates (model)"),
           aes(x = ssb/1000, y = rec/1000, group = iter,
               colour = type),
-          size = 0.1, alpha = 0.05) +
+          linewidth = 0.1, alpha = 0.05) +
   geom_point(data = df_sr %>% filter(type == "median (stock-\nrecruit pairs)"),
              aes(x = ssb/1000, y = rec/1000, 
                  colour = type),
@@ -1325,7 +1325,7 @@ geom_line(data = sr_df %>% filter(type == "replicates (model)"),
   geom_line(data = sr_df %>% filter(type == "median (model)"),
             aes(x = ssb/1000, y = rec/1000, group = iter,
                 colour = type),
-            size = 0.4, alpha = 1) +
+            linewidth = 0.4, alpha = 1) +
   scale_colour_manual("", 
     values = c("median (stock-\nrecruit pairs)" = "red", 
                "replicates (stock-\nrecruit pairs)" = "black",
@@ -1658,6 +1658,137 @@ ggsave(filename = "output/plots/OM/OM_rec_steepness.png", plot = p,
        width = 8, height = 5, units = "cm", dpi = 600, type = "cairo")
 ggsave(filename = "output/plots/OM/OM_rec_steepness.pdf", plot = p,
        width = 8, height = 5, units = "cm")
+
+### ------------------------------------------------------------------------ ###
+### Recruitment models of OM with lower steepness ####
+### ------------------------------------------------------------------------ ###
+
+sr_ple_lowh <- readRDS("input/ple.27.7e/R_h_lower/1000_100/sr.rds")
+df_sr_median_lowh <- data.frame(year = as.numeric(dimnames(ssb(sr_ple_lowh))$year),
+                           ssb = c(iterMedians(ssb(sr_ple_lowh))), 
+                           rec = c(iterMedians(rec(sr_ple_lowh)))) %>%
+  filter(year <= 2023) %>%
+  mutate(type = "median")
+df_sr_iter_lowh <- data.frame(year = as.numeric(dimnames(ssb(sr_ple_lowh))$year),
+                         ssb = c(ssb(sr_ple_lowh)), 
+                         rec = c(rec(sr_ple_lowh)),
+                         iter = c(as.numeric(dimnames(sr_ple_lowh)$iter))) %>%
+  filter(year <= 2023) %>%
+  mutate(type = "replicates")
+df_sr_lowh <- bind_rows(df_sr_median_lowh, df_sr_iter_lowh) %>%
+  mutate(type = factor(type, levels = c("median", "replicates"),
+                       labels = c("median (stock-\nrecruit pairs)", 
+                                  "replicates (stock-\nrecruit pairs)")))
+sr_pars_ple_lowh <- abPars("bevholt", s = params(sr_ple_lowh)["s"], 
+                      v = params(sr_ple_lowh)["v"], 
+                      spr0 = params(sr_ple_lowh)["spr0"])
+sr_pars_ple_med_lowh <- list(a = c(iterMedians(sr_pars_ple_lowh$a)/1000), 
+                        b = c(iterMedians(sr_pars_ple_lowh$b)/1000))
+sr_model_bevholt <- function(ssb, a, b) {(a*ssb)/(b + ssb)}
+ssbs_ple <- seq(from = 0, to = 10000, by = 10)
+sr_ple_df_lowh <- lapply(1:1000, function(x) {
+  data.frame(ssb = ssbs_ple,
+             rec = sr_model_bevholt(ssb = ssbs_ple, 
+                                    a = c(sr_pars_ple_lowh$a[, x]),
+                                    b = c(sr_pars_ple_lowh$b[, x])),
+             iter = x)
+})
+sr_ple_df_lowh <- bind_rows(sr_ple_df_lowh)
+sr_df_lowh <- bind_rows(data.frame(ssb = ssbs_ple,
+                              rec = sr_model_bevholt(ssb = ssbs_ple, 
+                                                     a = c(iterMedians(sr_pars_ple_lowh$a)),
+                                                     b = c(iterMedians(sr_pars_ple_lowh$b))),
+                              iter = 0) %>%
+                     mutate(type = "median"),
+                   sr_ple_df_lowh %>%
+                     mutate(type = "replicates")) %>%
+  mutate(type = factor(type, levels = c("median", "replicates"),
+                       labels = c("median (model)", 
+                                  "replicates (model)")))
+
+### combine baseline OM rec and lower h rec
+sr_df_combined <- bind_rows(sr_df %>% mutate(model = "Baseline"),
+                            sr_df_lowh %>% mutate(model = "Lower steepness")) %>%
+  mutate(model = factor(model, levels = c("Baseline", "Lower steepness")))
+df_sr_combined <- bind_rows(df_sr %>% mutate(model = "Baseline"),
+                            df_sr_lowh %>% mutate(model = "Lower steepness")) %>%
+  mutate(model = factor(model, levels = c("Baseline", "Lower steepness")))
+
+p_lowh <- ggplot() +
+  ### print points/lines separately so that median is on top
+  geom_point(data = df_sr_combined %>% 
+               filter(type == "replicates (stock-\nrecruit pairs)"),
+             aes(x = ssb/1000, y = rec/1000, 
+                 colour = type), 
+             alpha = 0.01, size = 0.3) +
+  geom_line(data = sr_df_combined %>% filter(type == "replicates (model)"),
+            aes(x = ssb/1000, y = rec/1000, group = iter,
+                colour = type),
+            linewidth = 0.1, alpha = 0.05) +
+  geom_point(data = df_sr_combined %>% filter(type == "median (stock-\nrecruit pairs)"),
+             aes(x = ssb/1000, y = rec/1000, 
+                 colour = type),
+             size = 0.4) +
+  geom_line(data = sr_df_combined %>% filter(type == "median (model)"),
+            aes(x = ssb/1000, y = rec/1000, group = iter,
+                colour = type),
+            linewidth = 0.4, alpha = 1) +
+  scale_colour_manual("", 
+                      values = c("median (stock-\nrecruit pairs)" = "red", 
+                                 "replicates (stock-\nrecruit pairs)" = "black",
+                                 "median (model)" = "red", 
+                                 "replicates (model)" = "black")) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  facet_wrap(~ model) +
+  scale_x_continuous("SSB (1000 t)", breaks = scales::pretty_breaks()) +
+  scale_y_continuous("Recruitment (1000s)") +
+  coord_cartesian(xlim = c(0, 9.9), ylim = c(0, 17.5), expand = FALSE) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.7, "lines"))
+p_lowh
+ggsave(filename = "output/plots/OM/OM_rec_lowh.png", plot = p_lowh,
+       width = 15.9, height = 5, units = "cm", dpi = 600, type = "cairo")
+ggsave(filename = "output/plots/OM/OM_rec_lowh.pdf", plot = p_lowh,
+       width = 15.9, height = 5, units = "cm", dpi = 600)
+
+### same plot but rasterised to reduce PDF file size
+p_lowh <- ggplot() +
+  ### print points/lines separately so that median is on top
+  ggrastr::rasterise(geom_point(data = df_sr_combined %>% 
+                                  filter(type == "replicates (stock-\nrecruit pairs)"),
+                                aes(x = ssb/1000, y = rec/1000, 
+                                    colour = type), 
+                                alpha = 0.01, size = 0.3), dpi = 600) +
+  ggrastr::rasterise(geom_line(data = sr_df_combined %>% filter(type == "replicates (model)"),
+                               aes(x = ssb/1000, y = rec/1000, group = iter,
+                                   colour = type),
+                               linewidth = 0.1, alpha = 0.05), dpi = 600) +
+  geom_point(data = df_sr_combined %>% filter(type == "median (stock-\nrecruit pairs)"),
+             aes(x = ssb/1000, y = rec/1000, 
+                 colour = type),
+             size = 0.4) +
+  geom_line(data = sr_df_combined %>% filter(type == "median (model)"),
+            aes(x = ssb/1000, y = rec/1000, group = iter,
+                colour = type),
+            linewidth = 0.4, alpha = 1) +
+  scale_colour_manual("", 
+                      values = c("median (stock-\nrecruit pairs)" = "red", 
+                                 "replicates (stock-\nrecruit pairs)" = "black",
+                                 "median (model)" = "red", 
+                                 "replicates (model)" = "black")) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  facet_wrap(~ model) +
+  scale_x_continuous("SSB (1000 t)", breaks = scales::pretty_breaks()) +
+  scale_y_continuous("Recruitment (1000s)") +
+  coord_cartesian(xlim = c(0, 9.9), ylim = c(0, 17.5), expand = FALSE) +
+  theme_bw(base_size = 8) +
+  theme(legend.key.height = unit(0.7, "lines"))
+p_lowh
+ggsave(filename = "output/plots/OM/OM_rec_lowh.pdf", plot = p_lowh,
+       width = 15.9, height = 5, units = "cm", dpi = 600)
+
+
+
 
 ### ------------------------------------------------------------------------ ###
 ### surveys (catchability and weights at age) - baseline OM ####
