@@ -1,5 +1,5 @@
 ---
-title: "ICES WKBPLAICE 2024 -- MSE for ple.27.7e"
+title: "MSE for ple.27.7e"
 output: github_document
 ---
 
@@ -9,11 +9,16 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction
 
+This branch `paper` of the repository contains the code for the publication:
+
+> Fischer, S. H. (2026). Empirical management strategies can simplify fisheries management in ICES. ICES Journal of Marine Science 83(7): 14pp. https://doi.org/10.1093/icesjms/fsag129
+
 This repository contains the data and code for a stock-specific MSE for the ICES category 3 data-limited stock 
 
-* plaice (*Pleuronectes platessa*) in Division 7.e (western English Channel)
+* Plaice (*Pleuronectes platessa*) in Division 7.e (western English Channel)
 
-as part of the ICES WKBPLAICE 2024 benchmark.
+as part of the ICES WKBPLAICE 2024 benchmark. The code used during this benchmark is in the branch [`WKBPLAICE2024`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/WKBPLAICE2024).
+
 
 The MSE framework and code is based on this publication:
 
@@ -46,16 +51,18 @@ For exact reproducibility, R packages versions are recorded with [renv](https://
     -   [`OM_ple.27.7e.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/OM_ple.27.7e.R) for plaice
 
     -   [`OM_MSY.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/OM_MSY.R): script for estimating MSY
+    
+    -   [`OM_analysis.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/OM_analysis.R): script for analysing and plotting OMs
 
 -   `MP_*`: Script for running and analysing the MSE
 
     -   [`MP_analysis.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/MP_analysis.R): script for analysing MSE results (summarising, exporting, visualisation, ...)
 
     -   [`MP_run.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/MP_run.R): script for running any MP in the MSE and optimising MPs
+    
+    -   [`MP_run_local.R`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/MP_run_local.R): Script for running some MPs locally (e.g. optimised solutions)
 
     -   `MP_*.pbs`: job submission scripts, used for running MP_run.R on a high-performance computing cluster, e.g. [`MP_run_rfb_mult.pbs`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/MP_run_rfb_mult.pbs) for optimising the rfb rule with a multiplier
-    
-    -   `MP_run_local.R`: Script for running some MPs locally (e.g. optimised solutions)
 
 [`input/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/paper/input): This directory contains all files required for generating the OMs for the three stocks (`OM_*.R`)
 
@@ -68,15 +75,6 @@ For exact reproducibility, R packages versions are recorded with [renv](https://
 -   [`input/OM_refpts_Blim.csv`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/input/OM_refpts_Blim.csv): alternative calculations for Blim
 
 [`output/`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/tree/paper/output): This directory contains some summarised results
-
-## Working documents
-
-There are two working documents included in this repository:
-
--   [`WKBPLAICE2024_ple.27.7e_OM.pdf`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/WKBPLAICE2024_ple.27.7e_OM.pdf): description of the operating models
-
--   [`WKBPLAICE2024_ple.27.7e_MP.pdf`](https://github.com/shfischer/WKBPLAICE2024_ple.27.7e_MSE/blob/paper/WKBPLAICE2024_ple.27.7e_MP.pdf): description of the results
-
 
 ## R, R packages and version info
 
