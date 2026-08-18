@@ -680,7 +680,7 @@ p_grid_full <- stats_int_comp %>%
                        values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
                                   1), 
                        breaks = c(0.0, 0.25, 0.5, 0.75, 1),
-                       limits = c(0, 1.012)) +
+                       limits = c(0, 1.012), na.value = "salmon") +
   geom_point(data = stats_opt %>% rename(type2 = type),
              aes(x = Btrigger, y = Ftrgt, colour = type2), 
              shape = 3, stroke = 0.7, size = 5) +
@@ -711,7 +711,8 @@ p_grid_shortcut <- stats_int_comp %>%
                        values = c(0, 0.25, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975,
                                   1), 
                        breaks = c(0.0, 0.25, 0.5, 0.75, 1),
-                       limits = c(0, 1.012)) +
+                       limits = c(0, 1.012),
+                       na.value = "salmon") +
   geom_point(data = stats_opt %>% rename(type2 = type),
              aes(x = Btrigger, y = Ftrgt, colour = type2), 
              shape = 3, stroke = 0.7, size = 5) +
